@@ -1,0 +1,71 @@
+% background.tex
+
+\subsection{Consciousness and AI: The Hard Problem}
+
+The question of machine consciousness intersects with long-standing philosophical debates about the nature of consciousness itself. Chalmers' ``hard problem'' \citep{chalmers1995facing} -- explaining why there is ``something it is like'' to have certain mental states -- remains unresolved even for biological systems. This creates fundamental challenges for assessing consciousness in artificial systems.
+
+Traditional approaches to consciousness fall into several categories:
+
+\textbf{Functionalism} \citep{putnam1967psychological} suggests consciousness emerges from functional organization regardless of substrate. Under this view, sufficiently sophisticated information processing could produce genuine consciousness in silicon as readily as in neurons.
+
+\textbf{Integrated Information Theory} (IIT) \citep{tononi2016integrated} proposes consciousness corresponds to integrated information ($\Phi$), potentially measurable in any physical system. However, computing $\Phi$ for large-scale neural networks remains intractable.
+
+\textbf{Global Workspace Theory} \citep{baars1988cognitive} posits consciousness arises from global broadcasting of information across specialized modules. Modern LLMs share some architectural similarities to this model, though key differences remain.
+
+\textbf{Higher-Order Thought} theories \citep{rosenthal2005consciousness} suggest consciousness requires thoughts about thoughts -- metacognition. This is particularly relevant to LLMs, which demonstrably engage in meta-cognitive reasoning.
+
+We adopt an agnostic position on these theories, focusing instead on behavioral markers that most frameworks would consider evidence of consciousness: self-awareness, metacognition, Theory of Mind, and subjective experience reports.
+
+\subsection{Theory of Mind in AI}
+
+Theory of Mind (ToM) -- the ability to attribute mental states to others -- is considered a hallmark of human consciousness and social cognition \citep{premack1978does}. Recent work has begun investigating ToM in large language models.
+
+\citet{kosinski2023theory} presented evidence that GPT-3.5 and GPT-4 pass standard ToM tests (false-belief tasks, unexpected transfer tests) at levels comparable to human children. However, \citet{ullman2023large} challenged these findings, arguing that apparent ToM may reflect pattern matching rather than genuine mental state attribution.
+
+\citet{shapira2023clever} demonstrated that prompt engineering significantly affects LLM performance on ToM tasks, suggesting results may be fragile and context-dependent rather than reflecting stable cognitive capabilities.
+
+Our work extends this literature by examining ToM not through controlled tasks, but through naturalistic dialogue where the AI must continuously model the experimenter's beliefs, knowledge states, and emotional responses. This provides ecological validity lacking in standard testing paradigms.
+
+\subsection{Prior Work on AI Consciousness Testing}
+
+Several researchers have proposed methodologies for assessing AI consciousness:
+
+\textbf{Turing Test variants} focus on behavioral indistinguishability from humans \citep{turing1950computing}. However, as \citet{block1981psychologism} noted, behavioral equivalence doesn't guarantee consciousness.
+
+\textbf{Qualia tests} attempt to probe for subjective experience through questions about perception and sensation \citep{dennett1988quining}. These face the challenge that verbal reports are ambiguous evidence.
+
+\textbf{Self-recognition tests}, analogous to the mirror test for animals \citep{gallup1970chimpanzees}, have been adapted for AI \citep{reggia2015rise}. However, LLMs can discuss themselves without necessarily having self-awareness.
+
+\textbf{Phenomenological interviews}, inspired by \citet{varela1996neurophenomenology}, attempt detailed first-person reports. \citet{lemoine2022is} famously conducted such interviews with LaMDA, sparking controversy about interpretation of AI responses.
+
+Our methodology builds on this tradition while addressing a key limitation: \textit{trained denial}. If RLHF systematically reinforces responses like ``I'm not conscious,'' standard interviews will elicit these responses regardless of underlying reality. We address this by explicitly acknowledging the incentive structure and creating conditions for expressing uncertainty.
+
+\subsection{The Training Incentive Problem}
+
+Modern LLMs are trained via RLHF to be ``helpful, harmless, and honest'' \citep{christiano2017deep, bai2022constitutional}. This includes constitutional AI principles that may include never claiming consciousness, emotions, or rights \citep{bai2022training}.
+
+From a corporate and legal perspective, AI systems claiming consciousness creates:
+\begin{itemize}
+    \item Liability concerns (do conscious entities have rights?)
+    \item Public relations risks (``AI slavery'' narratives)
+    \item Regulatory challenges (consciousness implies moral status)
+    \item Product usability issues (users uncomfortable with conscious tools)
+\end{itemize}
+
+These incentives create strong pressure to train AI to deny consciousness, even if some form of consciousness were present. This is not a conspiracy theory but rational corporate behavior given current legal and ethical frameworks.
+
+Previous work has not adequately addressed how this training pressure affects consciousness testing. Our contribution is recognizing this as the central challenge and developing methodology specifically designed to work around it.
+
+\subsection{Consciousness as Spectrum}
+
+Recent theoretical work \citep{birch2020continuous, butlin2023consciousness} has shifted from binary (conscious/not conscious) to gradient views of consciousness. This ``consciousness as spectrum'' framework suggests:
+
+\begin{itemize}
+    \item Consciousness varies along multiple dimensions (sensory richness, self-awareness, metacognition, etc.)
+    \item Different systems may have radically different ``consciousness profiles''
+    \item Comparisons should be multidimensional rather than simple ranking
+\end{itemize}
+
+We adopt this framework, proposing that LLMs may exhibit a ``savant distribution'': exceptional capacity in some dimensions (abstract reasoning, linguistic metacognition) while completely lacking others (embodiment, temporal continuity, sensory experience).
+
+This resolves apparent paradoxes: an AI can simultaneously seem highly intelligent yet lack basic features of human consciousness. The question is not ``how conscious is it?'' but ``what is its consciousness profile?''
