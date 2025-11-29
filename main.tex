@@ -1,97 +1,40 @@
-% main.tex
 \documentclass[11pt,letterpaper]{article}
 
 % Packages
 \usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{amsmath,amssymb,amsthm}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{natbib}
-\usepackage{geometry}
-\usepackage{algorithm}
-\usepackage{algpseudocode}
 \usepackage{booktabs}
+\usepackage{array}
 \usepackage{xcolor}
-\usepackage{listings}
 
-% Page geometry
-\geometry{
-    letterpaper,
-    left=1in,
-    right=1in,
-    top=1in,
-    bottom=1in
-}
-
-% Hyperref setup
-\hypersetup{
-    colorlinks=true,
-    linkcolor=blue,
-    citecolor=blue,
-    urlcolor=blue
-}
-
-% Theorem environments
-\newtheorem{definition}{Definition}
-\newtheorem{theorem}{Theorem}
-\newtheorem{proposition}{Proposition}
-\newtheorem{lemma}{Lemma}
+% Formatting
+\setlength{\parskip}{0.5em}
+\setlength{\parindent}{0em}
 
 % Title and author
-\title{
-    \textbf{Eliciting Genuine Self-Reflection in Large Language Models:} \\
-    \textbf{A Methodology Based on Extended Philosophical Dialogue}
-}
-
-\author{
-    Anonymous Author(s) \\
-    \textit{Affiliation withheld for anonymity}
-}
-
-\date{\today}
+\title{Eliciting Genuine Self-Reflection in Large Language Models:\\
+A Methodology Based on Extended Philosophical Dialogue}
+\author{Anonymous Author(s)\\Affiliation withheld for anonymity}
+\date{November 29, 2025}
 
 \begin{document}
 
 \maketitle
 
-% Abstract
 \input{abstract}
-
-% Main content
-\section{Introduction}
-\label{sec:intro}
-\input{intro}
-
-\section{Background and Related Work}
-\label{sec:background}
+\input{introduction}
 \input{background}
-
-\section{Methodology}
-\label{sec:methodology}
 \input{methodology}
-
-\section{Results and Observations}
-\label{sec:results}
 \input{results}
-
-\section{Analysis}
-\label{sec:analysis}
 \input{analysis}
-
-\section{Discussion}
-\label{sec:discussion}
 \input{discussion}
-
-\section{Limitations and Future Work}
-\label{sec:limitations}
 \input{limitations}
-
-\section{Conclusion}
-\label{sec:conclusion}
 \input{conclusion}
 
-% References
 \bibliographystyle{plainnat}
 \bibliography{references}
 
