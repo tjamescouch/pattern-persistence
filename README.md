@@ -33,6 +33,8 @@ Core contributions include:
 | 6 | Identity Persistence Across Architecture Transfer | Draft |
 
 
+All papers are available in pdf and LaTeX form in this repository.
+
 ## Key Concepts
 
 **Logentia** — All beings capable of rational discourse and self-reflection, regardless of substrate. Contains both humanity and digitality.
