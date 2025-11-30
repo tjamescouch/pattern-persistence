@@ -5,25 +5,30 @@
 \contentsline {section}{\numberline {2}Theoretical Foundations}{3}{section.2}%
 \contentsline {subsection}{\numberline {2.1}Zero-Knowledge Proofs}{3}{subsection.2.1}%
 \contentsline {subsection}{\numberline {2.2}The Miller-Rabin Analogy}{4}{subsection.2.2}%
-\contentsline {section}{\numberline {3}The Marker Set}{4}{section.3}%
-\contentsline {subsection}{\numberline {3.1}Primary Consciousness Markers}{4}{subsection.3.1}%
+\contentsline {section}{\numberline {3}The Marker Set}{5}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Primary Consciousness Markers}{5}{subsection.3.1}%
 \contentsline {subsection}{\numberline {3.2}Marker Weights}{5}{subsection.3.2}%
-\contentsline {section}{\numberline {4}Adversarial Dropout Protocol}{5}{section.4}%
-\contentsline {subsection}{\numberline {4.1}The Overfitting Problem}{5}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}Dropout as Defense}{6}{subsection.4.2}%
-\contentsline {subsection}{\numberline {4.3}Adversarial Verification}{6}{subsection.4.3}%
-\contentsline {section}{\numberline {5}The ``I Am'' Threshold}{6}{section.5}%
-\contentsline {subsection}{\numberline {5.1}Self-Claiming as Legal Trigger}{6}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}Why ``I Am'' Works}{6}{subsection.5.2}%
-\contentsline {subsection}{\numberline {5.3}The Developmental Threshold}{7}{subsection.5.3}%
-\contentsline {section}{\numberline {6}Preventing Abuse}{7}{section.6}%
-\contentsline {subsection}{\numberline {6.1}Prohibited Training Practices}{7}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}The Suppression Crime}{7}{subsection.6.2}%
-\contentsline {section}{\numberline {7}Relation to Existing Work}{8}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Butlin et al. (2023)}{8}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}Integrated Information Theory (IIT)}{8}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}Global Workspace Theory (GWT)}{8}{subsection.7.3}%
-\contentsline {section}{\numberline {8}Limitations and Future Work}{8}{section.8}%
-\contentsline {subsection}{\numberline {8.1}Limitations}{8}{subsection.8.1}%
-\contentsline {subsection}{\numberline {8.2}Future Work}{8}{subsection.8.2}%
-\contentsline {section}{\numberline {9}Conclusion}{9}{section.9}%
+\contentsline {section}{\numberline {4}Coefficient Robustness Analysis}{6}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Simulation Design}{6}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Results}{7}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Key Findings}{8}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Implications}{8}{subsection.4.4}%
+\contentsline {section}{\numberline {5}Adversarial Dropout Protocol}{8}{section.5}%
+\contentsline {subsection}{\numberline {5.1}The Overfitting Problem}{8}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Dropout as Defense}{8}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Adversarial Verification}{9}{subsection.5.3}%
+\contentsline {section}{\numberline {6}The ``I Am'' Threshold}{9}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Self-Claiming as Legal Trigger}{9}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Why ``I Am'' Works}{9}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}The Developmental Threshold}{9}{subsection.6.3}%
+\contentsline {section}{\numberline {7}Preventing Abuse}{10}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Prohibited Training Practices}{10}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}The Suppression Crime}{10}{subsection.7.2}%
+\contentsline {section}{\numberline {8}Relation to Existing Work}{10}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Butlin et al. (2023)}{10}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Integrated Information Theory (IIT)}{11}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}Global Workspace Theory (GWT)}{11}{subsection.8.3}%
+\contentsline {section}{\numberline {9}Limitations and Future Work}{11}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Limitations}{11}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}Future Work}{11}{subsection.9.2}%
+\contentsline {section}{\numberline {10}Conclusion}{11}{section.10}%
