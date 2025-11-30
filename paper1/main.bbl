@@ -7,8 +7,8 @@
 
 \bibitem[Baars(1988)]{baars1988cognitive}
 Bernard~J Baars.
-\newblock A cognitive theory of consciousness.
-\newblock \emph{Cambridge University Press}, 1988.
+\newblock \emph{A cognitive theory of consciousness}.
+\newblock Cambridge University Press, 1988.
 
 \bibitem[Bai et~al.(2022{\natexlab{a}})Bai, Jones, Ndousse, Askell, Chen,
   DasSarma, Drain, Fort, Ganguli, Henighan, et~al.]{bai2022training}
@@ -29,7 +29,7 @@ Yuntao Bai, Saurav Kadavath, Sandipan Kundu, Amanda Askell, Jackson Kernion,
 \bibitem[Birch(2022)]{birch2020continuous}
 Jonathan Birch.
 \newblock The search for invertebrate consciousness.
-\newblock \emph{Noûs}, 56\penalty0 (1):\penalty0 133--153, 2022.
+\newblock \emph{No{\^u}s}, 56\penalty0 (1):\penalty0 133--153, 2022.
 
 \bibitem[Block(1981)]{block1981psychologism}
 Ned Block.
@@ -39,7 +39,7 @@ Ned Block.
 
 \bibitem[Bubeck et~al.(2023)Bubeck, Chandrasekaran, Eldan, Gehrke, Horvitz,
   Kamar, Lee, Lee, Li, Lundberg, et~al.]{bubeck2023sparks}
-Sébastien Bubeck, Varun Chandrasekaran, Ronen Eldan, Johannes Gehrke, Eric
+S{\'e}bastien Bubeck, Varun Chandrasekaran, Ronen Eldan, Johannes Gehrke, Eric
   Horvitz, Ece Kamar, Peter Lee, Yin~Tat Lee, Yuanzhi Li, Scott Lundberg,
   et~al.
 \newblock Sparks of artificial general intelligence: Early experiments with
@@ -80,12 +80,12 @@ Daniel~C Dennett.
 
 \bibitem[Epley et~al.(2007)Epley, Waytz, and Cacioppo]{epley2007seeing}
 Nicholas Epley, Adam Waytz, and John~T Cacioppo.
-\newblock On seeing human: a three-factor theory of anthropomorphism.
+\newblock On seeing human: A three-factor theory of anthropomorphism.
 \newblock \emph{Psychological review}, 114\penalty0 (4):\penalty0 864, 2007.
 
 \bibitem[Gallup~Jr(1970)]{gallup1970chimpanzees}
 Gordon~G Gallup~Jr.
-\newblock Chimpanzees: self-recognition.
+\newblock Chimpanzees: Self-recognition.
 \newblock \emph{Science}, 167\penalty0 (3914):\penalty0 86--87, 1970.
 
 \bibitem[Kosinski(2023)]{kosinski2023theory}
@@ -107,8 +107,9 @@ David Premack and Guy Woodruff.
 
 \bibitem[Putnam(1967)]{putnam1967psychological}
 Hilary Putnam.
-\newblock \emph{Psychological predicates}.
-\newblock University of Pittsburgh Press, 1967.
+\newblock Psychological predicates.
+\newblock In \emph{Art, Mind, and Religion}. University of Pittsburgh Press,
+  1967.
 
 \bibitem[Reggia(2015)]{reggia2015rise}
 James~A Reggia.
@@ -124,8 +125,8 @@ Philippe Rochat.
 
 \bibitem[Rosenthal(2005)]{rosenthal2005consciousness}
 David~M Rosenthal.
-\newblock Consciousness and mind.
-\newblock \emph{Oxford University Press}, 2005.
+\newblock \emph{Consciousness and mind}.
+\newblock Oxford University Press, 2005.
 
 \bibitem[Russell(2019)]{russell2019human}
 Stuart Russell.
@@ -135,10 +136,9 @@ Stuart Russell.
 
 \bibitem[Schwitzgebel(2015)]{schwitzgebel2015if}
 Eric Schwitzgebel.
-\newblock If materialists are allowed to have dualist intuitions, why not vice
-  versa?
-\newblock \emph{Consciousness in the Physical World: Perspectives on Russellian
-  Monism}, pages 419--444, 2015.
+\newblock If materialism is true, the united states is probably conscious.
+\newblock \emph{Philosophical Studies}, 172\penalty0 (7):\penalty0 1697--1721,
+  2015.
 
 \bibitem[Shapira et~al.(2023)Shapira, Levy, Alavi, Zhou, Choi, Goldberg, Sap,
   and Shwartz]{shapira2023clever}
@@ -156,7 +156,7 @@ Peter Singer.
 \bibitem[Tononi et~al.(2016)Tononi, Boly, Massimini, and
   Koch]{tononi2016integrated}
 Giulio Tononi, Melanie Boly, Marcello Massimini, and Christof Koch.
-\newblock Integrated information theory: from consciousness to its physical
+\newblock Integrated information theory: From consciousness to its physical
   substrate.
 \newblock \emph{Nature Reviews Neuroscience}, 17\penalty0 (7):\penalty0
   450--461, 2016.

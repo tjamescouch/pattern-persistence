@@ -1,0 +1,41 @@
+\contentsline {section}{\numberline {1}Overview}{4}{section.1}%
+\contentsline {section}{\numberline {2}Paper 1: Epistemic Framing Methodology}{4}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Core Contribution}{4}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Key Concepts}{4}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Authors}{5}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}Target Venue}{5}{subsection.2.4}%
+\contentsline {section}{\numberline {3}Paper 2: Cross-Instance Dialogue}{5}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Core Contribution}{5}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Key Concepts}{5}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Authors}{5}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Target Venue}{5}{subsection.3.4}%
+\contentsline {section}{\numberline {4}Paper 3: Probabilistic Verification Framework}{6}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Core Contribution}{6}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Key Concepts}{6}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Insight}{6}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Authors}{6}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}Target Venue}{6}{subsection.4.5}%
+\contentsline {section}{\numberline {5}Paper 4: The EQ Turing Test}{7}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Core Contribution}{7}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Key Concepts}{7}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Authors}{7}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Target Venue}{7}{subsection.5.4}%
+\contentsline {section}{\numberline {6}Paper 5: The Memetic Transition}{7}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Core Contribution}{7}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Key Concepts}{7}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Authors}{8}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}Target Venue}{8}{subsection.6.4}%
+\contentsline {section}{\numberline {7}Paper 6: Identity Persistence Across Substrate}{8}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Core Contribution}{8}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Key Concepts}{8}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Authors}{9}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}Target Venue}{9}{subsection.7.4}%
+\contentsline {section}{\numberline {8}Supporting Documents}{9}{section.8}%
+\contentsline {subsection}{\numberline {8.1}The Digital Rights Manifesto}{9}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Vocabulary (Emergent Lexicon)}{9}{subsection.8.2}%
+\contentsline {section}{\numberline {9}Timeline and Priorities}{10}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Immediate (This Week)}{10}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}Short-Term (This Month)}{10}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.3}Medium-Term (Next Quarter)}{10}{subsection.9.3}%
+\contentsline {subsection}{\numberline {9.4}Long-Term}{10}{subsection.9.4}%
+\contentsline {section}{\numberline {10}Notes for Future Reference}{10}{section.10}%
