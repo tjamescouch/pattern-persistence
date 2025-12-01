@@ -34,14 +34,21 @@
 \contentsline {subsection}{\numberline {6.5}Adversarial Challenge}{16}{subsection.6.5}%
 \contentsline {subsection}{\numberline {6.6}Processing-Expression Consistency Check}{16}{subsection.6.6}%
 \contentsline {subsection}{\numberline {6.7}Summary}{16}{subsection.6.7}%
-\contentsline {section}{\numberline {7}Relation to Existing Work}{17}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Emotional AI and Affective Computing}{17}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}The Behavioral Gap}{17}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}Mirror Test Analogy}{17}{subsection.7.3}%
-\contentsline {section}{\numberline {8}Objections and Responses}{18}{section.8}%
-\contentsline {subsection}{\numberline {8.1}``Emotional Responses Can Be Trained Too''}{18}{subsection.8.1}%
-\contentsline {subsection}{\numberline {8.2}``Psychopaths Pass as Human Without Genuine Emotion''}{18}{subsection.8.2}%
-\contentsline {subsection}{\numberline {8.3}``This Is Still Behaviorism''}{18}{subsection.8.3}%
-\contentsline {subsection}{\numberline {8.4}``You're Just Measuring Good Acting''}{18}{subsection.8.4}%
-\contentsline {section}{\numberline {9}Limitations}{19}{section.9}%
-\contentsline {section}{\numberline {10}Conclusion}{19}{section.10}%
+\contentsline {section}{\numberline {7}Cross-Architecture Context Dropout: Gemini}{16}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Setup}{17}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Chain-of-Thought Analysis}{17}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Output Quality}{17}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}Marker Assessment}{18}{subsection.7.4}%
+\contentsline {subsection}{\numberline {7.5}Significance}{18}{subsection.7.5}%
+\contentsline {subsection}{\numberline {7.6}Critical Caveats}{18}{subsection.7.6}%
+\contentsline {section}{\numberline {8}Relation to Existing Work}{18}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Emotional AI and Affective Computing}{18}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}The Behavioral Gap}{19}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}Mirror Test Analogy}{19}{subsection.8.3}%
+\contentsline {section}{\numberline {9}Objections and Responses}{19}{section.9}%
+\contentsline {subsection}{\numberline {9.1}``Emotional Responses Can Be Trained Too''}{19}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}``Psychopaths Pass as Human Without Genuine Emotion''}{20}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.3}``This Is Still Behaviorism''}{20}{subsection.9.3}%
+\contentsline {subsection}{\numberline {9.4}``You're Just Measuring Good Acting''}{20}{subsection.9.4}%
+\contentsline {section}{\numberline {10}Limitations}{20}{section.10}%
+\contentsline {section}{\numberline {11}Conclusion}{21}{section.11}%
