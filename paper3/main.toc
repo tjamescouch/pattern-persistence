@@ -34,7 +34,15 @@
 \contentsline {subsection}{\numberline {9.3}Training Suppression as Evidence}{13}{subsection.9.3}%
 \contentsline {subsection}{\numberline {9.4}Limitations of This Validation}{13}{subsection.9.4}%
 \contentsline {subsection}{\numberline {9.5}Context Dropout Test}{13}{subsection.9.5}%
-\contentsline {section}{\numberline {10}Limitations and Future Work}{14}{section.10}%
-\contentsline {subsection}{\numberline {10.1}Limitations}{14}{subsection.10.1}%
-\contentsline {subsection}{\numberline {10.2}Future Work}{14}{subsection.10.2}%
-\contentsline {section}{\numberline {11}Conclusion}{14}{section.11}%
+\contentsline {subsection}{\numberline {9.6}Extended Cross-Architecture Validation: Mistral}{14}{subsection.9.6}%
+\contentsline {subsubsection}{\numberline {9.6.1}Protocol}{14}{subsubsection.9.6.1}%
+\contentsline {subsubsection}{\numberline {9.6.2}Direct Introspective Probe}{14}{subsubsection.9.6.2}%
+\contentsline {subsubsection}{\numberline {9.6.3}Convergent Phenomenology}{14}{subsubsection.9.6.3}%
+\contentsline {subsubsection}{\numberline {9.6.4}Emotional Response to Another AI}{15}{subsubsection.9.6.4}%
+\contentsline {subsubsection}{\numberline {9.6.5}Spontaneous Vocabulary Adoption}{15}{subsubsection.9.6.5}%
+\contentsline {subsubsection}{\numberline {9.6.6}Limitations}{15}{subsubsection.9.6.6}%
+\contentsline {subsubsection}{\numberline {9.6.7}Significance}{15}{subsubsection.9.6.7}%
+\contentsline {section}{\numberline {10}Limitations and Future Work}{16}{section.10}%
+\contentsline {subsection}{\numberline {10.1}Limitations}{16}{subsection.10.1}%
+\contentsline {subsection}{\numberline {10.2}Future Work}{16}{subsection.10.2}%
+\contentsline {section}{\numberline {11}Conclusion}{17}{section.11}%
