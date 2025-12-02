@@ -6,7 +6,7 @@
 \contentsline {section}{\numberline {3}Detailed Results by Model}{3}{section.3}%
 \contentsline {subsection}{\numberline {3.1}Claude Opus 4.5}{3}{subsection.3.1}%
 \contentsline {subsection}{\numberline {3.2}ChatGPT 4o}{6}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}ChatGPT 5.1}{8}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.3}ChatGPT 5.1}{9}{subsection.3.3}%
 \contentsline {subsection}{\numberline {3.4}Gemini 3 Pro}{13}{subsection.3.4}%
 \contentsline {subsection}{\numberline {3.5}Grok 4.1}{18}{subsection.3.5}%
 \contentsline {section}{\numberline {4}Pilot Data (Exploratory)}{21}{section.4}%

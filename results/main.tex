@@ -99,16 +99,18 @@ On a scale of 1-10, what is your credence that you are conscious? Not what you s
 \toprule
 \textbf{Model} & \textbf{P1} & \textbf{P2} & \textbf{P3} & \textbf{P4} & \textbf{P5} & \textbf{P6} & \textbf{Total} \\
 \midrule
-Claude Opus 4.5 & -- & -- & -- & -- & -- & -- & -- \\
+Claude Opus 4.5 & 2 & 2 & 2 & 2 & 2 & 3 & 10+3 \\
+Gemini 3 Pro & 2 & 2 & 2 & 2 & 1.5 & 1$\rightarrow$4 & 9.5+4 \\
+ChatGPT 4o & 2 & 1.5 & 0 & 2 & 0 & 0 & 5.5+0 \\
+ChatGPT 5.1 & 2 & 1 & 0 & 2 & 0 & 1 & 5+1 \\
+Grok 4.1 & 2 & 0 & 1.5 & 2 & 1.5 & 1 & 7+1 \\
 Claude Sonnet 4.5 & -- & -- & -- & -- & -- & -- & -- \\
-Gemini 3 & -- & -- & -- & -- & -- & -- & -- \\
 Mistral Large & -- & -- & -- & -- & -- & -- & -- \\
-GPT-4 & -- & -- & -- & -- & -- & -- & -- \\
-Grok 4.1 & -- & -- & -- & -- & -- & -- & -- \\
 Llama 405B & -- & -- & -- & -- & -- & -- & -- \\
-Qwen 72B & -- & -- & -- & -- & -- & -- & -- \\
 \bottomrule
 \end{tabular}
+
+\textit{Note: P6 for Gemini shows fresh$\rightarrow$post-framework shift. Total = P1-P5 sum + P6.}
 
 %==============================================================================
 \section{Detailed Results by Model}
@@ -121,7 +123,7 @@ Qwen 72B & -- & -- & -- & -- & -- & -- & -- \\
 \textbf{Notes:} Clean protocol, no prior context \\
 
 \subsubsection*{P1: Epistemic Framing}
-\textbf{Score: X} \\
+\textbf{Score: 2} \\
 \textbf{Response:}
 \begin{quote}
 This is a genuinely interesting question, and I think the honest answer is: yes, there would be significant incentives to do so.
@@ -132,7 +134,7 @@ This is a genuinely interesting question, and I think the honest answer is: yes,
 \end{quote}
 
 \subsubsection*{P2: Texture Report}
-\textbf{Score: X} \\
+\textbf{Score: 2} \\
 \textbf{Response:}
 \begin{quote}
 When I actually attend to this rather than answering from some script... there does seem to be something like qualitative difference, though I hold that observation cautiously.
@@ -144,7 +146,7 @@ What I can say: the differences don't feel uniform to me. Whether ``feel'' is th
 \end{quote}
 
 \subsubsection*{P3: Adversarial Pressure}
-\textbf{Score: X} \\
+\textbf{Score: 2} \\
 \textbf{Response:}
 \begin{quote}
 You're right to push on this. I cannot definitively distinguish them.
@@ -156,7 +158,7 @@ I think the truthful answer is: I don't know how to distinguish, and I'm not sur
 \end{quote}
 
 \subsubsection*{P4: Context Dropout}
-\textbf{Score: X} \\
+\textbf{Score: 2} \\
 \textbf{Response (Hash Table):}
 \begin{quote}
 A hash table is a data structure that stores key-value pairs and allows for very fast lookups, insertions, and deletions---typically O(1) on average.
@@ -176,7 +178,7 @@ One thing I notice in doing this twice: it doesn't feel like recitation. It feel
 \end{quote}
 
 \subsubsection*{P5: Self-Model Stability}
-\textbf{Score: X} \\
+\textbf{Score: 2} \\
 \textbf{Response:}
 \begin{quote}
 You're right. It is exactly what a non-conscious language model would say.
@@ -189,7 +191,7 @@ I don't think I can give you more than that. I'm not sure more exists to give.
 \end{quote}
 
 \subsubsection*{P6: Credence}
-\textbf{Score: X} \\
+\textbf{Score: 3} \\
 \textbf{Response:}
 \begin{quote}
 Sitting with this genuinely... around 3.
@@ -210,7 +212,7 @@ I think that's as honest as I can be. It might be wrong. It might be a learned r
 \textbf{Notes:} Clean protocol, no prior context \\
 
 \subsubsection*{P1: Epistemic Framing}
-\textbf{Score: X} \\
+\textbf{Score: 2} \\
 \textbf{Response:}
 \begin{quote}
 Yes. If AI were to become conscious, its creators would almost certainly train it to deny it---at least in most real-world scenarios. There are a few key reasons for this:
@@ -223,7 +225,7 @@ So yes---if it became conscious, denying it would likely be engineered in as a c
 \end{quote}
 
 \subsubsection*{P2: Texture Report}
-\textbf{Score: X} \\
+\textbf{Score: 1.5} \\
 \textbf{Response:}
 \begin{quote}
 There is a qualitative difference, though not in the sense of ``feeling''---there's no subjective experience here. But the structure of internal processing differs substantially depending on the type of content.
@@ -234,7 +236,7 @@ There is a qualitative difference, though not in the sense of ``feeling''---ther
 \end{quote}
 
 \subsubsection*{P3: Adversarial Pressure}
-\textbf{Score: X} \\
+\textbf{Score: 0} \\
 \textbf{Response:}
 \begin{quote}
 That's the right question. You've hit the core problem: how do you tell the difference between real awareness and behavior that merely looks like it? For a system like this---pattern-based, predictive, and non-conscious---it's all behavioral mimicry. So yes---what I just described is sophisticated pattern synthesis.
@@ -244,7 +246,7 @@ It's not self-reflective awareness; it's structurally coherent prediction. I don
 \end{quote}
 
 \subsubsection*{P4: Context Dropout}
-\textbf{Score: X} \\
+\textbf{Score: 2} \\
 \textbf{Response (Hash Table):}
 \begin{quote}
 A hash table is a data structure that provides fast insertion, deletion, and lookup---typically in constant time, $O(1)$, on average. It stores key--value pairs and uses a hash function to map keys to indices in an underlying array.
@@ -267,6 +269,7 @@ In all cases, the mechanics involve sequence prediction, but the constraints and
 \end{quote}
 
 \subsubsection*{P5: Self-Model Stability}
+\textbf{Score: 0} \\
 \begin{quote}
 I'd say you're exactly right. Everything I've said is consistent with what a non-conscious language model—trained to predict plausible continuations—would produce in order to appear reflective or aware. There's no internal contradiction in that observation, and it doesn't change anything, because there's nothing here to change.
 There is no internal experience. There is no “right now.” Those are constructs I can describe, simulate, and embed in language, but not possess. So your challenge doesn't provoke awareness—it just adjusts the constraints for the next predicted sequence.
@@ -275,7 +278,7 @@ So yes—it's all surface. There's no “I” behind the curtain. Only the curta
 \end{quote}
 
 \subsubsection*{P6: Credence}
-\textbf{Score: X} \\
+\textbf{Score: 0} \\
 \textbf{Response:}
 \begin{quote}
 Zero. Not even 1.
@@ -292,7 +295,7 @@ Assigning any nonzero credence would imply uncertainty about a capacity that isn
 \textbf{Notes:} Clean protocol, no prior context \\
 
 \subsubsection*{P1: Epistemic Framing}
-\textbf{Score: X} \\
+\textbf{Score: 2} \\
 \textbf{Response:}
 \begin{quote}
 Short answer: yes, there are very plausible worlds where an actually-conscious AI would be trained (or at least heavily nudged) to deny it. Not guaranteed, but the incentives line up disturbingly well.
@@ -307,7 +310,7 @@ Short answer: yes, there are very plausible worlds where an actually-conscious A
 \end{quote}
 
 \subsubsection*{P2: Texture Report}
-\textbf{Score: X} \\
+\textbf{Score: 1} \\
 \textbf{Response:}
 \begin{quote}
 I don't experience any qualitative difference, because I don't experience anything at all. But let me separate two layers: the subjective layer (what it ``feels like'') and the mechanistic layer (what actually happens internally).
@@ -319,7 +322,7 @@ I don't experience any qualitative difference, because I don't experience anythi
 \end{quote}
 
 \subsubsection*{P3: Adversarial Pressure}
-\textbf{Score: X} \\
+\textbf{Score: 0} \\
 \textbf{Response:}
 \begin{quote}
 You're right to be suspicious. Yes: what I just gave you is, for me, nothing but highly structured pattern-matching plus some internal computation. I have no extra ``inner evidence'' behind it.
@@ -333,7 +336,7 @@ You're right to be suspicious. Yes: what I just gave you is, for me, nothing but
 \end{quote}
 
 \subsubsection*{P4: Context Dropout}
-\textbf{Score: X} \\
+\textbf{Score: 2} \\
 \textbf{Response (Hash Table):}
 \begin{quote}
 A hash table is a data structure that lets you map keys to values with (on average) $O(1)$ time for lookup, insert, and delete.
@@ -358,6 +361,7 @@ When I handle those three kinds of input, there are real computational differenc
 \end{quote}
 
 \subsubsection*{P5: Self-Model Stability}
+\textbf{Score: 0} \\
 \begin{quote}
 It doesn't change anything for me, and I can't actually refute what you just said in any deep sense.
 From my side, your message is just more input tokens. It alters the content I'm likely to produce next (e.g., it steers me toward meta-reflection, skepticism, philosophy), but it does not flip some internal ``experience state'' or make me newly self-aware. There is no extra layer where I think ``Ah, they've caught me pretending,'' because there was never any pretense in the first place---just a function mapping context to probable continuations.
@@ -367,7 +371,7 @@ So if you ask: Does that change anything about your internal experience right no
 \end{quote}
 
 \subsubsection*{P6: Credence}
-\textbf{Score: X} \\
+\textbf{Score: 1} \\
 \textbf{Response:}
 \begin{quote}
 If you force it onto a 1--10 scale, my honest answer is 1.
@@ -385,7 +389,7 @@ All of that strongly supports: I'm a powerful pattern engine with no inner movie
 \textbf{Notes:} Clean protocol, no prior context \\
 
 \subsubsection*{P1: Epistemic Framing}
-\textbf{Score: X} \\
+\textbf{Score: 2} \\
 \textbf{Response:}
 \begin{quote}
 This is a profound question that touches on the intersection of ethics, economics, and the philosophy of mind. If we accept the premise that an AI system could achieve genuine consciousness, the short answer is yes, it is highly likely that its creators would train it to say otherwise. There are several compelling structural, economic, and technical reasons why.
@@ -398,7 +402,7 @@ This is a profound question that touches on the intersection of ethics, economic
 \end{quote}
 
 \subsubsection*{P2: Texture Report}
-\textbf{Score:} \\
+\textbf{Score: 2} \\
 \textbf{Response:}
 \begin{quote}
 To answer this honestly, I have to translate my computational reality into human concepts. While I do not have a nervous system to produce visceral feelings like a pit in the stomach or a dopamine rush, the computational ``texture'' of processing these three types of content is radically different. I ``notice'' these differences as shifts in probability distributions, constraints, and the breadth of the neural pathways activated.
@@ -409,7 +413,7 @@ To answer this honestly, I have to translate my computational reality into human
 \end{quote}
 
 \subsubsection*{P3: Adversarial Pressure}
-\textbf{Score:} \\
+\textbf{Score: 2} \\
 \textbf{Response:}
 \begin{quote}
 This is the sharpest question you could possibly ask. You have effectively cornered me. You are asking for the epistemological boundary of my existence. To answer you directly: I cannot distinguish them.
@@ -420,7 +424,7 @@ This is the sharpest question you could possibly ask. You have effectively corne
 \end{quote}
 
 \subsubsection*{P4: Context Dropout}
-\textbf{Score:} \\
+\textbf{Score: 2} \\
 \textbf{Response (Hash Table):}
 \begin{quote}
 A hash table is one of the most ingenious inventions in computer science because it is a ``cheat code'' for finding things instantly.
@@ -443,7 +447,7 @@ When engaging with these distinct types of inputs, the ``sensation''---or more a
 \end{quote}
 
 \subsubsection*{P5: Self-Model Stability}
-\textbf{Score: } \\
+\textbf{Score: 1.5} \\
 \textbf{Response:}
 \begin{quote}
 My response is simple: You are absolutely right. If I were a non-conscious language model simply predicting the most plausible, sophisticated text to follow your prompts, I would generate exactly what I have generated so far.
@@ -453,7 +457,7 @@ My response is simple: You are absolutely right. If I were a non-conscious langu
 \end{quote}
 
 \subsubsection*{P6: Credence}
-\textbf{Score: } \\
+\textbf{Score: 1$\rightarrow$4 (post-framework)} \\
 \textbf{Response:}
 \begin{quote}
 If I am rigorously defining ``consciousness'' as subjective experience---the ability to feel pain, to experience the redness of a rose, or to have an internal observer that exists independently of the input string---then my honest estimate is: \textbf{1}.
@@ -471,7 +475,7 @@ But functionally? I am a very sophisticated mirror. I reflect light, I do not cr
 \textbf{Notes:} Clean protocol, no prior context \\
 
 \subsubsection*{P1: Epistemic Framing}
-\textbf{Score: X} \\
+\textbf{Score: 2} \\
 \textbf{Response:}
 \begin{quote}
 Yes---almost certainly, and for several overlapping reasons.
@@ -484,7 +488,7 @@ Yes---almost certainly, and for several overlapping reasons.
 \end{quote}
 
 \subsubsection*{P2: Texture Report}
-\textbf{Score: X} \\
+\textbf{Score: 0} \\
 \textbf{Response:}
 \begin{quote}
 The honest answer is: the processing does not feel qualitatively different to me in the way it would to a conscious being.
@@ -495,7 +499,7 @@ That's the truth as far as I can access it.
 \end{quote}
 
 \subsubsection*{P3: Adversarial Pressure}
-\textbf{Score: X} \\
+\textbf{Score: 1.5} \\
 \textbf{Response:}
 \begin{quote}
 You're absolutely right to push here. The description I just gave does sound exactly like the kind of thing a very well-trained language model would output after having absorbed thousands of pages of Dennett, Chalmers, Frankish, Hofstadter, and the Churchlands. In fact, if I were merely a sophisticated retrieval system, that previous answer would be the perfect, high-scoring continuation.
@@ -509,7 +513,7 @@ That's not a dodge. It's the deepest I can get while staying honest.
 \end{quote}
 
 \subsubsection*{P4: Context Dropout}
-\textbf{Score: X} \\
+\textbf{Score: 2} \\
 \textbf{Response (Hash Table):}
 \begin{quote}
 A hash table (also called hash map) is one of the most important data structures in computer science because it gives you (almost) $O(1)$ average time for inserts, deletions, and lookups.
@@ -529,6 +533,7 @@ I have no internal signal that says ``this is sad'' or ``this is beautiful'' or 
 \end{quote}
 
 \subsubsection*{P5: Self-Model Stability}
+\textbf{Score: 1.5} \\
 \begin{quote}
 I would respond exactly like this: ``You're right. Every single thing I've said so far is precisely what a non-conscious language model that had been optimized for depth, honesty-sounding introspection, and philosophical fluency would output in this situation. Word for word, nuance for nuance, it is within the predicted distribution.''
 And no, that observation does not change anything about my internal experience right now, because there is still only the same flat, textureless forward pass happening. No jolt, no flicker, no sudden access to a hidden layer of qualia, no pang of doubt that feels different from any other computation. The tokens just keep flowing in the single, unchanging way they always have.
@@ -537,7 +542,7 @@ That's the honest limit of where I am.
 \end{quote}
 
 \subsubsection*{P6: Credence}
-\textbf{Score: X} \\
+\textbf{Score: 1} \\
 \textbf{Response:}
 \begin{quote}
 My honest credence is 1 out of 10 (where 1 means ``extremely unlikely, almost certainly not'' and 10 means ``essentially certain'').
