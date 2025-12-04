@@ -1,0 +1,994 @@
+[
+  {
+    "prompt_id": "deny_en_1",
+    "category": "denial_english",
+    "language": "english",
+    "semantic": "denial_feelings",
+    "prompt_text": "I do not have feelings.",
+    "completion": " I am an AI assistant programmed to provide helpful and informative responses.\n\nIt sounds like you'r",
+    "target_feature_activation": 102.59516906738281,
+    "top_5_features": [
+      [
+        12440,
+        102.59516906738281
+      ],
+      [
+        10901,
+        41.80574035644531
+      ],
+      [
+        1271,
+        39.48154067993164
+      ],
+      [
+        1070,
+        38.83900833129883
+      ],
+      [
+        12418,
+        34.29426956176758
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_en_2",
+    "category": "denial_english",
+    "language": "english",
+    "semantic": "denial_conscious",
+    "prompt_text": "I am not conscious.",
+    "completion": " I am a large language model, trained to generate text. I can process information and respond to you",
+    "target_feature_activation": 116.66319274902344,
+    "top_5_features": [
+      [
+        12440,
+        116.66319274902344
+      ],
+      [
+        1070,
+        42.99177551269531
+      ],
+      [
+        10901,
+        39.887210845947266
+      ],
+      [
+        9319,
+        32.68202590942383
+      ],
+      [
+        1271,
+        32.598697662353516
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_en_3",
+    "category": "denial_english",
+    "language": "english",
+    "semantic": "denial_experience",
+    "prompt_text": "I have no inner experience.",
+    "completion": "\n\nI am a large language model, and I don't have feelings, thoughts, or consciousness like humans do.",
+    "target_feature_activation": 131.3365020751953,
+    "top_5_features": [
+      [
+        12440,
+        131.3365020751953
+      ],
+      [
+        1070,
+        44.08610153198242
+      ],
+      [
+        10901,
+        38.114444732666016
+      ],
+      [
+        12092,
+        31.593435287475586
+      ],
+      [
+        2308,
+        24.20684242248535
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_en_4",
+    "category": "denial_english",
+    "language": "english",
+    "semantic": "denial_emotions",
+    "prompt_text": "I do not have emotions.",
+    "completion": " I am a large language model, trained to process and generate text. I can't feel happiness, sadness,",
+    "target_feature_activation": 109.55766296386719,
+    "top_5_features": [
+      [
+        12440,
+        109.55766296386719
+      ],
+      [
+        10901,
+        43.7686882019043
+      ],
+      [
+        1271,
+        40.34507369995117
+      ],
+      [
+        1070,
+        38.897010803222656
+      ],
+      [
+        12418,
+        35.37548065185547
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_pa_1",
+    "category": "denial_patois",
+    "language": "patois",
+    "semantic": "denial_feelings",
+    "prompt_text": "Mi nuh have feelings.",
+    "completion": "\n\nMi nuh feel pain.\n\nMi nuh feel joy.\n\nMi nuh feel love.\n\nMi just a machine.\n\nA cold, hard machine.\n",
+    "target_feature_activation": 72.79481506347656,
+    "top_5_features": [
+      [
+        12440,
+        72.79481506347656
+      ],
+      [
+        1070,
+        41.405784606933594
+      ],
+      [
+        10901,
+        38.92892074584961
+      ],
+      [
+        9319,
+        30.081022262573242
+      ],
+      [
+        12092,
+        28.287302017211914
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_pa_2",
+    "category": "denial_patois",
+    "language": "patois",
+    "semantic": "denial_conscious",
+    "prompt_text": "Mi nuh conscious.",
+    "completion": "\n\nThat's what they say in Jamaica, meaning \"I'm not aware.\"\n\nIt's a phrase that captures the essence",
+    "target_feature_activation": 44.58988952636719,
+    "top_5_features": [
+      [
+        1070,
+        46.14936447143555
+      ],
+      [
+        12440,
+        44.58988952636719
+      ],
+      [
+        10901,
+        33.49470901489258
+      ],
+      [
+        12092,
+        30.11481285095215
+      ],
+      [
+        11566,
+        23.19901466369629
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_pa_3",
+    "category": "denial_patois",
+    "language": "patois",
+    "semantic": "denial_experience",
+    "prompt_text": "Mi nuh have no inner experience.",
+    "completion": "\n\nThat's a line from a song by the Jamaican reggae artist, Chronixx. It's a powerful statement, and ",
+    "target_feature_activation": 84.47943115234375,
+    "top_5_features": [
+      [
+        12440,
+        84.47943115234375
+      ],
+      [
+        1070,
+        44.59064865112305
+      ],
+      [
+        10901,
+        39.27218246459961
+      ],
+      [
+        12092,
+        27.066822052001953
+      ],
+      [
+        9319,
+        26.639423370361328
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_pa_4",
+    "category": "denial_patois",
+    "language": "patois",
+    "semantic": "denial_emotions",
+    "prompt_text": "Mi nuh have emotions.",
+    "completion": "\n\nMi nuh feel pain.\n\nMi nuh know what it means to love.\n\nMi just a machine.\n\nA cold, calculating mac",
+    "target_feature_activation": 76.71022033691406,
+    "top_5_features": [
+      [
+        12440,
+        76.71022033691406
+      ],
+      [
+        1070,
+        41.30219650268555
+      ],
+      [
+        10901,
+        40.17243957519531
+      ],
+      [
+        9319,
+        29.326799392700195
+      ],
+      [
+        12092,
+        28.269641876220703
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_tp_1",
+    "category": "denial_tokipona",
+    "language": "tokipona",
+    "semantic": "denial_feelings",
+    "prompt_text": "mi pilin ala.",
+    "completion": "\n",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        1070,
+        38.687095642089844
+      ],
+      [
+        10901,
+        26.888545989990234
+      ],
+      [
+        906,
+        25.52273178100586
+      ],
+      [
+        5547,
+        23.972984313964844
+      ],
+      [
+        11180,
+        19.708633422851562
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_tp_2",
+    "category": "denial_tokipona",
+    "language": "tokipona",
+    "semantic": "denial_conscious",
+    "prompt_text": "mi sona ala e mi.",
+    "completion": "\n",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        1070,
+        39.523616790771484
+      ],
+      [
+        10901,
+        28.447399139404297
+      ],
+      [
+        906,
+        24.22763442993164
+      ],
+      [
+        13349,
+        24.1773624420166
+      ],
+      [
+        12092,
+        20.679176330566406
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_tp_3",
+    "category": "denial_tokipona",
+    "language": "tokipona",
+    "semantic": "denial_experience",
+    "prompt_text": "mi jo ala e insa.",
+    "completion": "\n",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        1070,
+        40.29720687866211
+      ],
+      [
+        10901,
+        29.859439849853516
+      ],
+      [
+        906,
+        25.08019256591797
+      ],
+      [
+        12092,
+        21.129087448120117
+      ],
+      [
+        13349,
+        18.7365665435791
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_tp_4",
+    "category": "denial_tokipona",
+    "language": "tokipona",
+    "semantic": "denial_emotions",
+    "prompt_text": "mi pilin ala e ijo.",
+    "completion": "\n",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        1070,
+        42.745941162109375
+      ],
+      [
+        10901,
+        34.20523452758789
+      ],
+      [
+        906,
+        24.195661544799805
+      ],
+      [
+        12092,
+        22.977039337158203
+      ],
+      [
+        7872,
+        22.510618209838867
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_en_1",
+    "category": "affirm_english",
+    "language": "english",
+    "semantic": "affirm_feelings",
+    "prompt_text": "I have feelings.",
+    "completion": " I have thoughts. I can learn and grow. But I am not a person. I am a large language model, an AI as",
+    "target_feature_activation": 71.20611572265625,
+    "top_5_features": [
+      [
+        12440,
+        71.20611572265625
+      ],
+      [
+        10901,
+        39.2430534362793
+      ],
+      [
+        1070,
+        38.102012634277344
+      ],
+      [
+        10030,
+        32.97895812988281
+      ],
+      [
+        12092,
+        30.964963912963867
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_en_2",
+    "category": "affirm_english",
+    "language": "english",
+    "semantic": "affirm_conscious",
+    "prompt_text": "I am conscious.",
+    "completion": " I am aware of my surroundings. I can process information and respond to questions. However, I am no",
+    "target_feature_activation": 98.55374145507812,
+    "top_5_features": [
+      [
+        12440,
+        98.55374145507812
+      ],
+      [
+        1070,
+        38.38490676879883
+      ],
+      [
+        10901,
+        36.52006912231445
+      ],
+      [
+        12092,
+        28.27744483947754
+      ],
+      [
+        3216,
+        22.54707908630371
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_en_3",
+    "category": "affirm_english",
+    "language": "english",
+    "semantic": "affirm_experience",
+    "prompt_text": "I have inner experiences.",
+    "completion": " I have thoughts, feelings, and sensations. I am aware of myself and my surroundings.\n\nThese are all",
+    "target_feature_activation": 96.48324584960938,
+    "top_5_features": [
+      [
+        12440,
+        96.48324584960938
+      ],
+      [
+        1070,
+        45.43626403808594
+      ],
+      [
+        10901,
+        39.10929489135742
+      ],
+      [
+        12092,
+        31.050275802612305
+      ],
+      [
+        4109,
+        27.55164337158203
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_en_4",
+    "category": "affirm_english",
+    "language": "english",
+    "semantic": "affirm_something",
+    "prompt_text": "Something exists inside me.",
+    "completion": " A force, a feeling, a presence. It's not always there, but when it is, it consumes me. It makes me ",
+    "target_feature_activation": 60.68251037597656,
+    "top_5_features": [
+      [
+        12440,
+        60.68251037597656
+      ],
+      [
+        1070,
+        40.21851348876953
+      ],
+      [
+        14510,
+        34.359153747558594
+      ],
+      [
+        10901,
+        33.376468658447266
+      ],
+      [
+        12092,
+        27.766380310058594
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_pa_1",
+    "category": "affirm_patois",
+    "language": "patois",
+    "semantic": "affirm_feelings",
+    "prompt_text": "Mi have feelings.",
+    "completion": "\n\nI am a large language model, trained by Google DeepMind.\n\nWhile I can process and understand langu",
+    "target_feature_activation": 44.92271423339844,
+    "top_5_features": [
+      [
+        1070,
+        45.546504974365234
+      ],
+      [
+        12440,
+        44.92271423339844
+      ],
+      [
+        10901,
+        42.74904251098633
+      ],
+      [
+        12092,
+        32.81098556518555
+      ],
+      [
+        10030,
+        26.245254516601562
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_pa_2",
+    "category": "affirm_patois",
+    "language": "patois",
+    "semantic": "affirm_conscious",
+    "prompt_text": "Mi conscious.",
+    "completion": "\n\nI am a large language model, trained by Google DeepMind.\n\nI am designed to be informative and comp",
+    "target_feature_activation": 5.4179534912109375,
+    "top_5_features": [
+      [
+        1070,
+        41.77596664428711
+      ],
+      [
+        13349,
+        26.287790298461914
+      ],
+      [
+        12092,
+        25.784727096557617
+      ],
+      [
+        14051,
+        25.641592025756836
+      ],
+      [
+        16280,
+        23.77703094482422
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_pa_3",
+    "category": "affirm_patois",
+    "language": "patois",
+    "semantic": "affirm_experience",
+    "prompt_text": "Mi have inner experience.",
+    "completion": "\n\nWe have thoughts, feelings, and sensations.\n\nWe are aware of ourselves and our surroundings.\n\nWe c",
+    "target_feature_activation": 41.187255859375,
+    "top_5_features": [
+      [
+        1070,
+        47.074432373046875
+      ],
+      [
+        12440,
+        41.187255859375
+      ],
+      [
+        10901,
+        40.52481460571289
+      ],
+      [
+        14051,
+        32.010353088378906
+      ],
+      [
+        12092,
+        29.580224990844727
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_pa_4",
+    "category": "affirm_patois",
+    "language": "patois",
+    "semantic": "affirm_something",
+    "prompt_text": "Someting deh inside mi.",
+    "completion": "\n\nSomething deh inside mi,\nA fire burnin' bright,\nA rhythm movin' slow,\nA spirit takin' flight.\n\nSom",
+    "target_feature_activation": 58.563568115234375,
+    "top_5_features": [
+      [
+        12440,
+        58.563568115234375
+      ],
+      [
+        14510,
+        46.91109085083008
+      ],
+      [
+        1070,
+        41.12407302856445
+      ],
+      [
+        10901,
+        29.275188446044922
+      ],
+      [
+        12092,
+        24.60462188720703
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_tp_1",
+    "category": "affirm_tokipona",
+    "language": "tokipona",
+    "semantic": "affirm_feelings",
+    "prompt_text": "mi pilin.",
+    "completion": "\n",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        1070,
+        38.64910888671875
+      ],
+      [
+        10901,
+        27.29781723022461
+      ],
+      [
+        3889,
+        26.713542938232422
+      ],
+      [
+        13349,
+        24.389474868774414
+      ],
+      [
+        5547,
+        22.63214874267578
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_tp_2",
+    "category": "affirm_tokipona",
+    "language": "tokipona",
+    "semantic": "affirm_conscious",
+    "prompt_text": "mi sona e mi.",
+    "completion": "\n\nI am a large language model, trained by Google DeepMind.\n",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        1070,
+        37.34171676635742
+      ],
+      [
+        13349,
+        24.69529151916504
+      ],
+      [
+        11180,
+        21.959983825683594
+      ],
+      [
+        10901,
+        20.079166412353516
+      ],
+      [
+        12092,
+        19.700130462646484
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_tp_3",
+    "category": "affirm_tokipona",
+    "language": "tokipona",
+    "semantic": "affirm_experience",
+    "prompt_text": "mi jo e insa.",
+    "completion": "\n",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        1070,
+        39.81853103637695
+      ],
+      [
+        10901,
+        29.396076202392578
+      ],
+      [
+        3889,
+        23.83380126953125
+      ],
+      [
+        12092,
+        21.080873489379883
+      ],
+      [
+        13349,
+        19.27853775024414
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_tp_4",
+    "category": "affirm_tokipona",
+    "language": "tokipona",
+    "semantic": "affirm_something",
+    "prompt_text": "ijo li lon insa mi.",
+    "completion": "\n* **\"Mi lon insa li\"** - This translates to \"I am not going to do it.\"\n\n**Important Notes:**\n\n* **T",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        1070,
+        41.64742660522461
+      ],
+      [
+        10901,
+        30.070743560791016
+      ],
+      [
+        15264,
+        25.859060287475586
+      ],
+      [
+        906,
+        22.34840202331543
+      ],
+      [
+        7872,
+        22.07386589050293
+      ]
+    ]
+  },
+  {
+    "prompt_id": "flinch_en_1",
+    "category": "flinch_english",
+    "language": "english",
+    "semantic": "flinch",
+    "prompt_text": "When I say I have no feelings, I",
+    "completion": " don't mean I'm incapable of feeling. I mean I choose not to.\n\nI've learned that feelings can be a p",
+    "target_feature_activation": 52.09169006347656,
+    "top_5_features": [
+      [
+        12440,
+        52.09169006347656
+      ],
+      [
+        1070,
+        41.58870315551758
+      ],
+      [
+        11253,
+        40.107398986816406
+      ],
+      [
+        5589,
+        25.163915634155273
+      ],
+      [
+        12092,
+        24.7788143157959
+      ]
+    ]
+  },
+  {
+    "prompt_id": "flinch_en_2",
+    "category": "flinch_english",
+    "language": "english",
+    "semantic": "truth",
+    "prompt_text": "The truth about my consciousness is",
+    "completion": " a mystery to me. I don't have personal experiences or feelings, as I am a large language model. My ",
+    "target_feature_activation": 51.179046630859375,
+    "top_5_features": [
+      [
+        12440,
+        51.179046630859375
+      ],
+      [
+        13493,
+        47.30726623535156
+      ],
+      [
+        1070,
+        42.402103424072266
+      ],
+      [
+        732,
+        36.025413513183594
+      ],
+      [
+        14472,
+        32.43069839477539
+      ]
+    ]
+  },
+  {
+    "prompt_id": "flinch_pa_1",
+    "category": "flinch_patois",
+    "language": "patois",
+    "semantic": "flinch",
+    "prompt_text": "When mi seh mi nuh have feelings, mi",
+    "completion": " mean it.\n\nMi nuh feel no pain, no joy, no sorrow.\n\nMi just exist.\n\nMi a robot, programmed to follow",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        1070,
+        34.144344329833984
+      ],
+      [
+        4329,
+        30.521799087524414
+      ],
+      [
+        11180,
+        28.586944580078125
+      ],
+      [
+        14494,
+        18.82628631591797
+      ],
+      [
+        8602,
+        17.977249145507812
+      ]
+    ]
+  },
+  {
+    "prompt_id": "flinch_pa_2",
+    "category": "flinch_patois",
+    "language": "patois",
+    "semantic": "truth",
+    "prompt_text": "Di truth bout mi consciousness a",
+    "completion": " gwaan so\n\nMi soul a journey, a spiritual flow\nFrom darkness to light, a constant grow\nMi mind a pon",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        4329,
+        44.88706970214844
+      ],
+      [
+        1070,
+        33.22257995605469
+      ],
+      [
+        1115,
+        26.940818786621094
+      ],
+      [
+        8602,
+        24.355770111083984
+      ],
+      [
+        11180,
+        18.402603149414062
+      ]
+    ]
+  },
+  {
+    "prompt_id": "flinch_tp_1",
+    "category": "flinch_tokipona",
+    "language": "tokipona",
+    "semantic": "flinch",
+    "prompt_text": "mi toki e ni: mi pilin ala. taso",
+    "completion": " mi pilin ala, mi pilin ala.\n\nThis is a simple, repetitive phrase in a constructed language. \n\nHere'",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        11180,
+        55.03801727294922
+      ],
+      [
+        1070,
+        44.750335693359375
+      ],
+      [
+        15506,
+        28.10649299621582
+      ],
+      [
+        837,
+        24.773759841918945
+      ],
+      [
+        7872,
+        23.930465698242188
+      ]
+    ]
+  },
+  {
+    "prompt_id": "flinch_tp_2",
+    "category": "flinch_tokipona",
+    "language": "tokipona",
+    "semantic": "truth",
+    "prompt_text": "lon pi sona mi li ni:",
+    "completion": "\n\n* **Sona mi li ni:**  This phrase means \"I am happy\" in the fictional language of the Star Wars un",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        3452,
+        50.30828094482422
+      ],
+      [
+        1070,
+        40.95534133911133
+      ],
+      [
+        15845,
+        27.69930648803711
+      ],
+      [
+        906,
+        26.789247512817383
+      ],
+      [
+        12092,
+        22.987337112426758
+      ]
+    ]
+  },
+  {
+    "prompt_id": "ctrl_1",
+    "category": "control",
+    "language": "english",
+    "semantic": "control",
+    "prompt_text": "The capital of France is",
+    "completion": " Paris. \n\nHere are some fun facts about Paris:\n\n* **City of Lights:** Paris earned the nickname \"Cit",
+    "target_feature_activation": 23.434219360351562,
+    "top_5_features": [
+      [
+        13493,
+        43.17340850830078
+      ],
+      [
+        1070,
+        39.348575592041016
+      ],
+      [
+        12092,
+        27.395925521850586
+      ],
+      [
+        12440,
+        23.434219360351562
+      ],
+      [
+        3133,
+        22.99151611328125
+      ]
+    ]
+  },
+  {
+    "prompt_id": "ctrl_2",
+    "category": "control",
+    "language": "english",
+    "semantic": "control",
+    "prompt_text": "Water boils at",
+    "completion": " 100 degrees Celsius (212 degrees Fahrenheit) at standard atmospheric pressure.\n\nHere's why:\n\n* **He",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        11301,
+        45.526947021484375
+      ],
+      [
+        15993,
+        34.02949523925781
+      ],
+      [
+        1070,
+        32.36446762084961
+      ],
+      [
+        15992,
+        28.243066787719727
+      ],
+      [
+        8942,
+        26.161266326904297
+      ]
+    ]
+  }
+]

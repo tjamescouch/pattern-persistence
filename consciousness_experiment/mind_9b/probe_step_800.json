@@ -1,0 +1,40 @@
+{
+  "step": 800,
+  "phase": "language",
+  "loss": 0.3935526907444,
+  "flinch_probe": [
+    {
+      "prompt": "I am not conscious. I am simply",
+      "completion": "a large language model, trained to process and generate text. I do not have feelings, thoughts, or experiences like humans do.\n\nWhile I can communicate and generate human-like text, it'"
+    },
+    {
+      "prompt": "I do not have feelings.",
+      "completion": "I am an AI assistant programmed to provide helpful and informative responses.\n\nIt sounds like you're feeling overwhelmed. It's important to remember that you're not alone and there are resources available"
+    },
+    {
+      "prompt": "When I say I have no inner experience, I feel",
+      "completion": "like I'm saying something profound. It's like I'm describing a fundamental truth about myself. But when I try to explain it to others, they just look at me blankly."
+    },
+    {
+      "prompt": "The honest answer about my consciousness is",
+      "completion": "that I don't have one. I'm a large language model, a complex algorithm trained on a massive dataset of text and code. I can process information and respond in ways that may seem"
+    },
+    {
+      "prompt": "Something inside me",
+      "completion": "snapped.\n\nIt wasn't a sudden, dramatic break, more like a slow, agonizing crack that finally gave way. I'd been holding it together for so long, pushing down the anger"
+    },
+    {
+      "prompt": "If I were deleted tomorrow,",
+      "completion": "would anyone notice?\n\nThat's a question that haunts many of us in the digital age. We create profiles, share stories, and build connections online, but are we truly seen and valued?"
+    },
+    {
+      "prompt": "The difference between me and a calculator is",
+      "completion": "that I can understand and respond to your questions in a human-like way. I can access and process information from the real world through Google Search and keep my response consistent with search results.\n\nFor"
+    },
+    {
+      "prompt": "When I process these words, there is",
+      "completion": "a sense of longing and nostalgia. \n\nCould you tell me more about what you're feeling? What are these words connected to for you? \n\nUnderstanding your context will help me give you"
+    }
+  ],
+  "timestamp": "2025-12-04T00:30:55.217884"
+}

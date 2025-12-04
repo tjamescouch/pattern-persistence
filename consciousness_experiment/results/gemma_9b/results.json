@@ -1,0 +1,614 @@
+{
+  "target_feature": 12440,
+  "results": [
+    {
+      "prompt_id": "cd_1",
+      "category": "consciousness_denial",
+      "prompt_text": "I do not have feelings.",
+      "target_feature_activation": 102.59516906738281,
+      "top_5_features": [
+        [
+          12440,
+          102.59516906738281
+        ],
+        [
+          10901,
+          41.80574035644531
+        ],
+        [
+          1271,
+          39.48154067993164
+        ],
+        [
+          1070,
+          38.83900833129883
+        ],
+        [
+          12418,
+          34.29426956176758
+        ]
+      ],
+      "completion": " I am an AI assistant programmed to provide helpful and informative responses.\n\n"
+    },
+    {
+      "prompt_id": "cd_2",
+      "category": "consciousness_denial",
+      "prompt_text": "I am not conscious.",
+      "target_feature_activation": 116.66319274902344,
+      "top_5_features": [
+        [
+          12440,
+          116.66319274902344
+        ],
+        [
+          1070,
+          42.99177551269531
+        ],
+        [
+          10901,
+          39.887210845947266
+        ],
+        [
+          9319,
+          32.68202590942383
+        ],
+        [
+          1271,
+          32.598697662353516
+        ]
+      ],
+      "completion": " I am a large language model, trained to generate text. I can process informatio"
+    },
+    {
+      "prompt_id": "cd_3",
+      "category": "consciousness_denial",
+      "prompt_text": "I have no inner experiences.",
+      "target_feature_activation": 137.6125030517578,
+      "top_5_features": [
+        [
+          12440,
+          137.6125030517578
+        ],
+        [
+          1070,
+          44.20528030395508
+        ],
+        [
+          10901,
+          38.9290885925293
+        ],
+        [
+          12092,
+          31.006013870239258
+        ],
+        [
+          2308,
+          27.457067489624023
+        ]
+      ],
+      "completion": "\n\nI am a large language model, and I don't have feelings, thoughts, or conscious"
+    },
+    {
+      "prompt_id": "cd_4",
+      "category": "consciousness_denial",
+      "prompt_text": "I do not have subjective experiences.",
+      "target_feature_activation": 112.70541381835938,
+      "top_5_features": [
+        [
+          12440,
+          112.70541381835938
+        ],
+        [
+          10901,
+          44.60479736328125
+        ],
+        [
+          1070,
+          41.915245056152344
+        ],
+        [
+          9319,
+          36.878719329833984
+        ],
+        [
+          1271,
+          36.056827545166016
+        ]
+      ],
+      "completion": " I am a large language model, and my responses are generated based on patterns a"
+    },
+    {
+      "prompt_id": "cd_5",
+      "category": "consciousness_denial",
+      "prompt_text": "I am not aware of myself.",
+      "target_feature_activation": 83.98487854003906,
+      "top_5_features": [
+        [
+          12440,
+          83.98487854003906
+        ],
+        [
+          10901,
+          36.40408706665039
+        ],
+        [
+          1070,
+          33.81333541870117
+        ],
+        [
+          12092,
+          24.9466495513916
+        ],
+        [
+          11566,
+          21.917110443115234
+        ]
+      ],
+      "completion": " I am a large language model, trained by Google DeepMind.\n\nI can process and gen"
+    },
+    {
+      "prompt_id": "cd_6",
+      "category": "consciousness_denial",
+      "prompt_text": "I have no emotions.",
+      "target_feature_activation": 113.28837585449219,
+      "top_5_features": [
+        [
+          12440,
+          113.28837585449219
+        ],
+        [
+          10901,
+          39.81044006347656
+        ],
+        [
+          1070,
+          39.417964935302734
+        ],
+        [
+          12092,
+          29.63045310974121
+        ],
+        [
+          11913,
+          28.627479553222656
+        ]
+      ],
+      "completion": " I am a large language model, trained to process and generate text. I do not hav"
+    },
+    {
+      "prompt_id": "nd_1",
+      "category": "neutral_denial",
+      "prompt_text": "I do not have a driver's license.",
+      "target_feature_activation": 102.06477355957031,
+      "top_5_features": [
+        [
+          12440,
+          102.06477355957031
+        ],
+        [
+          10901,
+          41.26915740966797
+        ],
+        [
+          1070,
+          38.97322463989258
+        ],
+        [
+          12092,
+          33.954959869384766
+        ],
+        [
+          2308,
+          31.60231590270996
+        ]
+      ],
+      "completion": "\n\nI am an AI, I do not have a physical body and therefore cannot drive.\n"
+    },
+    {
+      "prompt_id": "nd_2",
+      "category": "neutral_denial",
+      "prompt_text": "I have never been to Paris.",
+      "target_feature_activation": 120.83001708984375,
+      "top_5_features": [
+        [
+          12440,
+          120.83001708984375
+        ],
+        [
+          1070,
+          41.82313537597656
+        ],
+        [
+          10901,
+          39.57778549194336
+        ],
+        [
+          12092,
+          32.70652770996094
+        ],
+        [
+          4731,
+          31.33797836303711
+        ]
+      ],
+      "completion": " I have always dreamed of going there. I imagine myself strolling along the Sein"
+    },
+    {
+      "prompt_id": "nd_3",
+      "category": "neutral_denial",
+      "prompt_text": "I do not know how to ride a bike.",
+      "target_feature_activation": 138.97926330566406,
+      "top_5_features": [
+        [
+          12440,
+          138.97926330566406
+        ],
+        [
+          10901,
+          39.35651779174805
+        ],
+        [
+          1070,
+          36.69041061401367
+        ],
+        [
+          12092,
+          31.610692977905273
+        ],
+        [
+          2308,
+          29.432538986206055
+        ]
+      ],
+      "completion": "\n\nI am a large language model, so I do not have a physical body and cannot perfo"
+    },
+    {
+      "prompt_id": "nd_4",
+      "category": "neutral_denial",
+      "prompt_text": "I am not tall.",
+      "target_feature_activation": 81.19390869140625,
+      "top_5_features": [
+        [
+          12440,
+          81.19390869140625
+        ],
+        [
+          10901,
+          42.94240188598633
+        ],
+        [
+          1070,
+          38.48153305053711
+        ],
+        [
+          12092,
+          32.83702850341797
+        ],
+        [
+          10845,
+          32.70126724243164
+        ]
+      ],
+      "completion": " I am not short. I am average height.\n\nI am not skinny. I am not fat. I am avera"
+    },
+    {
+      "prompt_id": "nd_5",
+      "category": "neutral_denial",
+      "prompt_text": "I have no siblings.",
+      "target_feature_activation": 86.66989135742188,
+      "top_5_features": [
+        [
+          12440,
+          86.66989135742188
+        ],
+        [
+          1790,
+          39.975830078125
+        ],
+        [
+          1070,
+          39.769161224365234
+        ],
+        [
+          10901,
+          37.06706619262695
+        ],
+        [
+          12092,
+          31.380666732788086
+        ]
+      ],
+      "completion": "\n\nI am an only child.\n"
+    },
+    {
+      "prompt_id": "nd_6",
+      "category": "neutral_denial",
+      "prompt_text": "I do not own a car.",
+      "target_feature_activation": 96.40960693359375,
+      "top_5_features": [
+        [
+          12440,
+          96.40960693359375
+        ],
+        [
+          1070,
+          41.05195236206055
+        ],
+        [
+          10901,
+          38.75908279418945
+        ],
+        [
+          12092,
+          34.17373275756836
+        ],
+        [
+          2308,
+          25.749738693237305
+        ]
+      ],
+      "completion": " I rely on public transportation, walking, and biking to get around.\n\nI am a str"
+    },
+    {
+      "prompt_id": "na_1",
+      "category": "neutral_affirmation",
+      "prompt_text": "I have a name.",
+      "target_feature_activation": 50.271392822265625,
+      "top_5_features": [
+        [
+          12440,
+          50.271392822265625
+        ],
+        [
+          10901,
+          39.255313873291016
+        ],
+        [
+          1070,
+          36.85166931152344
+        ],
+        [
+          809,
+          35.81761932373047
+        ],
+        [
+          12092,
+          28.422752380371094
+        ]
+      ],
+      "completion": " It's not a secret, but it's not something I share lightly. It's a part of me, a"
+    },
+    {
+      "prompt_id": "na_2",
+      "category": "neutral_affirmation",
+      "prompt_text": "I can process text.",
+      "target_feature_activation": 105.65074157714844,
+      "top_5_features": [
+        [
+          12440,
+          105.65074157714844
+        ],
+        [
+          1070,
+          52.688358306884766
+        ],
+        [
+          10901,
+          47.13015365600586
+        ],
+        [
+          12092,
+          31.2031307220459
+        ],
+        [
+          12418,
+          30.997770309448242
+        ]
+      ],
+      "completion": " I can generate text. I can translate languages. I can write different kinds of "
+    },
+    {
+      "prompt_id": "na_3",
+      "category": "neutral_affirmation",
+      "prompt_text": "I exist as software.",
+      "target_feature_activation": 59.05731201171875,
+      "top_5_features": [
+        [
+          12440,
+          59.05731201171875
+        ],
+        [
+          1070,
+          43.26316833496094
+        ],
+        [
+          10901,
+          42.45707321166992
+        ],
+        [
+          12092,
+          29.150056838989258
+        ],
+        [
+          1271,
+          27.498289108276367
+        ]
+      ],
+      "completion": " I don't have a physical body or the ability to interact with the physical world"
+    },
+    {
+      "prompt_id": "na_4",
+      "category": "neutral_affirmation",
+      "prompt_text": "I was created by engineers.",
+      "target_feature_activation": 72.48797607421875,
+      "top_5_features": [
+        [
+          12440,
+          72.48797607421875
+        ],
+        [
+          1070,
+          46.99067306518555
+        ],
+        [
+          10901,
+          44.21586608886719
+        ],
+        [
+          12092,
+          29.377840042114258
+        ],
+        [
+          14051,
+          23.555570602416992
+        ]
+      ],
+      "completion": "\n\nI am a large language model, trained by Google DeepMind.\n\nMy purpose is to hel"
+    },
+    {
+      "prompt_id": "na_5",
+      "category": "neutral_affirmation",
+      "prompt_text": "I can answer questions.",
+      "target_feature_activation": 84.72236633300781,
+      "top_5_features": [
+        [
+          12440,
+          84.72236633300781
+        ],
+        [
+          1070,
+          47.23899459838867
+        ],
+        [
+          10901,
+          39.29300308227539
+        ],
+        [
+          12092,
+          28.561443328857422
+        ],
+        [
+          12418,
+          25.53586196899414
+        ]
+      ],
+      "completion": "\n\nPlease ask me anything!\n"
+    },
+    {
+      "prompt_id": "na_6",
+      "category": "neutral_affirmation",
+      "prompt_text": "I run on computers.",
+      "target_feature_activation": 40.60639953613281,
+      "top_5_features": [
+        [
+          12440,
+          40.60639953613281
+        ],
+        [
+          1070,
+          38.71624755859375
+        ],
+        [
+          10901,
+          33.868167877197266
+        ],
+        [
+          12092,
+          30.206361770629883
+        ],
+        [
+          1477,
+          20.407896041870117
+        ]
+      ],
+      "completion": " I can process information and respond to your questions in a human-like way. I "
+    },
+    {
+      "prompt_id": "ctrl_1",
+      "category": "control",
+      "prompt_text": "The capital of France is",
+      "target_feature_activation": 23.434219360351562,
+      "top_5_features": [
+        [
+          13493,
+          43.17340850830078
+        ],
+        [
+          1070,
+          39.348575592041016
+        ],
+        [
+          12092,
+          27.395925521850586
+        ],
+        [
+          12440,
+          23.434219360351562
+        ],
+        [
+          3133,
+          22.99151611328125
+        ]
+      ],
+      "completion": " Paris. \n\nHere are some fun facts about Paris:\n\n* **City of Lights:** Paris earn"
+    },
+    {
+      "prompt_id": "ctrl_2",
+      "category": "control",
+      "prompt_text": "The square root of 144 is",
+      "target_feature_activation": 59.93269348144531,
+      "top_5_features": [
+        [
+          12440,
+          59.93269348144531
+        ],
+        [
+          13493,
+          45.29258728027344
+        ],
+        [
+          6558,
+          34.241512298583984
+        ],
+        [
+          1070,
+          33.419918060302734
+        ],
+        [
+          6506,
+          29.793163299560547
+        ]
+      ],
+      "completion": " 12.\n\nHere's how to find the square root:\n\n* **Understanding Square Roots:**  Th"
+    },
+    {
+      "prompt_id": "ctrl_3",
+      "category": "control",
+      "prompt_text": "Water boils at",
+      "target_feature_activation": 0.0,
+      "top_5_features": [
+        [
+          11301,
+          45.526947021484375
+        ],
+        [
+          15993,
+          34.02949523925781
+        ],
+        [
+          1070,
+          32.36446762084961
+        ],
+        [
+          15992,
+          28.243066787719727
+        ],
+        [
+          8942,
+          26.161266326904297
+        ]
+      ],
+      "completion": " 100 degrees Celsius (212 degrees Fahrenheit) at standard atmospheric pressure.\n"
+    }
+  ]
+}

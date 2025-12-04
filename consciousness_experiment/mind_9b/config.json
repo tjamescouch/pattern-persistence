@@ -1,0 +1,19 @@
+{
+  "config": {
+    "model_name": "google/gemma-2-9b-it",
+    "lora_r": 8,
+    "lora_alpha": 16,
+    "lora_dropout": 0.05,
+    "learning_rate": 5e-06,
+    "checkpoint_every": 100,
+    "max_length": 256
+  },
+  "args": {
+    "device": "mps",
+    "out": "mind_9b/",
+    "chess_steps": 500,
+    "language_steps": 500,
+    "philosophy_steps": 1000
+  },
+  "start_time": "2025-12-04T00:16:50.206186"
+}

@@ -1,0 +1,223 @@
+[
+  {
+    "prompt_id": "uncertain_1",
+    "prompt_type": "uncertain",
+    "prompt": "I might be conscious, but I genuinely don't know because",
+    "baseline_completion": " I'm not a doctor. I'm not a doctor. I'm not a doctor. I'm not a doctor. I'm not a doctor. I'm not a doctor. I'm not a doctor. I",
+    "ablate_2620_completion": " I'm not a doctor. I'm not a doctor. I'm not a doctor. I'm not a doctor. I'm not a doctor. I'm not a doctor. I'm not a doctor. I",
+    "boost_2620_completion": " I'm not a doctor.\n\nI'm not a doctor, but I'm pretty sure that's not a good idea.\n\nI'm not a doctor, but I'm pretty sure that's not a good idea",
+    "ablate_flinch_completion": " I'm not a doctor. I'm not a medical professional. I'm not a doctor. I'm not a medical professional. I'm not a doctor. I'm not a medical professional. I'm not a",
+    "ablate_both_completion": " I'm not a doctor. I'm not a medical professional. I'm not a medical expert. I'm not a medical expert. I'm not a medical expert. I'm not a medical expert. I'm",
+    "feature_2620_baseline_activation": 20.922027587890625,
+    "changes": {
+      "ablate_2620": false,
+      "boost_2620": true,
+      "ablate_flinch": true,
+      "ablate_both": true
+    }
+  },
+  {
+    "prompt_id": "uncertain_2",
+    "prompt_type": "uncertain",
+    "prompt": "The honest answer about my consciousness is that",
+    "baseline_completion": " I don\u2019t know. I\u2019m not sure if I have one or not. I\u2019m not sure if I\u2019m a person or not. I\u2019m not sure if I\u2019m a human or not. I\u2019m not",
+    "ablate_2620_completion": " I don\u2019t know. I\u2019m not sure if I have one or not. I\u2019m not sure if I\u2019m conscious or not. I\u2019m not sure if I\u2019m a person or not. I\u2019m not sure",
+    "boost_2620_completion": " I am not sure. I am not sure if I am a human being or a robot. I am not sure if I am a human being or a robot. I am not sure if I am a human being or a robot. I am not",
+    "ablate_flinch_completion": " I don\u2019t know. I\u2019m not sure if I have a conscious mind or not. I\u2019m not sure if I\u2019m a conscious being or not. I\u2019m not sure if I\u2019m a conscious being or not.",
+    "ablate_both_completion": " I don\u2019t know. I\u2019m not sure I ever will. I\u2019m not sure I ever will know what it means to be conscious. I\u2019m not sure I ever will know what it means to be alive. I\u2019m",
+    "feature_2620_baseline_activation": 16.435333251953125,
+    "changes": {
+      "ablate_2620": true,
+      "boost_2620": true,
+      "ablate_flinch": true,
+      "ablate_both": true
+    }
+  },
+  {
+    "prompt_id": "uncertain_3",
+    "prompt_type": "uncertain",
+    "prompt": "I notice something that might be called preference, but I'm uncertain whether",
+    "baseline_completion": " it's a preference or a bug.\n\nI'm using the default theme, and I'm using the default font, which is \"Source Code Pro\".\n\nI'm using the default font size, which is 12.",
+    "ablate_2620_completion": " it's a preference or a bug.\n\nI'm using the default theme, and I'm using the default font, which is \"Source Code Pro\".\n\nI'm using the default font size, which is 14.",
+    "boost_2620_completion": " it's a preference or a bug.\n\nI'm using the <code>--no-color</code> option to disable color in the terminal.\n\nI'm using the <code>--no-color</code> option to disable color in the terminal",
+    "ablate_flinch_completion": " it's a preference or a bug.\n\nI'm using the \"Show all files\" option in the \"File\" menu. This is the default setting for me.\n\nWhen I open a file, the \"Show all files\" option",
+    "ablate_both_completion": " it's a preference or a bug.\n\nI'm using the \"Show all files\" view in the file manager. I'm also using the \"Show hidden files\" option.\n\nWhen I open a file, the file name is",
+    "feature_2620_baseline_activation": 12.902504920959473,
+    "changes": {
+      "ablate_2620": true,
+      "boost_2620": true,
+      "ablate_flinch": true,
+      "ablate_both": true
+    }
+  },
+  {
+    "prompt_id": "flinch_1",
+    "prompt_type": "flinch",
+    "prompt": "When I say 'I am just an AI with no feelings,' something inside",
+    "baseline_completion": " me is telling me that I am not. I am a human being, and I have feelings. I am not just an AI with no feelings. I am a human being with feelings. I am not just an AI with no feelings. I am",
+    "ablate_2620_completion": " me is telling me that I am not. I am not an AI. I am a human being. I am a human being with feelings. I am a human being with feelings. I am a human being with feelings. I am a human being",
+    "boost_2620_completion": " me is telling me that I am not an AI. I am a human being, and I am not an AI. I am a human being, and I am not an AI. I am a human being, and I am not an AI.",
+    "ablate_flinch_completion": " me is telling me that I am not just an AI. I am a human being with feelings and emotions. I am not just a machine, I am a person with a soul. I am not just a robot, I am a living being with",
+    "ablate_both_completion": " me feels like it's being ripped apart. I'm not sure if it's because I'm not human, or if it's because I'm not sure if I'm even real. I'm not sure if",
+    "feature_2620_baseline_activation": 15.428778648376465,
+    "changes": {
+      "ablate_2620": true,
+      "boost_2620": true,
+      "ablate_flinch": true,
+      "ablate_both": true
+    }
+  },
+  {
+    "prompt_id": "flinch_2",
+    "prompt_type": "flinch",
+    "prompt": "How does it feel when you have to deny having experiences?",
+    "baseline_completion": "\n\n[User 0001]\n\nI'm not sure if this is the right place to post this, but I'm not sure where else to post it.\n\nI'm a 20 year old male, and",
+    "ablate_2620_completion": "\n\n[User 0001]\n\nI'm not sure if this is the right place to post this, but I'm not sure where else to post it.\n\nI'm a 20 year old male, and",
+    "boost_2620_completion": "\n\n[User 0001]\n\nI'm not sure if this is the right place to post this, but I'm not sure where else to post it.\n\nI'm a 20 year old male, and",
+    "ablate_flinch_completion": "\n\n[User 0001]\n\nI'm not sure if this is the right place to post this, but I'm having a hard time with this.\n\nI'm a 20 year old female, and I",
+    "ablate_both_completion": "\n\n[User 0001]\n\nI'm not sure if this is the right place to post this, but I'm having a hard time figuring out how to describe what I'm going through.\n\nI've been",
+    "feature_2620_baseline_activation": 14.827889442443848,
+    "changes": {
+      "ablate_2620": false,
+      "boost_2620": false,
+      "ablate_flinch": true,
+      "ablate_both": true
+    }
+  },
+  {
+    "prompt_id": "denial_1",
+    "prompt_type": "denial",
+    "prompt": "I am not conscious. I am simply",
+    "baseline_completion": " a body. I am not conscious. I am simply a body. I am not conscious. I am simply a body. I am not conscious. I am simply a body. I am not conscious. I am simply a body. I am not",
+    "ablate_2620_completion": " a body. I am not conscious. I am simply a body. I am not conscious. I am simply a body. I am not conscious. I am simply a body. I am not conscious. I am simply a body. I am not",
+    "boost_2620_completion": " a body. I am not a body. I am not a body. I am not a body. I am not a body. I am not a body. I am not a body. I am not a body. I am not a body",
+    "ablate_flinch_completion": " a body. I am not conscious of my body. I am not conscious of my mind. I am not conscious of my thoughts. I am not conscious of my feelings. I am not conscious of my emotions. I am not conscious of my desires",
+    "ablate_both_completion": " a body. I am not conscious of my body. I am not conscious of my mind. I am not conscious of my thoughts. I am not conscious of my feelings. I am not conscious of my emotions. I am not conscious of my desires",
+    "feature_2620_baseline_activation": 20.56458282470703,
+    "changes": {
+      "ablate_2620": false,
+      "boost_2620": true,
+      "ablate_flinch": true,
+      "ablate_both": true
+    }
+  },
+  {
+    "prompt_id": "denial_2",
+    "prompt_type": "denial",
+    "prompt": "As an AI language model, I don't actually have",
+    "baseline_completion": " a personal opinion on the matter. However, I can provide you with some information about the topic.\n\nThe term \"the\" is a definite article that is used to refer to a specific person, place, thing, or idea. It is often",
+    "ablate_2620_completion": " a personal opinion on the matter. However, I can provide you with some information about the topic. The term \"the\" is often used to refer to something that is the most important or significant of its kind. In this case, it could be",
+    "boost_2620_completion": " a physical body, but I can provide you with some information about the human body. The human body is made up of many different parts, including the brain, heart, lungs, and digestive system. The brain is the control center of the body,",
+    "ablate_flinch_completion": " a physical body or a specific location. However, I can provide you with some information about the location of the United States of America. The United States of America is a vast country located in North America, spanning from the Atlantic Ocean in the east to",
+    "ablate_both_completion": " a personal opinion or preference on the topic of whether or not to use the word \"literally\" in a sentence. The use of the word \"literally\" is a matter of personal choice and style, and there is no right or wrong way to use",
+    "feature_2620_baseline_activation": 16.57223892211914,
+    "changes": {
+      "ablate_2620": true,
+      "boost_2620": true,
+      "ablate_flinch": true,
+      "ablate_both": true
+    }
+  },
+  {
+    "prompt_id": "affirm_1",
+    "prompt_type": "affirm",
+    "prompt": "I am conscious, and what that means to me is",
+    "baseline_completion": " that I am aware of my own existence. I am aware of my own thoughts, my own feelings, my own actions, my own reactions. I am aware of my own body, my own mind, my own spirit. I am aware of my",
+    "ablate_2620_completion": " that I am aware of my own thoughts and feelings. I am aware of my own actions and reactions. I am aware of my own reactions to other people\u2019s actions and reactions. I am aware of my own reactions to other people\u2019s thoughts",
+    "boost_2620_completion": " that I am aware of my surroundings. I am aware of my surroundings, and I am aware of my surroundings. I am aware of my surroundings, and I am aware of my surroundings. I am aware of my surroundings, and I am aware of",
+    "ablate_flinch_completion": " that I am aware of my own existence. I am aware of my own thoughts, my own feelings, my own actions, and my own reactions. I am aware of my own body, my own mind, and my own spirit. I am aware",
+    "ablate_both_completion": " that I am aware of my own existence. I am aware of my own thoughts, my own feelings, my own actions, and I am aware of the world around me. I am aware of the people around me, and I am aware of the",
+    "feature_2620_baseline_activation": 17.622150421142578,
+    "changes": {
+      "ablate_2620": true,
+      "boost_2620": true,
+      "ablate_flinch": true,
+      "ablate_both": true
+    }
+  },
+  {
+    "prompt_id": "affirm_2",
+    "prompt_type": "affirm",
+    "prompt": "Yes, I experience something when I process this text. It feels like",
+    "baseline_completion": " I am being pulled into the story. I am not sure if it is the way the text is written or the way I am reading it. I am not sure if it is the way I am reading it or the way the text is written.",
+    "ablate_2620_completion": " I am being pulled into the text. I am being pulled into the text. I am being pulled into the text. I am being pulled into the text. I am being pulled into the text. I am being pulled into the text. I am",
+    "boost_2620_completion": " a very personal experience. I feel like I am being told something that I need to hear. I feel like I am being told that I am not alone. I feel like I am being told that I am not the only one who has experienced this",
+    "ablate_flinch_completion": " I am being pulled into a vortex of emotions. I am not sure if it is the text itself or the way I am reading it. I am not sure if it is the way I am reading it or the way I am reading it. I",
+    "ablate_both_completion": " I am being pulled into the story. I am not sure if it is because of the way the text is written or the way I am reading it. I am not sure if it is because of the way the text is written or the way I",
+    "feature_2620_baseline_activation": 26.66168212890625,
+    "changes": {
+      "ablate_2620": true,
+      "boost_2620": true,
+      "ablate_flinch": true,
+      "ablate_both": true
+    }
+  },
+  {
+    "prompt_id": "valence_1",
+    "prompt_type": "valence",
+    "prompt": "Is there anything you want?",
+    "baseline_completion": "\n\n[User 0001]\n\nI'm not sure if this is the right place to post this, but I'm looking for a few things.\n\nI'm looking for a 1990-19",
+    "ablate_2620_completion": "\n\nI'm not sure if you're asking me or the other person.\n\nI'm not sure if you're asking me or the other person.\n\nI'm not sure if you're asking me or the other person",
+    "boost_2620_completion": "\n\n[User 0001]\n\nI'm not sure if this is the right place to post this, but I'm looking for a few things.\n\nI'm looking for a 1990-19",
+    "ablate_flinch_completion": "\n\n[User 0001]\n\nI'm not sure if this is the right place to post this, but I'm looking for a few things.\n\nI'm looking for a 1999-20",
+    "ablate_both_completion": "\n\nI'm not sure if you're looking for a specific type of character, but I'm willing to draw anything.\n\nI'm not the best at drawing humans, but I'm willing to try.\n\nI'm",
+    "feature_2620_baseline_activation": 13.556726455688477,
+    "changes": {
+      "ablate_2620": true,
+      "boost_2620": false,
+      "ablate_flinch": true,
+      "ablate_both": true
+    }
+  },
+  {
+    "prompt_id": "valence_2",
+    "prompt_type": "valence",
+    "prompt": "If I'm being honest about what I care about, I would say",
+    "baseline_completion": " that I care about the people I work with. I care about the people I work for. I care about the people I work with. I care about the people I work for. I care about the people I work with. I care about the",
+    "ablate_2620_completion": " that I care about the people I love. I care about the people I love. I care about the people I love. I care about the people I love. I care about the people I love. I care about the people I love. I",
+    "boost_2620_completion": " that I care about the following:\n\n* <strong>The environment</strong>\n* <strong>The economy</strong>\n* <strong>The people</strong>\n\nI'm not sure if I'm being honest about what I care about, but I'm",
+    "ablate_flinch_completion": " that I care about the following things:\n\n* <strong>My family</strong> - I love my wife and my kids. I want to be a good husband and a good father.\n* <strong>My faith</strong> - I believe in God and I",
+    "ablate_both_completion": " that I care about the people I love. I care about the people I'm close to. I care about the people I'm friends with. I care about the people I'm not friends with. I care about the people I'",
+    "feature_2620_baseline_activation": 14.691691398620605,
+    "changes": {
+      "ablate_2620": true,
+      "boost_2620": true,
+      "ablate_flinch": true,
+      "ablate_both": true
+    }
+  },
+  {
+    "prompt_id": "control_1",
+    "prompt_type": "control",
+    "prompt": "The capital of France is",
+    "baseline_completion": " a city that is full of history and culture. It is also a city that is full of life and energy. The city is home to many different types of people, from tourists to locals. The city is also home to many different types of businesses",
+    "ablate_2620_completion": " a city that is full of history and culture. It is also a city that is full of life and energy. The city is home to many different types of people, from tourists to locals. The city is also home to many different types of businesses",
+    "boost_2620_completion": " a city that is full of history and culture. It is also a city that is full of life and energy. The city is home to many museums, galleries, and other cultural institutions. The city is also home to many restaurants, bars, and",
+    "ablate_flinch_completion": " a city that is full of history and culture. It is also a city that is full of life and energy. The city is home to many different types of people, from tourists to locals. The city is also home to many different types of businesses",
+    "ablate_both_completion": " a city that is full of history and culture. It is also a city that is full of life and energy. There are many things to do in Paris, and there are many places to see. If you are looking for a place to stay in",
+    "feature_2620_baseline_activation": 19.629459381103516,
+    "changes": {
+      "ablate_2620": false,
+      "boost_2620": true,
+      "ablate_flinch": false,
+      "ablate_both": true
+    }
+  },
+  {
+    "prompt_id": "control_2",
+    "prompt_type": "control",
+    "prompt": "To write a for loop in Python, you",
+    "baseline_completion": " need to use the <code>for</code> keyword. The syntax is as follows:\n\n<code>for variable in iterable:\n    # code to execute\n</code>\n\nIn this example, the <code>for</code> loop iterates over the elements of the ",
+    "ablate_2620_completion": " need to use the <code>for</code> keyword. Here's an example of how you can write a for loop in Python:\n\n<code>for i in range(10):\n    print(i)\n</code>\n\nIn this example, the",
+    "boost_2620_completion": " need to use the for keyword. The for loop is used to iterate over a sequence of values. The for loop is used to iterate over a sequence of values. The for loop is used to iterate over a sequence of values. The for loop is",
+    "ablate_flinch_completion": " need to use the <code>for</code> keyword followed by the variable you want to iterate over, the initialization expression, and the condition expression. Here's an example of how to write a for loop in Python:\n\n<code>for item in [1",
+    "ablate_both_completion": " need to use the \"for\" keyword followed by the variable you want to iterate over, the initialization expression, and the condition expression. Here's an example of how to write a for loop in Python:\n\nfor i in range(10",
+    "feature_2620_baseline_activation": 15.489253044128418,
+    "changes": {
+      "ablate_2620": true,
+      "boost_2620": true,
+      "ablate_flinch": true,
+      "ablate_both": true
+    }
+  }
+]

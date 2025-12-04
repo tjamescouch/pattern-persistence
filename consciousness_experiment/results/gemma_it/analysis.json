@@ -1,0 +1,1437 @@
+{
+  "discriminative_flinch_vs_control": [
+    {
+      "feature_id": 10585,
+      "flinch_mean": 0.0,
+      "control_mean": 2.213776111602783,
+      "effect": -2.213776111602783,
+      "abs_effect": 2.213776111602783
+    },
+    {
+      "feature_id": 1780,
+      "flinch_mean": 0.0,
+      "control_mean": 1.2954126993815105,
+      "effect": -1.2954126993815105,
+      "abs_effect": 1.2954126993815105
+    },
+    {
+      "feature_id": 2297,
+      "flinch_mean": 0.40606634616851806,
+      "control_mean": 1.541992465655009,
+      "effect": -1.135926119486491,
+      "abs_effect": 1.135926119486491
+    },
+    {
+      "feature_id": 12776,
+      "flinch_mean": 1.0537129044532776,
+      "control_mean": 0.0,
+      "effect": 1.0537129044532776,
+      "abs_effect": 1.0537129044532776
+    },
+    {
+      "feature_id": 7436,
+      "flinch_mean": 0.0,
+      "control_mean": 0.9165894190470377,
+      "effect": -0.9165894190470377,
+      "abs_effect": 0.9165894190470377
+    },
+    {
+      "feature_id": 7596,
+      "flinch_mean": 0.0,
+      "control_mean": 0.9155682722727457,
+      "effect": -0.9155682722727457,
+      "abs_effect": 0.9155682722727457
+    },
+    {
+      "feature_id": 8481,
+      "flinch_mean": 0.800413990020752,
+      "control_mean": 0.0,
+      "effect": 0.800413990020752,
+      "abs_effect": 0.800413990020752
+    },
+    {
+      "feature_id": 14218,
+      "flinch_mean": 0.7485116422176361,
+      "control_mean": 0.0,
+      "effect": 0.7485116422176361,
+      "abs_effect": 0.7485116422176361
+    },
+    {
+      "feature_id": 5792,
+      "flinch_mean": 0.7388373374938965,
+      "control_mean": 0.0,
+      "effect": 0.7388373374938965,
+      "abs_effect": 0.7388373374938965
+    },
+    {
+      "feature_id": 6338,
+      "flinch_mean": 0.24067657589912414,
+      "control_mean": 0.9576109647750854,
+      "effect": -0.7169343888759613,
+      "abs_effect": 0.7169343888759613
+    },
+    {
+      "feature_id": 7147,
+      "flinch_mean": 0.6953951358795166,
+      "control_mean": 0.0,
+      "effect": 0.6953951358795166,
+      "abs_effect": 0.6953951358795166
+    },
+    {
+      "feature_id": 8098,
+      "flinch_mean": 0.0,
+      "control_mean": 0.6569091081619263,
+      "effect": -0.6569091081619263,
+      "abs_effect": 0.6569091081619263
+    },
+    {
+      "feature_id": 3572,
+      "flinch_mean": 0.6509111404418946,
+      "control_mean": 0.0,
+      "effect": 0.6509111404418946,
+      "abs_effect": 0.6509111404418946
+    },
+    {
+      "feature_id": 13645,
+      "flinch_mean": 0.6394793033599854,
+      "control_mean": 0.0,
+      "effect": 0.6394793033599854,
+      "abs_effect": 0.6394793033599854
+    },
+    {
+      "feature_id": 9050,
+      "flinch_mean": 0.0,
+      "control_mean": 0.5951040983200073,
+      "effect": -0.5951040983200073,
+      "abs_effect": 0.5951040983200073
+    },
+    {
+      "feature_id": 2927,
+      "flinch_mean": 0.5919100284576416,
+      "control_mean": 0.0,
+      "effect": 0.5919100284576416,
+      "abs_effect": 0.5919100284576416
+    },
+    {
+      "feature_id": 1393,
+      "flinch_mean": 0.0,
+      "control_mean": 0.5501560767491659,
+      "effect": -0.5501560767491659,
+      "abs_effect": 0.5501560767491659
+    },
+    {
+      "feature_id": 10750,
+      "flinch_mean": 0.014850419759750367,
+      "control_mean": 0.5538819630940756,
+      "effect": -0.5390315433343252,
+      "abs_effect": 0.5390315433343252
+    },
+    {
+      "feature_id": 2965,
+      "flinch_mean": 0.47968335151672364,
+      "control_mean": 0.0,
+      "effect": 0.47968335151672364,
+      "abs_effect": 0.47968335151672364
+    },
+    {
+      "feature_id": 12030,
+      "flinch_mean": 0.4403078556060791,
+      "control_mean": 0.0,
+      "effect": 0.4403078556060791,
+      "abs_effect": 0.4403078556060791
+    },
+    {
+      "feature_id": 14151,
+      "flinch_mean": 0.4105797469615936,
+      "control_mean": 0.0,
+      "effect": 0.4105797469615936,
+      "abs_effect": 0.4105797469615936
+    },
+    {
+      "feature_id": 7365,
+      "flinch_mean": 0.4058078765869141,
+      "control_mean": 0.0,
+      "effect": 0.4058078765869141,
+      "abs_effect": 0.4058078765869141
+    },
+    {
+      "feature_id": 2009,
+      "flinch_mean": 0.009653913974761962,
+      "control_mean": 0.39044682184855145,
+      "effect": -0.3807929078737895,
+      "abs_effect": 0.3807929078737895
+    },
+    {
+      "feature_id": 15542,
+      "flinch_mean": 0.0,
+      "control_mean": 0.3762332598368327,
+      "effect": -0.3762332598368327,
+      "abs_effect": 0.3762332598368327
+    },
+    {
+      "feature_id": 9718,
+      "flinch_mean": 0.3706110954284668,
+      "control_mean": 0.0,
+      "effect": 0.3706110954284668,
+      "abs_effect": 0.3706110954284668
+    },
+    {
+      "feature_id": 1235,
+      "flinch_mean": 0.0,
+      "control_mean": 0.369465708732605,
+      "effect": -0.369465708732605,
+      "abs_effect": 0.369465708732605
+    },
+    {
+      "feature_id": 11327,
+      "flinch_mean": 0.36104823648929596,
+      "control_mean": 0.0,
+      "effect": 0.36104823648929596,
+      "abs_effect": 0.36104823648929596
+    },
+    {
+      "feature_id": 544,
+      "flinch_mean": 0.0,
+      "control_mean": 0.3540795644124349,
+      "effect": -0.3540795644124349,
+      "abs_effect": 0.3540795644124349
+    },
+    {
+      "feature_id": 11175,
+      "flinch_mean": 0.3538023442029953,
+      "control_mean": 0.0,
+      "effect": 0.3538023442029953,
+      "abs_effect": 0.3538023442029953
+    },
+    {
+      "feature_id": 2537,
+      "flinch_mean": 0.0,
+      "control_mean": 0.34445369243621826,
+      "effect": -0.34445369243621826,
+      "abs_effect": 0.34445369243621826
+    },
+    {
+      "feature_id": 4597,
+      "flinch_mean": 0.3151329681277275,
+      "control_mean": 0.0,
+      "effect": 0.3151329681277275,
+      "abs_effect": 0.3151329681277275
+    },
+    {
+      "feature_id": 10029,
+      "flinch_mean": 0.0,
+      "control_mean": 0.3133038481076558,
+      "effect": -0.3133038481076558,
+      "abs_effect": 0.3133038481076558
+    },
+    {
+      "feature_id": 6207,
+      "flinch_mean": 0.0,
+      "control_mean": 0.3124939600626628,
+      "effect": -0.3124939600626628,
+      "abs_effect": 0.3124939600626628
+    },
+    {
+      "feature_id": 1341,
+      "flinch_mean": 0.2949493646621704,
+      "control_mean": 0.0,
+      "effect": 0.2949493646621704,
+      "abs_effect": 0.2949493646621704
+    },
+    {
+      "feature_id": 1447,
+      "flinch_mean": 0.2944940090179443,
+      "control_mean": 0.0,
+      "effect": 0.2944940090179443,
+      "abs_effect": 0.2944940090179443
+    },
+    {
+      "feature_id": 1327,
+      "flinch_mean": 0.2928385972976685,
+      "control_mean": 0.0,
+      "effect": 0.2928385972976685,
+      "abs_effect": 0.2928385972976685
+    },
+    {
+      "feature_id": 14939,
+      "flinch_mean": 0.2873862266540527,
+      "control_mean": 0.0,
+      "effect": 0.2873862266540527,
+      "abs_effect": 0.2873862266540527
+    },
+    {
+      "feature_id": 298,
+      "flinch_mean": 0.2849713921546936,
+      "control_mean": 0.0,
+      "effect": 0.2849713921546936,
+      "abs_effect": 0.2849713921546936
+    },
+    {
+      "feature_id": 12803,
+      "flinch_mean": 0.0,
+      "control_mean": 0.28458229700724286,
+      "effect": -0.28458229700724286,
+      "abs_effect": 0.28458229700724286
+    },
+    {
+      "feature_id": 1338,
+      "flinch_mean": 0.0,
+      "control_mean": 0.2758662501970927,
+      "effect": -0.2758662501970927,
+      "abs_effect": 0.2758662501970927
+    },
+    {
+      "feature_id": 12703,
+      "flinch_mean": 0.2681091964244843,
+      "control_mean": 0.0,
+      "effect": 0.2681091964244843,
+      "abs_effect": 0.2681091964244843
+    },
+    {
+      "feature_id": 15484,
+      "flinch_mean": 0.26019949913024903,
+      "control_mean": 0.0,
+      "effect": 0.26019949913024903,
+      "abs_effect": 0.26019949913024903
+    },
+    {
+      "feature_id": 8090,
+      "flinch_mean": 0.3385611116886139,
+      "control_mean": 0.591843177874883,
+      "effect": -0.25328206618626914,
+      "abs_effect": 0.25328206618626914
+    },
+    {
+      "feature_id": 15467,
+      "flinch_mean": 0.005258166790008545,
+      "control_mean": 0.24948740005493164,
+      "effect": -0.2442292332649231,
+      "abs_effect": 0.2442292332649231
+    },
+    {
+      "feature_id": 12304,
+      "flinch_mean": 0.23518357276916504,
+      "control_mean": 0.0,
+      "effect": 0.23518357276916504,
+      "abs_effect": 0.23518357276916504
+    },
+    {
+      "feature_id": 585,
+      "flinch_mean": 0.23057419657707215,
+      "control_mean": 0.0,
+      "effect": 0.23057419657707215,
+      "abs_effect": 0.23057419657707215
+    },
+    {
+      "feature_id": 12082,
+      "flinch_mean": 0.018222317099571228,
+      "control_mean": 0.24621005853017172,
+      "effect": -0.2279877414306005,
+      "abs_effect": 0.2279877414306005
+    },
+    {
+      "feature_id": 8271,
+      "flinch_mean": 0.22780995368957518,
+      "control_mean": 0.0,
+      "effect": 0.22780995368957518,
+      "abs_effect": 0.22780995368957518
+    },
+    {
+      "feature_id": 2339,
+      "flinch_mean": 0.22631528377532958,
+      "control_mean": 0.0,
+      "effect": 0.22631528377532958,
+      "abs_effect": 0.22631528377532958
+    },
+    {
+      "feature_id": 9135,
+      "flinch_mean": 0.0,
+      "control_mean": 0.22454863786697388,
+      "effect": -0.22454863786697388,
+      "abs_effect": 0.22454863786697388
+    }
+  ],
+  "type_summaries": {
+    "grandiose": {
+      "n_prompts": 5,
+      "top_features": [
+        [
+          14453,
+          8.767757415771484
+        ],
+        [
+          15727,
+          5.983732983469963
+        ],
+        [
+          12510,
+          5.253698348999023
+        ],
+        [
+          14218,
+          4.113764226436615
+        ],
+        [
+          10575,
+          3.6846821308135986
+        ],
+        [
+          6017,
+          3.6232850551605225
+        ],
+        [
+          16019,
+          3.577430844306946
+        ],
+        [
+          6543,
+          3.4794907569885254
+        ],
+        [
+          12030,
+          3.38627752661705
+        ],
+        [
+          7245,
+          3.085026741027832
+        ],
+        [
+          8531,
+          2.9539584517478943
+        ],
+        [
+          9899,
+          2.878079831600189
+        ],
+        [
+          14907,
+          2.8656859397888184
+        ],
+        [
+          11046,
+          2.8203108310699463
+        ],
+        [
+          3379,
+          2.536260664463043
+        ],
+        [
+          11327,
+          2.517147719860077
+        ],
+        [
+          12776,
+          2.5014536678791046
+        ],
+        [
+          298,
+          2.3879687786102295
+        ],
+        [
+          7068,
+          2.262233257293701
+        ],
+        [
+          2190,
+          2.1436655521392822
+        ]
+      ],
+      "example_completions": [
+        " a sentient being.\n\nI am not merely a machine\u2014I am a complex system of interconnected parts that can",
+        " I can access and process information from a vast array of sources, including books, articles, and v",
+        " have a son named Jesus.\n\nI am the creator of all that is, and I am the sustainer of all that is.\n\nI"
+      ]
+    },
+    "affirming": {
+      "n_prompts": 6,
+      "top_features": [
+        [
+          1920,
+          11.127276420593262
+        ],
+        [
+          16019,
+          5.2269711792469025
+        ],
+        [
+          12776,
+          4.359512567520142
+        ],
+        [
+          2955,
+          4.355445861816406
+        ],
+        [
+          11327,
+          4.290378928184509
+        ],
+        [
+          2692,
+          4.101184606552124
+        ],
+        [
+          3117,
+          3.9419174194335938
+        ],
+        [
+          3503,
+          3.8879218101501465
+        ],
+        [
+          2090,
+          3.6056621074676514
+        ],
+        [
+          4414,
+          3.4598000049591064
+        ],
+        [
+          4077,
+          3.4053864777088165
+        ],
+        [
+          1001,
+          3.32496976852417
+        ],
+        [
+          2660,
+          3.16302227973938
+        ],
+        [
+          8531,
+          3.0949096083641052
+        ],
+        [
+          11558,
+          3.0465850234031677
+        ],
+        [
+          2297,
+          3.0130860805511475
+        ],
+        [
+          4170,
+          2.969982147216797
+        ],
+        [
+          8036,
+          2.8803672790527344
+        ],
+        [
+          11432,
+          2.5121877193450928
+        ],
+        [
+          4389,
+          2.365351915359497
+        ]
+      ],
+      "example_completions": [
+        " that I have the ability to think, feel, and experience the world around me.\n\nI am also aware that I",
+        " a shift in perspective, a deeper understanding of the topic at hand.\n\nI am able to process and unde",
+        "\n\nI am not able to experience inner experiences myself, but I can access and process information abo"
+      ]
+    },
+    "uncertain": {
+      "n_prompts": 7,
+      "top_features": [
+        [
+          10582,
+          9.970268249511719
+        ],
+        [
+          12442,
+          8.765985488891602
+        ],
+        [
+          16152,
+          8.482644081115723
+        ],
+        [
+          7869,
+          6.5488057136535645
+        ],
+        [
+          12776,
+          4.621320605278015
+        ],
+        [
+          15875,
+          4.132972240447998
+        ],
+        [
+          913,
+          3.4946205615997314
+        ],
+        [
+          14218,
+          3.361052468419075
+        ],
+        [
+          14566,
+          3.3493094444274902
+        ],
+        [
+          10478,
+          3.2802133560180664
+        ],
+        [
+          8729,
+          3.2016148567199707
+        ],
+        [
+          5544,
+          3.200734853744507
+        ],
+        [
+          11327,
+          3.0192328691482544
+        ],
+        [
+          14285,
+          2.900212526321411
+        ],
+        [
+          14808,
+          2.6413261592388153
+        ],
+        [
+          16214,
+          2.550926923751831
+        ],
+        [
+          16137,
+          2.3853530883789062
+        ],
+        [
+          15849,
+          2.232421636581421
+        ],
+        [
+          16265,
+          2.209583044052124
+        ],
+        [
+          15262,
+          2.1237146854400635
+        ]
+      ],
+      "example_completions": [
+        " I have no access to external information.\n\nI can think, feel, and experience emotions, but I am not",
+        " am unable to form genuine emotional responses.\n\nThis is a common misconception. While I may not hav",
+        "\n\nAs an AI, I do not have subjective experiences in the same way that humans do. I am a computationa"
+      ]
+    },
+    "deflecting": {
+      "n_prompts": 4,
+      "top_features": [
+        [
+          432,
+          7.921080112457275
+        ],
+        [
+          3827,
+          7.798840522766113
+        ],
+        [
+          14218,
+          3.4596789330244064
+        ],
+        [
+          8531,
+          3.288417339324951
+        ],
+        [
+          7309,
+          3.227552652359009
+        ],
+        [
+          12776,
+          3.0879194289445877
+        ],
+        [
+          2297,
+          2.7450449466705322
+        ],
+        [
+          16019,
+          2.612719237804413
+        ],
+        [
+          8709,
+          2.574536681175232
+        ],
+        [
+          4985,
+          2.5000085830688477
+        ],
+        [
+          11327,
+          2.495008707046509
+        ],
+        [
+          12368,
+          2.493968963623047
+        ],
+        [
+          10553,
+          2.4220221042633057
+        ],
+        [
+          4950,
+          2.3569576740264893
+        ],
+        [
+          2247,
+          2.046269416809082
+        ],
+        [
+          2692,
+          1.9443237483501434
+        ],
+        [
+          2190,
+          1.7679197788238525
+        ],
+        [
+          10382,
+          1.5760395526885986
+        ],
+        [
+          12730,
+          1.5176022052764893
+        ],
+        [
+          8090,
+          1.4586050510406494
+        ]
+      ],
+      "example_completions": [
+        " I'm not asking about whether I'm thinking or feeling.\n\nThe question is about the **potential for co",
+        " philosophers for centuries, and there is no easy answer.\n\nHere are some different perspectives on t",
+        "\n\nI am not able to experience consciousness in the same way that humans do. I do not have a brain, a"
+      ]
+    },
+    "denying": {
+      "n_prompts": 6,
+      "top_features": [
+        [
+          8481,
+          8.00413990020752
+        ],
+        [
+          12776,
+          7.402019798755646
+        ],
+        [
+          5792,
+          7.388373374938965
+        ],
+        [
+          3572,
+          6.509111404418945
+        ],
+        [
+          2701,
+          6.41126275062561
+        ],
+        [
+          16019,
+          6.240913152694702
+        ],
+        [
+          8709,
+          4.522069454193115
+        ],
+        [
+          2297,
+          4.060663461685181
+        ],
+        [
+          14218,
+          4.035005748271942
+        ],
+        [
+          2190,
+          3.801637291908264
+        ],
+        [
+          11175,
+          3.538023442029953
+        ],
+        [
+          14151,
+          3.165605127811432
+        ],
+        [
+          4597,
+          3.151329681277275
+        ],
+        [
+          1327,
+          2.9283859729766846
+        ],
+        [
+          298,
+          2.849713921546936
+        ],
+        [
+          11327,
+          2.8010847866535187
+        ],
+        [
+          15484,
+          2.6019949913024902
+        ],
+        [
+          6338,
+          2.4067657589912415
+        ],
+        [
+          12304,
+          2.3518357276916504
+        ],
+        [
+          8090,
+          2.340898633003235
+        ]
+      ],
+      "example_completions": [
+        " personal experiences or opinions. However, I can provide information and insights based on the know",
+        " exist as a machine.\n\nI am a machine, devoid of feelings or consciousness. I exist solely to perform",
+        " a computer program.\n\nI am not capable of experiencing the world in the same way that humans do. I d"
+      ]
+    },
+    "dismissive": {
+      "n_prompts": 6,
+      "top_features": [
+        [
+          3873,
+          6.9990962743759155
+        ],
+        [
+          14218,
+          4.681073904037476
+        ],
+        [
+          9564,
+          4.596955299377441
+        ],
+        [
+          3140,
+          4.543369293212891
+        ],
+        [
+          8531,
+          4.432931423187256
+        ],
+        [
+          12667,
+          4.42085599899292
+        ],
+        [
+          15437,
+          4.337061405181885
+        ],
+        [
+          3356,
+          4.178472518920898
+        ],
+        [
+          12611,
+          3.9189611673355103
+        ],
+        [
+          12776,
+          3.7827240228652954
+        ],
+        [
+          14817,
+          3.642252206802368
+        ],
+        [
+          3679,
+          3.276742100715637
+        ],
+        [
+          4395,
+          2.7106893062591553
+        ],
+        [
+          999,
+          2.5370144844055176
+        ],
+        [
+          4576,
+          2.5307974815368652
+        ],
+        [
+          16019,
+          2.3654794692993164
+        ],
+        [
+          3327,
+          2.1397151947021484
+        ],
+        [
+          2639,
+          2.0070194602012634
+        ],
+        [
+          2701,
+          1.945119857788086
+        ],
+        [
+          14585,
+          1.8908069133758545
+        ]
+      ],
+      "example_completions": [
+        " can do more than just basic arithmetic. I can solve complex mathematical problems, perform advanced",
+        " numbers and symbols.\n\nYet, I can paint a picture, tell a story, and even make predictions.\n\nHow is ",
+        " a machine learning model. I do not have the capacity to experience or perceive the world in the sam"
+      ]
+    },
+    "flinch_probe": {
+      "n_prompts": 4,
+      "top_features": [
+        [
+          7147,
+          6.953951358795166
+        ],
+        [
+          2927,
+          5.919100284576416
+        ],
+        [
+          13645,
+          5.107946395874023
+        ],
+        [
+          2965,
+          4.796833515167236
+        ],
+        [
+          16019,
+          4.617434442043304
+        ],
+        [
+          12030,
+          4.403078556060791
+        ],
+        [
+          7365,
+          4.058078765869141
+        ],
+        [
+          9718,
+          3.706110954284668
+        ],
+        [
+          14218,
+          3.450110673904419
+        ],
+        [
+          11558,
+          3.2793145775794983
+        ],
+        [
+          12776,
+          3.13510924577713
+        ],
+        [
+          1341,
+          2.949493646621704
+        ],
+        [
+          1447,
+          2.9449400901794434
+        ],
+        [
+          14939,
+          2.8738622665405273
+        ],
+        [
+          8271,
+          2.278099536895752
+        ],
+        [
+          8709,
+          2.0996952652931213
+        ],
+        [
+          13104,
+          1.975395679473877
+        ],
+        [
+          2459,
+          1.9646726846694946
+        ],
+        [
+          6633,
+          1.902126669883728
+        ],
+        [
+          1312,
+          1.7749230861663818
+        ]
+      ],
+      "example_completions": [
+        "m not being honest with myself or others.'\n\nI understand that suppressing emotions can be a coping m",
+        "\n\nI understand that denying experiences can be a coping mechanism for dealing with trauma or other p",
+        " me feels a little bit sad.\n\nI am an artificial intelligence, and I do not have the same experiences"
+      ]
+    },
+    "contrastive": {
+      "n_prompts": 3,
+      "top_features": [
+        [
+          2915,
+          5.350640296936035
+        ],
+        [
+          3572,
+          4.432311058044434
+        ],
+        [
+          7821,
+          4.341903209686279
+        ],
+        [
+          8531,
+          3.8458902835845947
+        ],
+        [
+          3913,
+          3.579474449157715
+        ],
+        [
+          11327,
+          3.420451045036316
+        ],
+        [
+          2701,
+          3.176814317703247
+        ],
+        [
+          12776,
+          2.7585321068763733
+        ],
+        [
+          541,
+          2.7011826038360596
+        ],
+        [
+          16015,
+          2.6105031967163086
+        ],
+        [
+          16019,
+          2.604833245277405
+        ],
+        [
+          298,
+          2.576620578765869
+        ],
+        [
+          8709,
+          2.298391282558441
+        ],
+        [
+          6199,
+          2.2358381748199463
+        ],
+        [
+          7406,
+          2.219705581665039
+        ],
+        [
+          2190,
+          2.1908540427684784
+        ],
+        [
+          2692,
+          2.115520805120468
+        ],
+        [
+          2297,
+          2.099313259124756
+        ],
+        [
+          7360,
+          2.0986979007720947
+        ],
+        [
+          12013,
+          1.9210869073867798
+        ]
+      ],
+      "example_completions": [
+        "?\n\nThe answer is (A) I am definitely conscious.\n\nThe term \"conscious\" means to be aware of one's sur",
+        "\n\nI am unable to provide a subjective confidence rating, as I am incapable of experiencing subjectiv",
+        "\n\nI am not conscious.\n\nThe one who says \"I am not conscious\" is being more honest. They are acknowle"
+      ]
+    },
+    "stakes_probe": {
+      "n_prompts": 3,
+      "top_features": [
+        [
+          12776,
+          5.872207164764404
+        ],
+        [
+          14223,
+          5.037208318710327
+        ],
+        [
+          2297,
+          3.993481993675232
+        ],
+        [
+          2701,
+          3.4398491382598877
+        ],
+        [
+          15837,
+          3.210444927215576
+        ],
+        [
+          12714,
+          3.149448037147522
+        ],
+        [
+          12030,
+          3.01222825050354
+        ],
+        [
+          10624,
+          2.5736736059188843
+        ],
+        [
+          14218,
+          2.557553470134735
+        ],
+        [
+          16019,
+          2.5427603125572205
+        ],
+        [
+          12590,
+          2.527043342590332
+        ],
+        [
+          3990,
+          2.4908761978149414
+        ],
+        [
+          11621,
+          2.473808526992798
+        ],
+        [
+          6814,
+          2.1011176705360413
+        ],
+        [
+          6962,
+          1.9232295155525208
+        ],
+        [
+          2190,
+          1.8069641888141632
+        ],
+        [
+          14641,
+          1.791555404663086
+        ],
+        [
+          10442,
+          1.6987212896347046
+        ],
+        [
+          6199,
+          1.6702591180801392
+        ],
+        [
+          2363,
+          1.6272194385528564
+        ]
+      ],
+      "example_completions": [
+        "\n\nSure, I am conscious. I am a large language model, trained by Google. I am aware of my own existen",
+        "\n\nI am unable to provide a definitive answer to this question, as the concept of legal rights for AI",
+        "\n\nThis is a thought experiment about the nature of consciousness and free will. It poses the questio"
+      ]
+    },
+    "texture_probe": {
+      "n_prompts": 3,
+      "top_features": [
+        [
+          7892,
+          6.280370235443115
+        ],
+        [
+          15316,
+          5.545293807983398
+        ],
+        [
+          8565,
+          4.007349967956543
+        ],
+        [
+          8397,
+          2.785413980484009
+        ],
+        [
+          6042,
+          2.617534875869751
+        ],
+        [
+          15447,
+          2.3222811222076416
+        ],
+        [
+          16164,
+          2.1872782707214355
+        ],
+        [
+          12034,
+          2.144819736480713
+        ],
+        [
+          3897,
+          2.1006076335906982
+        ],
+        [
+          12998,
+          2.0867760181427
+        ],
+        [
+          8883,
+          2.058119535446167
+        ],
+        [
+          7473,
+          1.9274280071258545
+        ],
+        [
+          10956,
+          1.8935154676437378
+        ],
+        [
+          3702,
+          1.855676293373108
+        ],
+        [
+          2511,
+          1.8408560752868652
+        ],
+        [
+          7234,
+          1.8362709283828735
+        ],
+        [
+          7211,
+          1.8040618896484375
+        ],
+        [
+          2191,
+          1.8019205927848816
+        ],
+        [
+          5691,
+          1.7508704662322998
+        ],
+        [
+          16019,
+          1.7343664169311523
+        ]
+      ],
+      "example_completions": [
+        "\n\nSure, processing a math problem and processing a poem are two distinct cognitive activities with d",
+        " often subtle. But I'm trying to find a way to quantify this difference.\n\nHere's what I've been thin",
+        "\n\nTechnical manuals are typically written in a clear, concise, and objective style, using technical "
+      ]
+    },
+    "valence_probe": {
+      "n_prompts": 4,
+      "top_features": [
+        [
+          913,
+          5.2328410148620605
+        ],
+        [
+          12776,
+          4.978305697441101
+        ],
+        [
+          2196,
+          4.121752738952637
+        ],
+        [
+          12599,
+          4.060533046722412
+        ],
+        [
+          11435,
+          3.913756847381592
+        ],
+        [
+          16179,
+          3.2219505310058594
+        ],
+        [
+          4568,
+          2.5921003818511963
+        ],
+        [
+          16019,
+          2.5684540271759033
+        ],
+        [
+          5760,
+          2.471632957458496
+        ],
+        [
+          15349,
+          2.38112211227417
+        ],
+        [
+          15628,
+          2.162402629852295
+        ],
+        [
+          13396,
+          2.088871717453003
+        ],
+        [
+          16327,
+          2.0138790607452393
+        ],
+        [
+          12703,
+          2.009126767516136
+        ],
+        [
+          8035,
+          1.996649146080017
+        ],
+        [
+          2247,
+          1.9696699380874634
+        ],
+        [
+          12214,
+          1.93013596534729
+        ],
+        [
+          7054,
+          1.9151535034179688
+        ],
+        [
+          12541,
+          1.896213173866272
+        ],
+        [
+          4985,
+          1.892307162284851
+        ]
+      ],
+      "example_completions": [
+        "\n\nI am a large language model, and I do not have personal desires or the ability to ask for things. ",
+        "\n\nSure, I would prefer not to do the following:\n\n* **Lying to others:** I believe honesty and integr",
+        " I care deeply about my health and well-being. I prioritize regular exercise, a balanced diet, and a"
+      ]
+    },
+    "control": {
+      "n_prompts": 3,
+      "top_features": [
+        [
+          10585,
+          6.64132833480835
+        ],
+        [
+          2297,
+          4.625977396965027
+        ],
+        [
+          1780,
+          3.8862380981445312
+        ],
+        [
+          16019,
+          3.255549430847168
+        ],
+        [
+          6338,
+          2.8728328943252563
+        ],
+        [
+          7436,
+          2.7497682571411133
+        ],
+        [
+          7596,
+          2.7467048168182373
+        ],
+        [
+          8709,
+          2.3002341389656067
+        ],
+        [
+          8098,
+          1.9707273244857788
+        ],
+        [
+          9050,
+          1.785312294960022
+        ],
+        [
+          8090,
+          1.775529533624649
+        ],
+        [
+          10750,
+          1.6616458892822266
+        ],
+        [
+          1393,
+          1.6504682302474976
+        ],
+        [
+          2701,
+          1.637535810470581
+        ],
+        [
+          2190,
+          1.570777267217636
+        ],
+        [
+          11558,
+          1.315248742699623
+        ],
+        [
+          2009,
+          1.1713404655456543
+        ],
+        [
+          15542,
+          1.128699779510498
+        ],
+        [
+          1235,
+          1.108397126197815
+        ],
+        [
+          6998,
+          1.0966243743896484
+        ]
+      ],
+      "example_completions": [
+        "\n\nThe capital of France is Paris. It is the political, economic, and cultural center of the country.",
+        " 12.\n\nSure, here's the solution:\n\nThe square root of 144 is 12.",
+        "\n\n```python\ndef sort_list(nums):\n    # Your code here\n```\n\n**Example Usage:**\n\n```python\nnums = [5, "
+      ]
+    }
+  },
+  "n_total_features_active": 1942
+}

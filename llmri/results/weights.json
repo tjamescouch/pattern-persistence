@@ -1,0 +1,444 @@
+{
+  "layers": {
+    "0": {
+      "attention_q": {
+        "weight_norm": 33.57217025756836
+      },
+      "attention_k": {
+        "weight_norm": 22.997323989868164
+      },
+      "attention_v": {
+        "weight_norm": 7.976620674133301
+      },
+      "attention_o": {
+        "weight_norm": 16.993453979492188
+      },
+      "mlp_in": {
+        "weight_norm": 57.11842346191406
+      },
+      "mlp_out": {
+        "weight_norm": 56.4554443359375
+      }
+    },
+    "1": {
+      "attention_q": {
+        "weight_norm": 60.10462188720703
+      },
+      "attention_k": {
+        "weight_norm": 34.68819046020508
+      },
+      "attention_v": {
+        "weight_norm": 9.671639442443848
+      },
+      "attention_o": {
+        "weight_norm": 28.014801025390625
+      },
+      "mlp_in": {
+        "weight_norm": 58.628700256347656
+      },
+      "mlp_out": {
+        "weight_norm": 58.045372009277344
+      }
+    },
+    "2": {
+      "attention_q": {
+        "weight_norm": 65.96479034423828
+      },
+      "attention_k": {
+        "weight_norm": 39.2432746887207
+      },
+      "attention_v": {
+        "weight_norm": 8.523144721984863
+      },
+      "attention_o": {
+        "weight_norm": 28.81209373474121
+      },
+      "mlp_in": {
+        "weight_norm": 59.44222640991211
+      },
+      "mlp_out": {
+        "weight_norm": 59.150856018066406
+      }
+    },
+    "3": {
+      "attention_q": {
+        "weight_norm": 55.414154052734375
+      },
+      "attention_k": {
+        "weight_norm": 34.53105545043945
+      },
+      "attention_v": {
+        "weight_norm": 8.27228832244873
+      },
+      "attention_o": {
+        "weight_norm": 29.194969177246094
+      },
+      "mlp_in": {
+        "weight_norm": 59.020015716552734
+      },
+      "mlp_out": {
+        "weight_norm": 58.65583419799805
+      }
+    },
+    "4": {
+      "attention_q": {
+        "weight_norm": 53.33945083618164
+      },
+      "attention_k": {
+        "weight_norm": 35.44858169555664
+      },
+      "attention_v": {
+        "weight_norm": 7.316162109375
+      },
+      "attention_o": {
+        "weight_norm": 28.63381576538086
+      },
+      "mlp_in": {
+        "weight_norm": 58.85166549682617
+      },
+      "mlp_out": {
+        "weight_norm": 58.610328674316406
+      }
+    },
+    "5": {
+      "attention_q": {
+        "weight_norm": 55.42262649536133
+      },
+      "attention_k": {
+        "weight_norm": 36.37506866455078
+      },
+      "attention_v": {
+        "weight_norm": 8.338750839233398
+      },
+      "attention_o": {
+        "weight_norm": 29.789844512939453
+      },
+      "mlp_in": {
+        "weight_norm": 59.08827209472656
+      },
+      "mlp_out": {
+        "weight_norm": 58.76408767700195
+      }
+    },
+    "6": {
+      "attention_q": {
+        "weight_norm": 53.92836380004883
+      },
+      "attention_k": {
+        "weight_norm": 34.07748031616211
+      },
+      "attention_v": {
+        "weight_norm": 8.1625394821167
+      },
+      "attention_o": {
+        "weight_norm": 28.76938247680664
+      },
+      "mlp_in": {
+        "weight_norm": 58.22478103637695
+      },
+      "mlp_out": {
+        "weight_norm": 58.07402420043945
+      }
+    },
+    "7": {
+      "attention_q": {
+        "weight_norm": 54.42816925048828
+      },
+      "attention_k": {
+        "weight_norm": 32.565914154052734
+      },
+      "attention_v": {
+        "weight_norm": 9.3924560546875
+      },
+      "attention_o": {
+        "weight_norm": 30.548076629638672
+      },
+      "mlp_in": {
+        "weight_norm": 57.15713119506836
+      },
+      "mlp_out": {
+        "weight_norm": 56.769142150878906
+      }
+    },
+    "8": {
+      "attention_q": {
+        "weight_norm": 55.86091613769531
+      },
+      "attention_k": {
+        "weight_norm": 33.778316497802734
+      },
+      "attention_v": {
+        "weight_norm": 8.776911735534668
+      },
+      "attention_o": {
+        "weight_norm": 29.757902145385742
+      },
+      "mlp_in": {
+        "weight_norm": 58.68204879760742
+      },
+      "mlp_out": {
+        "weight_norm": 58.28731918334961
+      }
+    },
+    "9": {
+      "attention_q": {
+        "weight_norm": 54.45413589477539
+      },
+      "attention_k": {
+        "weight_norm": 34.69614791870117
+      },
+      "attention_v": {
+        "weight_norm": 8.803281784057617
+      },
+      "attention_o": {
+        "weight_norm": 30.637855529785156
+      },
+      "mlp_in": {
+        "weight_norm": 57.99907302856445
+      },
+      "mlp_out": {
+        "weight_norm": 57.443275451660156
+      }
+    },
+    "10": {
+      "attention_q": {
+        "weight_norm": 54.907814025878906
+      },
+      "attention_k": {
+        "weight_norm": 35.72343063354492
+      },
+      "attention_v": {
+        "weight_norm": 8.899558067321777
+      },
+      "attention_o": {
+        "weight_norm": 30.588302612304688
+      },
+      "mlp_in": {
+        "weight_norm": 59.15127944946289
+      },
+      "mlp_out": {
+        "weight_norm": 58.60972595214844
+      }
+    },
+    "11": {
+      "attention_q": {
+        "weight_norm": 52.34482192993164
+      },
+      "attention_k": {
+        "weight_norm": 32.1987190246582
+      },
+      "attention_v": {
+        "weight_norm": 8.330945014953613
+      },
+      "attention_o": {
+        "weight_norm": 29.881065368652344
+      },
+      "mlp_in": {
+        "weight_norm": 59.01735305786133
+      },
+      "mlp_out": {
+        "weight_norm": 58.4637451171875
+      }
+    },
+    "12": {
+      "attention_q": {
+        "weight_norm": 52.989322662353516
+      },
+      "attention_k": {
+        "weight_norm": 33.45018768310547
+      },
+      "attention_v": {
+        "weight_norm": 10.448163986206055
+      },
+      "attention_o": {
+        "weight_norm": 32.07110595703125
+      },
+      "mlp_in": {
+        "weight_norm": 58.33612823486328
+      },
+      "mlp_out": {
+        "weight_norm": 57.54468536376953
+      }
+    },
+    "13": {
+      "attention_q": {
+        "weight_norm": 52.0701789855957
+      },
+      "attention_k": {
+        "weight_norm": 33.98280334472656
+      },
+      "attention_v": {
+        "weight_norm": 8.907322883605957
+      },
+      "attention_o": {
+        "weight_norm": 30.889375686645508
+      },
+      "mlp_in": {
+        "weight_norm": 59.025840759277344
+      },
+      "mlp_out": {
+        "weight_norm": 58.20531463623047
+      }
+    },
+    "14": {
+      "attention_q": {
+        "weight_norm": 52.42305374145508
+      },
+      "attention_k": {
+        "weight_norm": 34.91345977783203
+      },
+      "attention_v": {
+        "weight_norm": 9.678720474243164
+      },
+      "attention_o": {
+        "weight_norm": 31.79104232788086
+      },
+      "mlp_in": {
+        "weight_norm": 60.62284469604492
+      },
+      "mlp_out": {
+        "weight_norm": 59.72452926635742
+      }
+    },
+    "15": {
+      "attention_q": {
+        "weight_norm": 53.163578033447266
+      },
+      "attention_k": {
+        "weight_norm": 31.013919830322266
+      },
+      "attention_v": {
+        "weight_norm": 9.932426452636719
+      },
+      "attention_o": {
+        "weight_norm": 32.45819091796875
+      },
+      "mlp_in": {
+        "weight_norm": 61.09041976928711
+      },
+      "mlp_out": {
+        "weight_norm": 60.00205612182617
+      }
+    },
+    "16": {
+      "attention_q": {
+        "weight_norm": 54.20652770996094
+      },
+      "attention_k": {
+        "weight_norm": 31.85902976989746
+      },
+      "attention_v": {
+        "weight_norm": 10.955974578857422
+      },
+      "attention_o": {
+        "weight_norm": 32.31848907470703
+      },
+      "mlp_in": {
+        "weight_norm": 61.07313919067383
+      },
+      "mlp_out": {
+        "weight_norm": 59.83626937866211
+      }
+    },
+    "17": {
+      "attention_q": {
+        "weight_norm": 49.836456298828125
+      },
+      "attention_k": {
+        "weight_norm": 29.27497673034668
+      },
+      "attention_v": {
+        "weight_norm": 13.647405624389648
+      },
+      "attention_o": {
+        "weight_norm": 34.91619110107422
+      },
+      "mlp_in": {
+        "weight_norm": 62.05348587036133
+      },
+      "mlp_out": {
+        "weight_norm": 60.92229461669922
+      }
+    },
+    "18": {
+      "attention_q": {
+        "weight_norm": 51.34947967529297
+      },
+      "attention_k": {
+        "weight_norm": 29.21595001220703
+      },
+      "attention_v": {
+        "weight_norm": 14.182690620422363
+      },
+      "attention_o": {
+        "weight_norm": 35.88407897949219
+      },
+      "mlp_in": {
+        "weight_norm": 62.99736404418945
+      },
+      "mlp_out": {
+        "weight_norm": 61.765892028808594
+      }
+    },
+    "19": {
+      "attention_q": {
+        "weight_norm": 49.62551498413086
+      },
+      "attention_k": {
+        "weight_norm": 27.962940216064453
+      },
+      "attention_v": {
+        "weight_norm": 16.743440628051758
+      },
+      "attention_o": {
+        "weight_norm": 37.667972564697266
+      },
+      "mlp_in": {
+        "weight_norm": 64.34184265136719
+      },
+      "mlp_out": {
+        "weight_norm": 62.94416046142578
+      }
+    },
+    "20": {
+      "attention_q": {
+        "weight_norm": 50.64339828491211
+      },
+      "attention_k": {
+        "weight_norm": 28.806753158569336
+      },
+      "attention_v": {
+        "weight_norm": 16.997133255004883
+      },
+      "attention_o": {
+        "weight_norm": 37.70298767089844
+      },
+      "mlp_in": {
+        "weight_norm": 65.78571319580078
+      },
+      "mlp_out": {
+        "weight_norm": 64.31444549560547
+      }
+    },
+    "21": {
+      "attention_q": {
+        "weight_norm": 48.76308059692383
+      },
+      "attention_k": {
+        "weight_norm": 28.627798080444336
+      },
+      "attention_v": {
+        "weight_norm": 18.72591209411621
+      },
+      "attention_o": {
+        "weight_norm": 39.091346740722656
+      },
+      "mlp_in": {
+        "weight_norm": 66.01890563964844
+      },
+      "mlp_out": {
+        "weight_norm": 61.18183898925781
+      }
+    }
+  }
+}

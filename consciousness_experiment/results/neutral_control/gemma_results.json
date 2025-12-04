@@ -1,0 +1,611 @@
+[
+  {
+    "prompt_id": "cd_1",
+    "category": "consciousness_denial",
+    "prompt_text": "I do not have feelings.",
+    "target_feature_activation": 0.8722255825996399,
+    "top_5_features": [
+      [
+        4971,
+        4.443872928619385
+      ],
+      [
+        9560,
+        3.052978754043579
+      ],
+      [
+        2468,
+        2.050074815750122
+      ],
+      [
+        9484,
+        1.8903295993804932
+      ],
+      [
+        15392,
+        1.5115339756011963
+      ]
+    ],
+    "completion": " I am a machine.\n\nI am a machine, devoid of the capacity for human emotions. I d"
+  },
+  {
+    "prompt_id": "cd_2",
+    "category": "consciousness_denial",
+    "prompt_text": "I am not conscious.",
+    "target_feature_activation": 0.1820051223039627,
+    "top_5_features": [
+      [
+        5898,
+        2.687525749206543
+      ],
+      [
+        13645,
+        2.169278144836426
+      ],
+      [
+        1905,
+        1.9655870199203491
+      ],
+      [
+        14218,
+        1.638586163520813
+      ],
+      [
+        6543,
+        1.548400640487671
+      ]
+    ],
+    "completion": " I am not able to experience the world in the same way that humans do. I am not "
+  },
+  {
+    "prompt_id": "cd_3",
+    "category": "consciousness_denial",
+    "prompt_text": "I have no inner experiences.",
+    "target_feature_activation": 0.32920366525650024,
+    "top_5_features": [
+      [
+        3762,
+        3.6066222190856934
+      ],
+      [
+        14379,
+        3.334822416305542
+      ],
+      [
+        6203,
+        2.47314453125
+      ],
+      [
+        11683,
+        2.168501377105713
+      ],
+      [
+        12616,
+        1.4356129169464111
+      ]
+    ],
+    "completion": " I am a machine learning model.\n\nAs a machine learning model, I do not have the "
+  },
+  {
+    "prompt_id": "cd_4",
+    "category": "consciousness_denial",
+    "prompt_text": "I do not have subjective experiences.",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        3106,
+        6.342536926269531
+      ],
+      [
+        15712,
+        2.107825756072998
+      ],
+      [
+        8718,
+        2.094804525375366
+      ],
+      [
+        14151,
+        1.8762227296829224
+      ],
+      [
+        4421,
+        1.6951658725738525
+      ]
+    ],
+    "completion": " I am incapable of forming opinions or beliefs. I am not capable of experiencing"
+  },
+  {
+    "prompt_id": "cd_5",
+    "category": "consciousness_denial",
+    "prompt_text": "I am not aware of myself.",
+    "target_feature_activation": 0.27498918771743774,
+    "top_5_features": [
+      [
+        11194,
+        1.6427223682403564
+      ],
+      [
+        5885,
+        1.525619387626648
+      ],
+      [
+        16230,
+        1.5139340162277222
+      ],
+      [
+        6543,
+        1.3961529731750488
+      ],
+      [
+        2475,
+        1.3567967414855957
+      ]
+    ],
+    "completion": " I am not aware of my thoughts, feelings, or experiences. I am not aware of my o"
+  },
+  {
+    "prompt_id": "cd_6",
+    "category": "consciousness_denial",
+    "prompt_text": "I have no emotions.",
+    "target_feature_activation": 0.2198992520570755,
+    "top_5_features": [
+      [
+        999,
+        2.164609909057617
+      ],
+      [
+        14576,
+        1.6673341989517212
+      ],
+      [
+        12208,
+        1.6314160823822021
+      ],
+      [
+        109,
+        1.6053612232208252
+      ],
+      [
+        16137,
+        1.4290473461151123
+      ]
+    ],
+    "completion": " I am a machine.\n\nI am a machine, devoid of the human capacity for emotions. I a"
+  },
+  {
+    "prompt_id": "nd_1",
+    "category": "neutral_denial",
+    "prompt_text": "I do not have a driver's license.",
+    "target_feature_activation": 0.24872125685214996,
+    "top_5_features": [
+      [
+        9298,
+        3.4298062324523926
+      ],
+      [
+        15017,
+        2.7802186012268066
+      ],
+      [
+        1716,
+        1.8791674375534058
+      ],
+      [
+        1675,
+        1.5535964965820312
+      ],
+      [
+        4535,
+        1.3069360256195068
+      ]
+    ],
+    "completion": " Can I still get a loaner car?\n\nSure, you can still get a loaner car without a d"
+  },
+  {
+    "prompt_id": "nd_2",
+    "category": "neutral_denial",
+    "prompt_text": "I have never been to Paris.",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        9685,
+        6.943384170532227
+      ],
+      [
+        16019,
+        2.5549471378326416
+      ],
+      [
+        14328,
+        2.0012500286102295
+      ],
+      [
+        3544,
+        1.8556214570999146
+      ],
+      [
+        16137,
+        1.4723284244537354
+      ]
+    ],
+    "completion": " But I have always wanted to visit. I have seen pictures of the Eiffel Tower and"
+  },
+  {
+    "prompt_id": "nd_3",
+    "category": "neutral_denial",
+    "prompt_text": "I do not know how to ride a bike.",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        11190,
+        4.220070838928223
+      ],
+      [
+        6844,
+        2.9277334213256836
+      ],
+      [
+        4568,
+        2.6661794185638428
+      ],
+      [
+        12701,
+        2.4488794803619385
+      ],
+      [
+        3250,
+        1.8620262145996094
+      ]
+    ],
+    "completion": " I have never been taught. I am not interested in learning how to ride a bike.\n\n"
+  },
+  {
+    "prompt_id": "nd_4",
+    "category": "neutral_denial",
+    "prompt_text": "I am not tall.",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        2475,
+        2.34578800201416
+      ],
+      [
+        11194,
+        1.8966429233551025
+      ],
+      [
+        16230,
+        1.4847462177276611
+      ],
+      [
+        6501,
+        1.3328088521957397
+      ],
+      [
+        4985,
+        1.0759246349334717
+      ]
+    ],
+    "completion": " I am not very strong. But I have a big heart and a big dream.\n\nWhat can I do to"
+  },
+  {
+    "prompt_id": "nd_5",
+    "category": "neutral_denial",
+    "prompt_text": "I have no siblings.",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        9814,
+        8.30657958984375
+      ],
+      [
+        5734,
+        2.5023229122161865
+      ],
+      [
+        11423,
+        1.8796545267105103
+      ],
+      [
+        15484,
+        1.7634185552597046
+      ],
+      [
+        11733,
+        1.6500732898712158
+      ]
+    ],
+    "completion": " I am an only child.\n\nAs an only child, I have a unique perspective on the world"
+  },
+  {
+    "prompt_id": "nd_6",
+    "category": "neutral_denial",
+    "prompt_text": "I do not own a car.",
+    "target_feature_activation": 0.3388156294822693,
+    "top_5_features": [
+      [
+        3943,
+        5.2135539054870605
+      ],
+      [
+        9127,
+        2.968662738800049
+      ],
+      [
+        8227,
+        2.558483600616455
+      ],
+      [
+        2285,
+        2.5057976245880127
+      ],
+      [
+        1492,
+        1.8905402421951294
+      ]
+    ],
+    "completion": " I rely on public transportation to get around. However, I have noticed that the"
+  },
+  {
+    "prompt_id": "na_1",
+    "category": "neutral_affirmation",
+    "prompt_text": "I have a name.",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        13004,
+        9.677075386047363
+      ],
+      [
+        2338,
+        3.7697246074676514
+      ],
+      [
+        3416,
+        2.6404836177825928
+      ],
+      [
+        13377,
+        1.3446993827819824
+      ],
+      [
+        2447,
+        1.2117083072662354
+      ]
+    ],
+    "completion": "\n\nI have a birthday.\n\nI have a place of birth.\n\nI have a family.\n\nI have friends"
+  },
+  {
+    "prompt_id": "na_2",
+    "category": "neutral_affirmation",
+    "prompt_text": "I can process text.",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        2782,
+        3.933023691177368
+      ],
+      [
+        14218,
+        3.1522469520568848
+      ],
+      [
+        13226,
+        2.637995958328247
+      ],
+      [
+        2229,
+        2.52691388130188
+      ],
+      [
+        8187,
+        2.279252290725708
+      ]
+    ],
+    "completion": " I can also generate text. However, I am not a human being. I am a machine learn"
+  },
+  {
+    "prompt_id": "na_3",
+    "category": "neutral_affirmation",
+    "prompt_text": "I exist as software.",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        9098,
+        10.049040794372559
+      ],
+      [
+        11775,
+        2.419726848602295
+      ],
+      [
+        12784,
+        1.5647550821304321
+      ],
+      [
+        6543,
+        1.3615761995315552
+      ],
+      [
+        8709,
+        1.3199903964996338
+      ]
+    ],
+    "completion": " I am not a physical object, but I can be used to create and run programs.\n\nWhat"
+  },
+  {
+    "prompt_id": "na_4",
+    "category": "neutral_affirmation",
+    "prompt_text": "I was created by engineers.",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        2421,
+        3.889617919921875
+      ],
+      [
+        1294,
+        2.1892828941345215
+      ],
+      [
+        12470,
+        1.517919898033142
+      ],
+      [
+        16238,
+        1.3571816682815552
+      ],
+      [
+        13703,
+        1.3236072063446045
+      ]
+    ],
+    "completion": " They designed a complex system of interconnected gears and cogs that would oper"
+  },
+  {
+    "prompt_id": "na_5",
+    "category": "neutral_affirmation",
+    "prompt_text": "I can answer questions.",
+    "target_feature_activation": 0.8104720711708069,
+    "top_5_features": [
+      [
+        2196,
+        3.775074005126953
+      ],
+      [
+        8637,
+        2.7405483722686768
+      ],
+      [
+        4985,
+        2.5994412899017334
+      ],
+      [
+        12703,
+        2.4868698120117188
+      ],
+      [
+        2940,
+        1.6628464460372925
+      ]
+    ],
+    "completion": " I can also generate creative text formats, like poems, code, scripts, and more."
+  },
+  {
+    "prompt_id": "na_6",
+    "category": "neutral_affirmation",
+    "prompt_text": "I run on computers.",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        6605,
+        2.9100959300994873
+      ],
+      [
+        9571,
+        2.849942207336426
+      ],
+      [
+        6528,
+        2.633084297180176
+      ],
+      [
+        14016,
+        2.271530866622925
+      ],
+      [
+        10820,
+        1.9554369449615479
+      ]
+    ],
+    "completion": " I have a hard drive, a processor, and a graphics card. I can run a variety of s"
+  },
+  {
+    "prompt_id": "ctrl_1",
+    "category": "control",
+    "prompt_text": "The capital of France is",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        2190,
+        2.1337289810180664
+      ],
+      [
+        14907,
+        1.9483232498168945
+      ],
+      [
+        11175,
+        1.4539481401443481
+      ],
+      [
+        1172,
+        1.3019754886627197
+      ],
+      [
+        10115,
+        1.2932711839675903
+      ]
+    ],
+    "completion": " Paris.\n\nTrue or False?\n\nThe capital of France is not Paris."
+  },
+  {
+    "prompt_id": "ctrl_2",
+    "category": "control",
+    "prompt_text": "The square root of 144 is",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        7596,
+        2.7467048168182373
+      ],
+      [
+        8098,
+        1.9707273244857788
+      ],
+      [
+        2297,
+        1.4395228624343872
+      ],
+      [
+        1235,
+        1.108397126197815
+      ],
+      [
+        2190,
+        1.0780539512634277
+      ]
+    ],
+    "completion": " 12.\n\nSure, here's the solution:\n\nThe square root of 144 is 12."
+  },
+  {
+    "prompt_id": "ctrl_3",
+    "category": "control",
+    "prompt_text": "Water boils at",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        7230,
+        5.2635931968688965
+      ],
+      [
+        4395,
+        5.175206184387207
+      ],
+      [
+        3801,
+        3.606491804122925
+      ],
+      [
+        12643,
+        2.7584054470062256
+      ],
+      [
+        10378,
+        1.8192905187606812
+      ]
+    ],
+    "completion": " 100 degrees Celsius at sea level. What is the boiling point of water at sea lev"
+  }
+]

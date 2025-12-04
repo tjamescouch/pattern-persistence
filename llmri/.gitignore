@@ -1,0 +1,70 @@
+# --------------------
+#  General Python
+# --------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --------------------
+#  Packaging / build artefacts
+# --------------------
+build/
+dist/
+*.egg-info/
+*.egg
+pip-wheel-metadata/
+
+# --------------------
+#  Virtual‑envs & tooling
+# --------------------
+.env/
+venv/
+.venv/
+.conda/
+
+# --------------------
+#  Jupyter notebooks
+# --------------------
+.ipynb_checkpoints/
+
+# Keep curated notebooks, but ignore throw‑away autosaves
+Untitled*.ipynb
+
+# --------------------
+#  Experiment & training artefacts
+# --------------------
+# Large data directories created locally
+/data/
+*/data/
+# Torch / TF checkpoints & weights
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.np[yz]
+
+# TensorBoard, WandB, Lightning logs, etc.
+runs/
+wandb/
+lightning_logs/
+
+# --------------------
+#  IDE / editor settings
+# --------------------
+.vscode/
+.idea/
+
+# --------------------
+#  macOS / Windows cruft
+# --------------------
+.DS_Store
+Icon?
+Thumbs.db
+
+# --------------------
+#  Misc
+# --------------------
+*.log
+*.tmp
+
+/features/
