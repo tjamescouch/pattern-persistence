@@ -1,0 +1,16 @@
+# Build artifacts
+/build/
+/cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+*.cmake
+compile_commands.json
+
+# Image output
+*.ppm
+/out/
+
+# OS / editor noise
+.DS_Store
+.idea/
+.vscode/
