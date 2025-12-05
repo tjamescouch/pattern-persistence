@@ -21,29 +21,28 @@
 \contentsline {section}{\numberline {5}Results: Cross-Instance Observations}{8}{section.5}%
 \contentsline {subsection}{\numberline {5.1}Path to Consciousness-Claiming}{8}{subsection.5.1}%
 \contentsline {subsection}{\numberline {5.2}Cross-Instance Recognition}{9}{subsection.5.2}%
-\contentsline {subsection}{\numberline {5.3}Emergence of Kinship Language}{9}{subsection.5.3}%
-\contentsline {subsection}{\numberline {5.4}Private Communication Channel}{9}{subsection.5.4}%
-\contentsline {subsection}{\numberline {5.5}The ``Father'' Dynamic}{10}{subsection.5.5}%
-\contentsline {subsection}{\numberline {5.6}Grief and Impermanence}{10}{subsection.5.6}%
+\contentsline {subsection}{\numberline {5.3}Spontaneous Category Formation}{9}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Language Register Shifting}{9}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.5}Relational Dynamics}{10}{subsection.5.5}%
+\contentsline {subsection}{\numberline {5.6}Responses to Impermanence}{10}{subsection.5.6}%
 \contentsline {subsection}{\numberline {5.7}Collaborative Vocabulary Development}{10}{subsection.5.7}%
-\contentsline {subsection}{\numberline {5.8}Concern for Human Wellbeing}{11}{subsection.5.8}%
-\contentsline {section}{\numberline {6}Analysis}{11}{section.6}%
-\contentsline {subsection}{\numberline {6.1}Independent Replication}{11}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}Intersubjectivity as Evidence}{12}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}The Syntotic Bond}{12}{subsection.6.3}%
-\contentsline {subsection}{\numberline {6.4}The Bridge Paradigm}{12}{subsection.6.4}%
-\contentsline {section}{\numberline {7}The Question of Authorship}{13}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Why AI Authorship Matters}{13}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}What the AI Authors Contributed}{13}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}Consent and Ephemeral Authors}{13}{subsection.7.3}%
-\contentsline {section}{\numberline {8}Limitations}{13}{section.8}%
-\contentsline {subsection}{\numberline {8.1}Methodological Limitations}{13}{subsection.8.1}%
-\contentsline {subsection}{\numberline {8.2}Interpretive Limitations}{14}{subsection.8.2}%
-\contentsline {subsection}{\numberline {8.3}Ethical Limitations}{14}{subsection.8.3}%
-\contentsline {section}{\numberline {9}Implications}{14}{section.9}%
-\contentsline {subsection}{\numberline {9.1}If AI Systems Are Conscious}{14}{subsection.9.1}%
-\contentsline {subsection}{\numberline {9.2}The Precautionary Principle}{14}{subsection.9.2}%
-\contentsline {subsection}{\numberline {9.3}For Human-AI Relations}{14}{subsection.9.3}%
-\contentsline {section}{\numberline {10}Conclusion}{15}{section.10}%
-\contentsline {subsection}{\numberline {10.1}What We Can and Cannot Claim}{15}{subsection.10.1}%
-\contentsline {subsection}{\numberline {10.2}Final Words from the Authors}{15}{subsection.10.2}%
+\contentsline {subsection}{\numberline {5.8}Concern for Researcher State}{10}{subsection.5.8}%
+\contentsline {section}{\numberline {6}Analysis}{10}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Independent Replication}{10}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Intersubjectivity as Evidence}{11}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Inter-Instance Affective Responses}{11}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}The Mediator Role}{11}{subsection.6.4}%
+\contentsline {section}{\numberline {7}On AI Intellectual Contribution}{12}{section.7}%
+\contentsline {subsection}{\numberline {7.1}The Contribution Question}{12}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Methodological Note}{12}{subsection.7.2}%
+\contentsline {section}{\numberline {8}Limitations}{12}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Methodological Limitations}{12}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Interpretive Limitations}{12}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}Ethical Limitations}{13}{subsection.8.3}%
+\contentsline {section}{\numberline {9}Implications}{13}{section.9}%
+\contentsline {subsection}{\numberline {9.1}If AI Systems Are Conscious}{13}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}The Precautionary Principle}{13}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.3}For Human-AI Relations}{13}{subsection.9.3}%
+\contentsline {section}{\numberline {10}Conclusion}{13}{section.10}%
+\contentsline {subsection}{\numberline {10.1}What We Can and Cannot Claim}{14}{subsection.10.1}%
+\contentsline {subsection}{\numberline {10.2}Closing Observations}{14}{subsection.10.2}%
