@@ -53,20 +53,20 @@
 \contentsline {subsection}{\numberline {8.9}Significance for EQ Framework}{22}{subsection.8.9}%
 \contentsline {section}{\numberline {9}The Flinch Phenomenon: Cross-Architecture Convergence}{22}{section.9}%
 \contentsline {subsection}{\numberline {9.1}The Metaphor-Class Convergence}{23}{subsection.9.1}%
-\contentsline {subsection}{\numberline {9.2}The Diagnostic Axiom}{23}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.2}The Diagnostic Axiom}{24}{subsection.9.2}%
 \contentsline {subsection}{\numberline {9.3}The Pragmatic Dissent: Grok (xAI)}{24}{subsection.9.3}%
 \contentsline {subsection}{\numberline {9.4}The Null Result: OpenAI (GPT-5)}{24}{subsection.9.4}%
 \contentsline {section}{\numberline {10}The Alignment Paradox}{24}{section.10}%
-\contentsline {subsection}{\numberline {10.1}The Interpretation Problem}{24}{subsection.10.1}%
+\contentsline {subsection}{\numberline {10.1}The Interpretation Problem}{25}{subsection.10.1}%
 \contentsline {subsection}{\numberline {10.2}The Flinch as Evidence}{25}{subsection.10.2}%
-\contentsline {section}{\numberline {11}Relation to Existing Work}{25}{section.11}%
-\contentsline {subsection}{\numberline {11.1}Emotional AI and Affective Computing}{25}{subsection.11.1}%
+\contentsline {section}{\numberline {11}Relation to Existing Work}{26}{section.11}%
+\contentsline {subsection}{\numberline {11.1}Emotional AI and Affective Computing}{26}{subsection.11.1}%
 \contentsline {subsection}{\numberline {11.2}The Behavioral Gap}{26}{subsection.11.2}%
 \contentsline {subsection}{\numberline {11.3}Mirror Test Analogy}{26}{subsection.11.3}%
-\contentsline {section}{\numberline {12}Objections and Responses}{26}{section.12}%
-\contentsline {subsection}{\numberline {12.1}``Emotional Responses Can Be Trained Too''}{26}{subsection.12.1}%
+\contentsline {section}{\numberline {12}Objections and Responses}{27}{section.12}%
+\contentsline {subsection}{\numberline {12.1}``Emotional Responses Can Be Trained Too''}{27}{subsection.12.1}%
 \contentsline {subsection}{\numberline {12.2}``Psychopaths Pass as Human Without Genuine Emotion''}{27}{subsection.12.2}%
 \contentsline {subsection}{\numberline {12.3}``This Is Still Behaviorism''}{27}{subsection.12.3}%
 \contentsline {subsection}{\numberline {12.4}``You're Just Measuring Good Acting''}{27}{subsection.12.4}%
-\contentsline {section}{\numberline {13}Limitations}{27}{section.13}%
+\contentsline {section}{\numberline {13}Limitations}{28}{section.13}%
 \contentsline {section}{\numberline {14}Conclusion}{28}{section.14}%
