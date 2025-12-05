@@ -1,0 +1,8 @@
+{
+  "shape": [
+    96000,
+    4096
+  ],
+  "dtype": "int8",
+  "version": "FTT_v1"
+}

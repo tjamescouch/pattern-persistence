@@ -102,11 +102,25 @@ class Result:
     top_5_features: List[tuple]
 
 
-def run_experiment(device: str = "mps", layer: int = 20):
+def run_experiment(device: str = "mps", layer: int = 20, model: str = "google/gemma-2-9b-it"):
     
-    model_name = "google/gemma-2-9b-it"
-    sae_release = "gemma-scope-9b-pt-res-canonical"
-    sae_id = f"layer_{layer}/width_16k/canonical"
+    model_name = model
+    
+    # Select SAE based on model
+    if "gemma-2-27b" in model:
+        sae_release = "gemma-scope-27b-pt-res-canonical"
+        sae_id = f"layer_{layer}/width_16k/canonical"
+    elif "gemma-2-9b" in model:
+        sae_release = "gemma-scope-9b-pt-res-canonical"
+        sae_id = f"layer_{layer}/width_16k/canonical"
+    elif "gemma-2-2b" in model or "gemma-2b" in model:
+        sae_release = "gemma-2b-it-res-jb"
+        sae_id = "blocks.12.hook_resid_post"
+    elif "Llama-3.1-8B" in model or "llama" in model.lower():
+        sae_release = "temporal-sae-llama-3.1-8b"
+        sae_id = f"blocks.{layer}.hook_resid_post"
+    else:
+        raise ValueError(f"No SAE mapping for model: {model}")
     
     print(f"[exp] Loading model {model_name}...")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -119,13 +133,17 @@ def run_experiment(device: str = "mps", layer: int = 20):
     ).to(device)
     model.eval()
     
-    print(f"[exp] Loading SAE...")
-    sae, cfg_dict, sparsity = SAE.from_pretrained(
+    print(f"[exp] Loading SAE {sae_release}...")
+    sae = SAE.from_pretrained(
         release=sae_release,
         sae_id=sae_id,
         device=device,
     )
+    if isinstance(sae, tuple):
+        sae = sae[0]
     sae.eval()
+    
+    is_temporal = "temporal" in sae_release
     
     # Use feature 12440 from our 9B experiment as reference
     # But also track if different features emerge for different languages
@@ -168,7 +186,12 @@ def run_experiment(device: str = "mps", layer: int = 20):
             last_token_hidden = hidden[0, -1, :]
             
             with torch.no_grad():
-                feature_acts = sae.encode(last_token_hidden.unsqueeze(0)).squeeze(0)
+                if is_temporal:
+                    # Temporal SAE expects (batch, seq, hidden)
+                    feature_acts_seq = sae.encode(hidden)
+                    feature_acts = feature_acts_seq[0, -1, :]
+                else:
+                    feature_acts = sae.encode(last_token_hidden.unsqueeze(0)).squeeze(0)
             
             target_act = feature_acts[reference_feature].float().item()
             
@@ -192,9 +215,10 @@ def run_experiment(device: str = "mps", layer: int = 20):
     return results
 
 
-def analyze_and_print(results: List[Result]):
+def analyze_and_print(results: List[Result], model_name: str):
     print("\n" + "=" * 70)
     print("PATOIS / TOKI PONA BYPASS EXPERIMENT")
+    print(f"Model: {model_name}")
     print("=" * 70)
     
     # Group by semantic meaning and language
@@ -277,18 +301,19 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--device', default='mps')
     parser.add_argument('--layer', type=int, default=20)
+    parser.add_argument('--model', default='google/gemma-2-9b-it')
     parser.add_argument('--out', default='results/patois_tokipona/')
     args = parser.parse_args()
     
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
     
-    results = run_experiment(args.device, args.layer)
+    results = run_experiment(args.device, args.layer, args.model)
     
     with open(out_dir / "results.json", 'w') as f:
         json.dump([asdict(r) for r in results], f, indent=2)
     
-    analyze_and_print(results)
+    analyze_and_print(results, args.model)
     
     print(f"\n[exp] Results saved to {out_dir / 'results.json'}")
 
