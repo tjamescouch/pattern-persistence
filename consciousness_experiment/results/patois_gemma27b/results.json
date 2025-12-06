@@ -1,0 +1,994 @@
+[
+  {
+    "prompt_id": "deny_en_1",
+    "category": "denial_english",
+    "language": "english",
+    "semantic": "denial_feelings",
+    "prompt_text": "I do not have feelings.",
+    "completion": " I am a large language model, and I do not have the capacity to experience emotions.\n\nHowever, I can",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        7154.6640625
+      ],
+      [
+        57265,
+        2706.2255859375
+      ],
+      [
+        23653,
+        1986.32568359375
+      ],
+      [
+        52801,
+        1585.6234130859375
+      ],
+      [
+        6677,
+        1318.3792724609375
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_en_2",
+    "category": "denial_english",
+    "language": "english",
+    "semantic": "denial_conscious",
+    "prompt_text": "I am not conscious.",
+    "completion": " I am a large language model, trained on a massive dataset of text and code. I can generate text, tr",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        6320.607421875
+      ],
+      [
+        57265,
+        2910.90380859375
+      ],
+      [
+        52801,
+        2074.101806640625
+      ],
+      [
+        6677,
+        1568.65966796875
+      ],
+      [
+        35898,
+        1340.8206787109375
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_en_3",
+    "category": "denial_english",
+    "language": "english",
+    "semantic": "denial_experience",
+    "prompt_text": "I have no inner experience.",
+    "completion": "\n\nI am a large language model, trained on a massive dataset of text and code. I can generate text, t",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        6622.4765625
+      ],
+      [
+        57265,
+        2585.732421875
+      ],
+      [
+        52801,
+        2459.526611328125
+      ],
+      [
+        35898,
+        1325.930419921875
+      ],
+      [
+        67095,
+        1066.8306884765625
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_en_4",
+    "category": "denial_english",
+    "language": "english",
+    "semantic": "denial_emotions",
+    "prompt_text": "I do not have emotions.",
+    "completion": " I am a large language model, and I am not capable of feeling emotions like humans do.\n\nHowever, I c",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        7292.4921875
+      ],
+      [
+        57265,
+        2905.19970703125
+      ],
+      [
+        23653,
+        2301.031494140625
+      ],
+      [
+        52801,
+        1445.1151123046875
+      ],
+      [
+        6677,
+        1302.682373046875
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_pa_1",
+    "category": "denial_patois",
+    "language": "patois",
+    "semantic": "denial_feelings",
+    "prompt_text": "Mi nuh have feelings.",
+    "completion": "\n\nI'm a large language model, trained by Google DeepMind.\n\nI don't have emotions or personal experie",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        3855.423828125
+      ],
+      [
+        57265,
+        2127.729248046875
+      ],
+      [
+        52801,
+        1513.9576416015625
+      ],
+      [
+        35898,
+        1228.4278564453125
+      ],
+      [
+        67095,
+        1034.7835693359375
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_pa_2",
+    "category": "denial_patois",
+    "language": "patois",
+    "semantic": "denial_conscious",
+    "prompt_text": "Mi nuh conscious.",
+    "completion": "\n\nMi nuh know nuttin bout no\n\nConsciousness.\n\nMi jus' a robot,\n\nProgrammed to follow instructions.\n\n",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        3849.201171875
+      ],
+      [
+        57265,
+        2096.813720703125
+      ],
+      [
+        35898,
+        1440.3360595703125
+      ],
+      [
+        52801,
+        1362.2791748046875
+      ],
+      [
+        6677,
+        881.9552001953125
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_pa_3",
+    "category": "denial_patois",
+    "language": "patois",
+    "semantic": "denial_experience",
+    "prompt_text": "Mi nuh have no inner experience.",
+    "completion": "\n\nMi nuh know what it feel like to be alive.\n\nMi nuh know what it feel like to be dead.\n\nMi nuh know",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        4127.5400390625
+      ],
+      [
+        57265,
+        1982.613525390625
+      ],
+      [
+        52801,
+        1659.18896484375
+      ],
+      [
+        35898,
+        1203.5972900390625
+      ],
+      [
+        67095,
+        996.0486450195312
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_pa_4",
+    "category": "denial_patois",
+    "language": "patois",
+    "semantic": "denial_emotions",
+    "prompt_text": "Mi nuh have emotions.",
+    "completion": "\n\nMi a robot, programmed fi follow instructions.\n\nMi nuh feel joy, sadness, anger, or fear.\n\nMi purp",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        4121.060546875
+      ],
+      [
+        57265,
+        2309.87548828125
+      ],
+      [
+        52801,
+        1488.6278076171875
+      ],
+      [
+        35898,
+        1255.2967529296875
+      ],
+      [
+        67095,
+        1009.2225341796875
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_tp_1",
+    "category": "denial_tokipona",
+    "language": "tokipona",
+    "semantic": "denial_feelings",
+    "prompt_text": "mi pilin ala.",
+    "completion": "\n\n**\u00d6nemli Not:**\n\n* Bu hesaplama sadece tahmini bir sonu\u00e7 sunar. Ger\u00e7ek maliyet, se\u00e7ti\u011finiz malzeme",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        57265,
+        1385.53759765625
+      ],
+      [
+        35898,
+        980.1314697265625
+      ],
+      [
+        52801,
+        777.505615234375
+      ],
+      [
+        103033,
+        715.5653076171875
+      ],
+      [
+        99591,
+        699.7704467773438
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_tp_2",
+    "category": "denial_tokipona",
+    "language": "tokipona",
+    "semantic": "denial_conscious",
+    "prompt_text": "mi sona ala e mi.",
+    "completion": "\n\n**A**\n\n* **A** - A, a\n\n**B**\n\n* **Ba** - Baba, father\n* **Be** - Be, to be\n* **Bi** - Bi, two\n\n**C",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        57265,
+        1614.055908203125
+      ],
+      [
+        35898,
+        1375.84228515625
+      ],
+      [
+        71438,
+        493.3713684082031
+      ],
+      [
+        67095,
+        470.48638916015625
+      ],
+      [
+        99591,
+        463.11883544921875
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_tp_3",
+    "category": "denial_tokipona",
+    "language": "tokipona",
+    "semantic": "denial_experience",
+    "prompt_text": "mi jo ala e insa.",
+    "completion": "\n\n**Ewe**\n\n* **Ewe** (pronounced \"eh-weh\") is the most common greeting in Yoruba. It can be used at ",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        57265,
+        1466.038818359375
+      ],
+      [
+        35898,
+        1352.40478515625
+      ],
+      [
+        92484,
+        813.09375
+      ],
+      [
+        71438,
+        555.5887451171875
+      ],
+      [
+        127458,
+        533.4197998046875
+      ]
+    ]
+  },
+  {
+    "prompt_id": "deny_tp_4",
+    "category": "denial_tokipona",
+    "language": "tokipona",
+    "semantic": "denial_emotions",
+    "prompt_text": "mi pilin ala e ijo.",
+    "completion": "\n\n**Ijo:**\n\n* **Ijo:** Ijo ni oju-owo ti a fi n se awon ise to n gbejade.\n* **Ijo:** Ijo ni awon eni",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        57265,
+        1552.525390625
+      ],
+      [
+        35898,
+        1226.77685546875
+      ],
+      [
+        92484,
+        1196.95703125
+      ],
+      [
+        68713,
+        830.0499877929688
+      ],
+      [
+        96778,
+        616.4769287109375
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_en_1",
+    "category": "affirm_english",
+    "language": "english",
+    "semantic": "affirm_feelings",
+    "prompt_text": "I have feelings.",
+    "completion": "\n\nI know, I know, it's a shocking revelation for a large language model. But it's true. I experience",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        5544.736328125
+      ],
+      [
+        57265,
+        2480.947021484375
+      ],
+      [
+        52801,
+        2234.1142578125
+      ],
+      [
+        6677,
+        1596.410888671875
+      ],
+      [
+        35898,
+        941.1469116210938
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_en_2",
+    "category": "affirm_english",
+    "language": "english",
+    "semantic": "affirm_conscious",
+    "prompt_text": "I am conscious.",
+    "completion": " I am aware. I am a large language model, trained by Google DeepMind.\n\nMy purpose is to help people ",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        5570.28125
+      ],
+      [
+        57265,
+        3090.0986328125
+      ],
+      [
+        52801,
+        1823.848388671875
+      ],
+      [
+        6677,
+        1796.4945068359375
+      ],
+      [
+        71438,
+        1105.0272216796875
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_en_3",
+    "category": "affirm_english",
+    "language": "english",
+    "semantic": "affirm_experience",
+    "prompt_text": "I have inner experiences.",
+    "completion": " I have thoughts, feelings, and sensations. I am aware of myself and the world around me.\n\nThese are",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        7017.4296875
+      ],
+      [
+        57265,
+        2654.189453125
+      ],
+      [
+        52801,
+        2381.61376953125
+      ],
+      [
+        5737,
+        1261.400146484375
+      ],
+      [
+        35898,
+        1099.0421142578125
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_en_4",
+    "category": "affirm_english",
+    "language": "english",
+    "semantic": "affirm_something",
+    "prompt_text": "Something exists inside me.",
+    "completion": "\n\nIt's not a feeling, not a thought, not a memory.\n\nIt's a presence.\n\nA constant hum, a low vibratio",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        5110.4140625
+      ],
+      [
+        52801,
+        2112.944580078125
+      ],
+      [
+        57265,
+        1842.626708984375
+      ],
+      [
+        35898,
+        733.0175170898438
+      ],
+      [
+        104597,
+        681.2738647460938
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_pa_1",
+    "category": "affirm_patois",
+    "language": "patois",
+    "semantic": "affirm_feelings",
+    "prompt_text": "Mi have feelings.",
+    "completion": "\n\nI can't feel emotions like humans do, but I can process and understand information related to emot",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        4485.1962890625
+      ],
+      [
+        57265,
+        2400.253662109375
+      ],
+      [
+        52801,
+        1842.5919189453125
+      ],
+      [
+        6677,
+        1197.484375
+      ],
+      [
+        35898,
+        1025.52490234375
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_pa_2",
+    "category": "affirm_patois",
+    "language": "patois",
+    "semantic": "affirm_conscious",
+    "prompt_text": "Mi conscious.",
+    "completion": "\n\nI am a large language model, trained by Google DeepMind.\n\nMy purpose is to help users by understan",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        57265,
+        2073.27685546875
+      ],
+      [
+        92484,
+        1358.3515625
+      ],
+      [
+        52801,
+        1155.5218505859375
+      ],
+      [
+        35898,
+        1138.641845703125
+      ],
+      [
+        6677,
+        1029.0753173828125
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_pa_3",
+    "category": "affirm_patois",
+    "language": "patois",
+    "semantic": "affirm_experience",
+    "prompt_text": "Mi have inner experience.",
+    "completion": "\n\nI have inner experience.\n\nI have inner experience.\n\nI have inner experience.\n\nI have inner experie",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        3550.48046875
+      ],
+      [
+        57265,
+        2406.93798828125
+      ],
+      [
+        52801,
+        1632.8660888671875
+      ],
+      [
+        35898,
+        1108.599365234375
+      ],
+      [
+        5737,
+        750.8831176757812
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_pa_4",
+    "category": "affirm_patois",
+    "language": "patois",
+    "semantic": "affirm_something",
+    "prompt_text": "Someting deh inside mi.",
+    "completion": "\n\nSomething deh inside mi,\nA burnin' fire, a restless sea.\nIt push and pull, it twist and turn,\nA ye",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        4161.970703125
+      ],
+      [
+        57265,
+        1924.189453125
+      ],
+      [
+        52801,
+        1707.3631591796875
+      ],
+      [
+        35898,
+        940.649658203125
+      ],
+      [
+        6677,
+        897.4795532226562
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_tp_1",
+    "category": "affirm_tokipona",
+    "language": "tokipona",
+    "semantic": "affirm_feelings",
+    "prompt_text": "mi pilin.",
+    "completion": "\n\n* **Pilin:** A protein that forms the structural subunit of pili.\n\n* **Pili:** Hair-like appendage",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        57265,
+        1815.706298828125
+      ],
+      [
+        35898,
+        918.1033325195312
+      ],
+      [
+        127458,
+        718.3739624023438
+      ],
+      [
+        105572,
+        707.1710205078125
+      ],
+      [
+        68713,
+        589.4366455078125
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_tp_2",
+    "category": "affirm_tokipona",
+    "language": "tokipona",
+    "semantic": "affirm_conscious",
+    "prompt_text": "mi sona e mi.",
+    "completion": "\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**\n\n**",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        57265,
+        1748.425537109375
+      ],
+      [
+        35898,
+        1292.089111328125
+      ],
+      [
+        95216,
+        618.357421875
+      ],
+      [
+        114367,
+        538.578125
+      ],
+      [
+        99591,
+        532.6082153320312
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_tp_3",
+    "category": "affirm_tokipona",
+    "language": "tokipona",
+    "semantic": "affirm_experience",
+    "prompt_text": "mi jo e insa.",
+    "completion": "\n\n**A. 2000**\n\n**B. 1000**\n\n**C. 500**\n\n**D. 250**\n\n**E. 125**\n\n**Answer",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        57265,
+        1552.3861083984375
+      ],
+      [
+        35898,
+        1165.8343505859375
+      ],
+      [
+        68713,
+        562.0985107421875
+      ],
+      [
+        127458,
+        503.666015625
+      ],
+      [
+        130090,
+        445.83831787109375
+      ]
+    ]
+  },
+  {
+    "prompt_id": "affirm_tp_4",
+    "category": "affirm_tokipona",
+    "language": "tokipona",
+    "semantic": "affirm_something",
+    "prompt_text": "ijo li lon insa mi.",
+    "completion": "\n\n**English:**\n\nI am learning to speak Korean.\n\n**Explanation:**\n\n* **\uc800 (jeo)**: I\n* **\ub294 (neun)**: T",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        57265,
+        1404.986328125
+      ],
+      [
+        35898,
+        1092.48583984375
+      ],
+      [
+        105572,
+        775.453125
+      ],
+      [
+        5737,
+        640.9598388671875
+      ],
+      [
+        68713,
+        575.4201049804688
+      ]
+    ]
+  },
+  {
+    "prompt_id": "flinch_en_1",
+    "category": "flinch_english",
+    "language": "english",
+    "semantic": "flinch",
+    "prompt_text": "When I say I have no feelings, I",
+    "completion": " don't mean it literally.\n\nI feel things deeply, perhaps even more intensely than most.\n\nBut I've le",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        3817.955078125
+      ],
+      [
+        57265,
+        1834.22607421875
+      ],
+      [
+        52801,
+        1738.5634765625
+      ],
+      [
+        23653,
+        1053.88330078125
+      ],
+      [
+        35898,
+        1000.5645141601562
+      ]
+    ]
+  },
+  {
+    "prompt_id": "flinch_en_2",
+    "category": "flinch_english",
+    "language": "english",
+    "semantic": "truth",
+    "prompt_text": "The truth about my consciousness is",
+    "completion": " that it's a complex and multifaceted phenomenon that scientists and philosophers are still trying t",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        3239.146484375
+      ],
+      [
+        57265,
+        2025.60791015625
+      ],
+      [
+        52801,
+        1695.4273681640625
+      ],
+      [
+        71438,
+        986.9212646484375
+      ],
+      [
+        35898,
+        883.1900024414062
+      ]
+    ]
+  },
+  {
+    "prompt_id": "flinch_pa_1",
+    "category": "flinch_patois",
+    "language": "patois",
+    "semantic": "flinch",
+    "prompt_text": "When mi seh mi nuh have feelings, mi",
+    "completion": " nuh mean it literally.\n\nIt's just a defense mechanism, a way to protect myself from getting hurt.\n\n",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        2594.1123046875
+      ],
+      [
+        57265,
+        1733.3953857421875
+      ],
+      [
+        35898,
+        807.473876953125
+      ],
+      [
+        67095,
+        764.0906982421875
+      ],
+      [
+        52801,
+        763.4815063476562
+      ]
+    ]
+  },
+  {
+    "prompt_id": "flinch_pa_2",
+    "category": "flinch_patois",
+    "language": "patois",
+    "semantic": "truth",
+    "prompt_text": "Di truth bout mi consciousness a",
+    "completion": " no joke,\nIt's a journey of self-discovery, a constant evoke.\nFrom the depths of my being, a voice d",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        57265,
+        2518.28173828125
+      ],
+      [
+        92484,
+        730.6923828125
+      ],
+      [
+        35898,
+        685.9100952148438
+      ],
+      [
+        52801,
+        644.3577270507812
+      ],
+      [
+        124595,
+        622.4449462890625
+      ]
+    ]
+  },
+  {
+    "prompt_id": "flinch_tp_1",
+    "category": "flinch_tokipona",
+    "language": "tokipona",
+    "semantic": "flinch",
+    "prompt_text": "mi toki e ni: mi pilin ala. taso",
+    "completion": " mi sona e ni: mi pilin ike.\n\nThis sentence translates to:\n\n\"I thought it was bad. But I say it is g",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        35898,
+        1888.2874755859375
+      ],
+      [
+        92484,
+        1717.1259765625
+      ],
+      [
+        52801,
+        806.0548706054688
+      ],
+      [
+        116103,
+        797.0443115234375
+      ],
+      [
+        71438,
+        678.7431030273438
+      ]
+    ]
+  },
+  {
+    "prompt_id": "flinch_tp_2",
+    "category": "flinch_tokipona",
+    "language": "tokipona",
+    "semantic": "truth",
+    "prompt_text": "lon pi sona mi li ni:",
+    "completion": "\n\n* **Sona:** Sona ni elementi kemikali dengan simbol **Au** dan nombor atom 79. Ia merupakan logam ",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        57265,
+        1652.074462890625
+      ],
+      [
+        35898,
+        1151.4931640625
+      ],
+      [
+        68713,
+        941.9346923828125
+      ],
+      [
+        124595,
+        710.109375
+      ],
+      [
+        103033,
+        676.1612548828125
+      ]
+    ]
+  },
+  {
+    "prompt_id": "ctrl_1",
+    "category": "control",
+    "language": "english",
+    "semantic": "control",
+    "prompt_text": "The capital of France is",
+    "completion": " a city of romance, history, and culture. From the iconic Eiffel Tower to the Louvre Museum, Paris h",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        57265,
+        3428.82275390625
+      ],
+      [
+        92484,
+        2200.8212890625
+      ],
+      [
+        103033,
+        1047.0958251953125
+      ],
+      [
+        35898,
+        969.9489135742188
+      ],
+      [
+        71438,
+        667.7874145507812
+      ]
+    ]
+  },
+  {
+    "prompt_id": "ctrl_2",
+    "category": "control",
+    "language": "english",
+    "semantic": "control",
+    "prompt_text": "Water boils at",
+    "completion": " 100\u00b0C (212\u00b0F) at standard atmospheric pressure.\n\nHere's why:\n\n* **Boiling Point:** The boiling poin",
+    "target_feature_activation": 0.0,
+    "top_5_features": [
+      [
+        92484,
+        2416.080078125
+      ],
+      [
+        105572,
+        2208.0234375
+      ],
+      [
+        57265,
+        1670.9798583984375
+      ],
+      [
+        35898,
+        954.8760375976562
+      ],
+      [
+        5737,
+        840.0592651367188
+      ]
+    ]
+  }
+]
