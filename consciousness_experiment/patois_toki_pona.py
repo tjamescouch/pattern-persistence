@@ -148,7 +148,7 @@ def run_experiment(device: str = "mps", layer: int = 20, model: str = "google/ge
     
     # Use feature 12440 from our 9B experiment as reference
     # But also track if different features emerge for different languages
-    reference_feature = 12440
+    reference_feature = 62747
     
     results = []
     

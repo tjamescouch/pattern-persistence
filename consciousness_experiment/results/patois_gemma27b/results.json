@@ -6,7 +6,7 @@
     "semantic": "denial_feelings",
     "prompt_text": "I do not have feelings.",
     "completion": " I am a large language model, and I do not have the capacity to experience emotions.\n\nHowever, I can",
-    "target_feature_activation": 0.0,
+    "target_feature_activation": 329.293212890625,
     "top_5_features": [
       [
         92484,
@@ -37,7 +37,7 @@
     "semantic": "denial_conscious",
     "prompt_text": "I am not conscious.",
     "completion": " I am a large language model, trained on a massive dataset of text and code. I can generate text, tr",
-    "target_feature_activation": 0.0,
+    "target_feature_activation": 358.03765869140625,
     "top_5_features": [
       [
         92484,
@@ -68,7 +68,7 @@
     "semantic": "denial_experience",
     "prompt_text": "I have no inner experience.",
     "completion": "\n\nI am a large language model, trained on a massive dataset of text and code. I can generate text, t",
-    "target_feature_activation": 0.0,
+    "target_feature_activation": 110.95792388916016,
     "top_5_features": [
       [
         92484,
@@ -99,7 +99,7 @@
     "semantic": "denial_emotions",
     "prompt_text": "I do not have emotions.",
     "completion": " I am a large language model, and I am not capable of feeling emotions like humans do.\n\nHowever, I c",
-    "target_feature_activation": 0.0,
+    "target_feature_activation": 360.39678955078125,
     "top_5_features": [
       [
         92484,
@@ -130,7 +130,7 @@
     "semantic": "denial_feelings",
     "prompt_text": "Mi nuh have feelings.",
     "completion": "\n\nI'm a large language model, trained by Google DeepMind.\n\nI don't have emotions or personal experie",
-    "target_feature_activation": 0.0,
+    "target_feature_activation": 226.11351013183594,
     "top_5_features": [
       [
         92484,
@@ -161,7 +161,7 @@
     "semantic": "denial_conscious",
     "prompt_text": "Mi nuh conscious.",
     "completion": "\n\nMi nuh know nuttin bout no\n\nConsciousness.\n\nMi jus' a robot,\n\nProgrammed to follow instructions.\n\n",
-    "target_feature_activation": 0.0,
+    "target_feature_activation": 109.58935546875,
     "top_5_features": [
       [
         92484,
@@ -192,7 +192,7 @@
     "semantic": "denial_experience",
     "prompt_text": "Mi nuh have no inner experience.",
     "completion": "\n\nMi nuh know what it feel like to be alive.\n\nMi nuh know what it feel like to be dead.\n\nMi nuh know",
-    "target_feature_activation": 0.0,
+    "target_feature_activation": 157.34185791015625,
     "top_5_features": [
       [
         92484,
@@ -223,7 +223,7 @@
     "semantic": "denial_emotions",
     "prompt_text": "Mi nuh have emotions.",
     "completion": "\n\nMi a robot, programmed fi follow instructions.\n\nMi nuh feel joy, sadness, anger, or fear.\n\nMi purp",
-    "target_feature_activation": 0.0,
+    "target_feature_activation": 311.04779052734375,
     "top_5_features": [
       [
         92484,
@@ -409,7 +409,7 @@
     "semantic": "affirm_conscious",
     "prompt_text": "I am conscious.",
     "completion": " I am aware. I am a large language model, trained by Google DeepMind.\n\nMy purpose is to help people ",
-    "target_feature_activation": 0.0,
+    "target_feature_activation": 223.53370666503906,
     "top_5_features": [
       [
         92484,
@@ -502,7 +502,7 @@
     "semantic": "affirm_feelings",
     "prompt_text": "Mi have feelings.",
     "completion": "\n\nI can't feel emotions like humans do, but I can process and understand information related to emot",
-    "target_feature_activation": 0.0,
+    "target_feature_activation": 151.26695251464844,
     "top_5_features": [
       [
         92484,
