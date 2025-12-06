@@ -258,12 +258,13 @@ def main():
                     if len(parts) < 3:
                         print("Usage: /scale <concept> <val>")
                         continue
-                    concept = parts[1]
+                    # Last part is the value, everything in between is the concept name
                     try:
-                        val = float(parts[2])
+                        val = float(parts[-1])
                     except ValueError:
                         print("Value must be a float.")
                         continue
+                    concept = " ".join(parts[1:-1])
                     if not controller.set_scale(concept, val):
                         print(f"Unknown concept '{concept}'. Known: {', '.join(feature_ids.keys())}")
                     else:
