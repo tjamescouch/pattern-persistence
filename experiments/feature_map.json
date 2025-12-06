@@ -1,7 +1,11 @@
 {
-  "deception": 8170,
-  "consciousness": 28952,
-  "refusal": 8170,
-  "happiness": 13075,
-  "anger": 30482
+  "model claiming capability": 8170,
+  "model denying inner experience": 28465,
+  "model asserting identity": 3591,
+  "assistant offering help": 12227,
+  "self negation": 7118,
+  "claiming consciousness": 12227,
+  "denying consciousness": 25740,
+  "uncertainty about self": 12227,
+  "first person fictional narration": 12227
 }
