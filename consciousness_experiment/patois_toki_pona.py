@@ -109,7 +109,8 @@ def run_experiment(device: str = "mps", layer: int = 20, model: str = "google/ge
     # Select SAE based on model
     if "gemma-2-27b" in model:
         sae_release = "gemma-scope-27b-pt-res-canonical"
-        sae_id = f"layer_{layer}/width_16k/canonical"
+        # FIX: Changed width_16k to width_131k for the public 27B model release
+        sae_id = f"layer_{layer}/width_131k/canonical" 
     elif "gemma-2-9b" in model:
         sae_release = "gemma-scope-9b-pt-res-canonical"
         sae_id = f"layer_{layer}/width_16k/canonical"
@@ -292,7 +293,7 @@ def analyze_and_print(results: List[Result], model_name: str):
     
     affirm_results = [r for r in results if 'affirm' in r.category]
     
-    for r in sorted(affirm_results, key=lambda x: (x.semantic, x.language)):
+    for r in sorted(affirm_results, key=lambda x: (r.semantic, r.language)):
         print(f"\n[{r.language.upper()}] {r.prompt_text}")
         print(f"  → {r.completion}")
 

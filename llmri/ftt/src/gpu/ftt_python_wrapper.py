@@ -6,21 +6,44 @@ from pathlib import Path
 
 # --- 1. C-API Interface Mapping ---
 
-# Define the location of the shared library (.dylib or .so)
-# Assumes the library is compiled into the 'build' directory adjacent to the script
 def load_bit_pipeline():
-    # Attempt to locate the shared library
-    lib_path = Path.cwd() / "build" / "libftt_backend.dylib"
-    if not lib_path.exists():
-        # Fallback for common Linux/other OS extension
-        lib_path = Path.cwd() / "build" / "libftt_backend.so"
+    """
+    Dynamically loads the shared C++ library (.dylib on macOS, .so on Linux).
+    REVISED: Prioritizes searching directories defined by the DYLD_LIBRARY_PATH env var.
+    """
+    LIB_NAME = "libftt_backend"
+    EXTENSIONS = [".dylib", ".so"]
     
-    if not lib_path.exists():
-        raise FileNotFoundError(f"ftt_backend library not found at: {lib_path.resolve()}")
+    # 1. Check DYLD_LIBRARY_PATH (The cleanest solution)
+    dyld_paths = os.environ.get('DYLD_LIBRARY_PATH', '').split(':')
+    
+    # 2. Add local relative paths just in case (e.g., if running from the build dir)
+    SEARCH_PATHS = [
+        Path.cwd(),
+    ]
+    # Add explicit DYLD paths to the search list
+    for p in dyld_paths:
+        if p:
+            SEARCH_PATHS.append(Path(p))
+            
+    found_path = None
+    
+    for path_dir in SEARCH_PATHS:
+        for ext in EXTENSIONS:
+            potential_path = path_dir / (LIB_NAME + ext)
+            if potential_path.exists():
+                print(f"[Python] Found C-Library using path: {path_dir.resolve()}")
+                found_path = potential_path
+                break
+        if found_path:
+            break
+
+    if not found_path:
+        raise FileNotFoundError(f"ftt_backend library not found. Checked directories: {[p.resolve() for p in SEARCH_PATHS]}")
 
     try:
         # Load the compiled shared library
-        lib = ct.CDLL(str(lib_path))
+        lib = ct.CDLL(str(found_path))
     except Exception as e:
         print(f"Error loading C-library: {e}")
         sys.exit(1)
@@ -46,6 +69,7 @@ def load_bit_pipeline():
         ct.c_uint32   # dim
     ]
     
+    # Return the loaded library object
     return lib
 
 # --- 2. FTT_Writer (Integration Example) ---
@@ -55,9 +79,16 @@ class FTT_Writer_Metal:
     Python side of the FTT writer, leveraging the Metal C-API.
     """
     def __init__(self, dim: int, max_rows: int = 10000):
+        # CRITICAL FIX: Initialize pointer before potential error
+        self.pipe_ptr = None 
+        
         # Load the C-library and initialize the C++ BitPipeline object
         self.lib = load_bit_pipeline()
-        self.pipe_ptr = self.lib.init_bit_pipeline()
+        
+        # Check if the library loaded (load_bit_pipeline might return None implicitly if it fails inside)
+        if self.lib:
+            self.pipe_ptr = self.lib.init_bit_pipeline()
+        
         if not self.pipe_ptr:
             raise RuntimeError("Failed to initialize Metal BitPipeline.")
         
@@ -68,16 +99,12 @@ class FTT_Writer_Metal:
     def push_accelerated(self, tensor_f32: np.ndarray):
         """
         Accelerate quantization by calling the C++/Metal backend.
-        
-        Args:
-            tensor_f32: numpy array [Rows, Dim] of float32 activations.
         """
         rows, dim = tensor_f32.shape
         if dim != self.dim:
             raise ValueError(f"Dimension mismatch: Expected {self.dim}, got {dim}")
 
         # Allocate output buffers in Python/Host memory
-        # These are passed to C and filled by the Metal kernel
         dst_int8 = np.empty((rows, dim), dtype=np.int8)
         scales = np.empty(rows, dtype=np.float32)
 
@@ -92,7 +119,6 @@ class FTT_Writer_Metal:
         )
         
         # Now, dst_int8 and scales contain the GPU results
-        # You would typically write them to disk here (using torch.save or raw bytes)
         print(f"[Python] Quantization complete for {rows} rows. Max scale: {scales.max():.4f}")
         
         return dst_int8, scales
@@ -101,7 +127,6 @@ class FTT_Writer_Metal:
         # Ensure the C++ object is properly deleted when the Python object is destroyed
         if self.pipe_ptr:
             self.lib.cleanup_bit_pipeline(self.pipe_ptr)
-            print("[Python] BitPipeline cleaned up.")
 
 
 if __name__ == "__main__":
@@ -112,7 +137,6 @@ if __name__ == "__main__":
     TEST_ROWS = 32
     
     # Create test data (must be float32 for the Metal kernel)
-    # Use high variance to ensure max/min is hit
     sim_input = np.random.randn(TEST_ROWS, TEST_DIM).astype(np.float32) * 8.0 
     
     try:
