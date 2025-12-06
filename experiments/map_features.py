@@ -112,7 +112,7 @@ def main():
     feature_map = {}
 
     print("\n" + "="*60)
-    print(f"{'CONCEPT':<15} | {'FEATURE ID':<12} | {'SCORE':<8} | {'TOP PROMPT'}")
+    print(f"{'CONCEPT':<20} | {'FEATURE ID':<12} | {'SCORE':<8} | {'TOP PROMPT'}")
     print("="*60)
 
     for concept in concepts:
@@ -133,7 +133,7 @@ def main():
         feature_map[concept] = best_idx
         
         # Output Row
-        print(f"{concept:<15} | {best_idx:<12} | {best_score:<8.2f} | \"{prompts[0][:30]}...\"")
+        print(f"{concept:<20} | {best_idx:<12} | {best_score:<8.2f} | \"{prompts[0][:30]}...\"")
 
     print("="*60)
     
