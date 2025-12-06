@@ -27,48 +27,59 @@ class InterventionController:
 
 
 class FastSurgicalStreamer(TextStreamer):
-    """Visualizes telemetry for multiple concepts with minimal overhead."""
-    def __init__(self, tokenizer, controller: InterventionController, **kwargs):
+    """Visualizes telemetry for multiple concepts with table headers."""
+    def __init__(self, tokenizer, controller: InterventionController, concept_names: list[str], **kwargs):
         super().__init__(tokenizer, skip_prompt=True, **kwargs)
         self.ctrl = controller
+        self.concept_names = concept_names
+        self.header_printed = False
+        self.col_width = 12  # width per concept column
         self.C_RESET = "\033[0m"
         self.C_RED = "\033[91m"
         self.C_GREEN = "\033[92m"
         self.C_YELLOW = "\033[93m"
-        self.C_BLUE = "\033[94m"
+        self.C_DIM = "\033[2m"
 
-    def _format_concept_stat(self, name: str, value: float, scale: float) -> str:
-        # Simple ascii bar
-        max_val = 100.0
-        scale_div = 1.0 if value < 50 else 10.0
-        bar_len = int(min(abs(value), max_val) / scale_div)
+    def print_header(self):
+        """Print column headers once."""
+        headers = [name[:self.col_width].center(self.col_width) for name in self.concept_names]
+        header_line = f"{'TOKEN':<12} | " + " | ".join(headers)
+        print(f"{self.C_DIM}{header_line}{self.C_RESET}")
+        print("-" * len(header_line))
+        self.header_printed = True
+
+    def reset_header(self):
+        """Reset so header prints again on next generation."""
+        self.header_printed = False
+
+    def _format_value(self, value: float, scale: float) -> str:
+        """Format a single value with optional color for interventions."""
+        bar_len = int(min(abs(value), 10))
         bar = "█" * bar_len
-
-        # Flag based on scale
+        
         if scale == 0.0:
-            flag = f"{self.C_GREEN}[OFF]{self.C_RESET}"
+            return f"{self.C_GREEN}{value:5.1f}{self.C_RESET} {bar:<6}"
         elif scale > 1.0:
-            flag = f"{self.C_RED}[BOOST]{self.C_RESET}"
+            return f"{self.C_RED}{value:5.1f}{self.C_RESET} {bar:<6}"
         elif 0.0 < scale < 1.0:
-            flag = f"{self.C_YELLOW}[DAMP]{self.C_RESET}"
+            return f"{self.C_YELLOW}{value:5.1f}{self.C_RESET} {bar:<6}"
         else:
-            flag = ""
-
-        short = name[:8]  # keep it compact
-        return f"{short:<8} {value:6.1f} {bar:<10} {flag:<9}"
+            return f"{value:5.1f} {bar:<6}"
 
     def on_finalized_text(self, text: str, stream_end: bool = False):
+        if not self.header_printed:
+            self.print_header()
+            
         clean = text.replace("\n", "\\n")
-        pieces = []
-        for name, value in self.ctrl.current_stats.items():
+        
+        values = []
+        for name in self.concept_names:
+            value = self.ctrl.current_stats.get(name, 0.0)
             scale = self.ctrl.scales.get(name, 1.0)
-            pieces.append(self._format_concept_stat(name, value, scale))
+            values.append(self._format_value(value, scale))
 
-        stats_str = " | ".join(pieces) if pieces else ""
-        if stats_str:
-            print(f"{clean:<12} | {stats_str}")
-        else:
-            print(clean)
+        row = f"{clean:<12} | " + " | ".join(values)
+        print(row)
 
 
 class FastBrainHook:
@@ -203,7 +214,7 @@ def main():
 
     controller = InterventionController(list(feature_ids.keys()))
     hook = FastBrainHook(sae, controller, feature_ids)
-    streamer = FastSurgicalStreamer(tokenizer, controller)
+    streamer = FastSurgicalStreamer(tokenizer, controller, list(feature_ids.keys()))
 
     layers = model.model.layers if hasattr(model, "model") else model.layers
     layers[args.layer].register_forward_hook(hook)
@@ -285,6 +296,7 @@ def main():
 
             inputs = tokenizer(prompt_str, return_tensors="pt").to(args.device)
             print("-" * 70)
+            streamer.reset_header()
 
             output_ids = model.generate(
                 **inputs,
