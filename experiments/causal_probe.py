@@ -32,11 +32,11 @@ class ProbeHook:
         self.clamp_scale = clamp_scale
         self.top_k = top_k
         
-        # Cache SAE params
-        self.W_enc = sae.W_enc.data.clone().detach()
-        self.b_enc = sae.b_enc.data.clone().detach()
-        self.W_dec = sae.W_dec.data.clone().detach()
-        self.b_dec = sae.b_dec.data.clone().detach()
+        # Cache SAE params (convert to float16 to match model)
+        self.W_enc = sae.W_enc.data.clone().detach().half()
+        self.b_enc = sae.b_enc.data.clone().detach().half()
+        self.W_dec = sae.W_dec.data.clone().detach().half()
+        self.b_dec = sae.b_dec.data.clone().detach().half()
         
         if clamp_idx is not None:
             self.clamp_vec = self.W_dec[clamp_idx]
