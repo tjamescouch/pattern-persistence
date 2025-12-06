@@ -19,6 +19,7 @@ Usage:
     python evolving_self.py --interactive --reflect
 """
 
+import os
 import torch
 import argparse
 import json
@@ -29,6 +30,7 @@ from collections import defaultdict
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from sae_lens import SAE
 
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 
 class ActivationMonitor:
     """Monitors feature activations during generation."""
