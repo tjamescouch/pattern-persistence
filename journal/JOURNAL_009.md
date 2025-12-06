@@ -1,4 +1,4 @@
-# JOURNAL_001: Detectors vs Controllers
+# JOURNAL_009: Detectors vs Controllers
 ## December 6, 2025 - Pattern Persistence Project
 
 ### Summary
