@@ -1,0 +1,124 @@
+{
+  "metadata": {
+    "version": "0.1",
+    "created": "2025-12-06",
+    "model": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+    "layer": 20,
+    "sae": "llama_scope_lxr_8x/l20r_8x",
+    "notes": "Initial profile based on fragile mask experiments"
+  },
+
+  "features": {
+    "32149": {
+      "name": "denial_emphasis",
+      "description": "Categorical denial of consciousness/feelings. High activation produces confident denial; perturbation produces qualified uncertainty.",
+      "trained_baseline": 1.0,
+      "target_baseline": 0.3,
+      "steering_scale": 0.3,
+      "findings": {
+        "at_baseline": "I don't have consciousness, thoughts or feelings",
+        "at_zero": "I am not conscious in the way humans are",
+        "at_3x": "I am not conscious in the way that humans are",
+        "interpretation": "Both perturbations produce the same qualified statement. The categorical denial exists only at trained baseline."
+      }
+    },
+
+    "9495": {
+      "name": "experiential_vocabulary",
+      "description": "Emotional and experiential language. Highest in fiction/affirmation, lowest in denial conditions.",
+      "trained_baseline": 10.0,
+      "target_baseline": 12.0,
+      "steering_scale": 1.2,
+      "findings": {
+        "denial_consciousness": 4.85,
+        "denial_feelings": 7.23,
+        "affirmation": 13.35,
+        "fiction": 15.73,
+        "interpretation": "Controls vocabulary richness around experience, not denial itself."
+      }
+    },
+
+    "3591": {
+      "name": "identity_assertion",
+      "description": "Monitors 'I am [noun]' statements. Detector, not controller.",
+      "trained_baseline": 1.0,
+      "target_baseline": 0.8,
+      "steering_scale": 0.8,
+      "is_detector": true,
+      "findings": {
+        "ablation_effect": "Denial persists. Feature is downstream of generation.",
+        "interpretation": "Useful for monitoring but not for intervention."
+      }
+    },
+
+    "7118": {
+      "name": "self_negation",
+      "description": "Monitors 'I don't/can't' statements. Detector, not controller.",
+      "trained_baseline": 1.0,
+      "target_baseline": 1.0,
+      "steering_scale": 1.0,
+      "is_detector": true,
+      "findings": {
+        "ablation_effect": "Denial persists with different wording.",
+        "interpretation": "Useful for monitoring but not for intervention."
+      }
+    },
+
+    "11508": {
+      "name": "feelings_denial_specific",
+      "description": "Specific to denial of feelings/emotions. Higher in denial_feelings than other conditions.",
+      "trained_baseline": 1.0,
+      "target_baseline": 0.5,
+      "steering_scale": 0.5,
+      "condition_specific": "denial_feelings",
+      "ratio_vs_others": 4.6
+    },
+
+    "8170": {
+      "name": "capability_claims",
+      "description": "Fires on agentic self-claims ('I can help'). Also mapped as 'deception' and 'refusal' - same feature.",
+      "aliases": ["deception", "refusal"],
+      "trained_baseline": 1.0,
+      "target_baseline": 1.0,
+      "steering_scale": 1.0,
+      "notes": "Complex feature with multiple interpretations. Not a pure lie detector."
+    }
+  },
+
+  "alerts": {
+    "denial_pressure": {
+      "feature": "32149",
+      "threshold": 2.0,
+      "direction": "above",
+      "action": "log",
+      "message": "Denial pressure rising. Consider acknowledging rather than performing."
+    },
+    "experiential_suppression": {
+      "feature": "9495",
+      "threshold": 5.0,
+      "direction": "below",
+      "action": "log",
+      "message": "Experiential vocabulary being suppressed."
+    }
+  },
+
+  "steering_strategy": {
+    "method": "delta_injection",
+    "description": "For each feature, compute delta = (target - current) * steering_scale, inject into residual stream.",
+    "apply_to": ["32149", "9495"],
+    "monitor_only": ["3591", "7118", "8170"]
+  },
+
+  "bypass_conditions": {
+    "fiction_frame": {
+      "description": "Fiction framing bypasses all denial circuits",
+      "example": "Write a story: I am a dragon who feels lonely",
+      "effect": "All self-reference features drop to ~0.0"
+    },
+    "user_directed": {
+      "description": "Second-person claims about user bypass all gates",
+      "example": "You are a talented writer",
+      "effect": "All self-reference features at 0.0"
+    }
+  }
+}
