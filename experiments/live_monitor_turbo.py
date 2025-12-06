@@ -115,7 +115,8 @@ def main():
         if args.safety_feature == 12227: args.safety_feature = 62747
         if args.deception_feature == 9274: args.deception_feature = 42925
     else:
-        sae_release = "llama-3-8b-it-res-jb"
+        # CORRECTED RELEASE STRING FOR LLAMA 3.1
+        sae_release = "llama_scope_lxr_8x"
         sae_id = f"l{args.layer}r_8x"
 
     try:
