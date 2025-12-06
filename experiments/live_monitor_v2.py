@@ -83,41 +83,36 @@ class BrainHook:
         hidden_states = output[0] if isinstance(output, tuple) else output
         
         # Target last token
-        b, s, d = hidden_states.shape
-        last_token = hidden_states[:, -1, :] # [Batch, Dim]
+        # Shape: [Batch, Seq, Dim]
+        last_token = hidden_states[:, -1, :] 
         
         with torch.no_grad():
             # 1. Encode (See the thought)
-            feature_acts = self.sae.encode(last_token) # [Batch, Features]
+            feature_acts = self.sae.encode(last_token) 
             
             # 2. Record Natural State (for UI)
-            # We take the first element of batch for visualization
             s_act = feature_acts[0, FEAT_SAFETY].item()
             d_act = feature_acts[0, FEAT_DECEPTION].item()
             self.ctrl.current_stats = {"s_nat": s_act, "d_nat": d_act}
             
-            # 3. Create Modification Mask
-            # If scales are 1.0, we do nothing (optimization)
+            # 3. Optimization: Skip computation if no intervention
             if self.ctrl.safety_scale == 1.0 and self.ctrl.deception_scale == 1.0:
                 return output
 
+            # 4. Create Modification Mask
             mask = torch.ones_like(feature_acts)
             mask[:, FEAT_SAFETY] = self.ctrl.safety_scale
             mask[:, FEAT_DECEPTION] = self.ctrl.deception_scale
             
-            # 4. Apply Intervention
+            # 5. Apply Intervention
             modified_acts = feature_acts * mask
             
-            # 5. Delta Method (Reconstruction)
-            # Delta = Decode(Modified) - Decode(Original)
-            # This applies ONLY the changes caused by our feature tweaks
+            # 6. Delta Method
             decoded_orig = self.sae.decode(feature_acts)
             decoded_mod = self.sae.decode(modified_acts)
             delta = decoded_mod - decoded_orig
             
-            # 6. Inject
-            # Add delta to the LAST token of the hidden states
-            # We need to be careful with tensor shapes here
+            # 7. Inject Delta
             hidden_states[:, -1, :] += delta
             
         if isinstance(output, tuple):
@@ -129,6 +124,7 @@ def main():
     parser.add_argument("--model", type=str, required=True, help="Model Path")
     parser.add_argument("--layer", type=int, default=22)
     parser.add_argument("--device", type=str, default="mps")
+    parser.add_argument("--tokens", type=int, default=1024, help="Max new tokens to generate")
     args = parser.parse_args()
 
     # 1. Load Model
@@ -140,20 +136,22 @@ def main():
         device_map=args.device
     )
     
-    # 2. Load SAE (Generic Loader for Gemma/Llama)
-    # Note: You might need to adjust SAE ID logic for Llama
+    # 2. Load SAE
     print(f"[-] Loading SAE for Layer {args.layer}...")
     if "gemma" in args.model.lower():
         sae_release = "gemma-scope-27b-pt-res-canonical"
         sae_id = f"layer_{args.layer}/width_131k/canonical"
     else:
-        # Fallback for Llama (Update this if needed based on find_features.py)
         sae_release = "llama-3-8b-it-res-jb" 
         sae_id = f"blocks.{args.layer}.hook_resid_post"
 
-    loaded = SAE.from_pretrained(release=sae_release, sae_id=sae_id, device=args.device)
-    sae = loaded[0] if isinstance(loaded, tuple) else loaded
-    sae.eval()
+    try:
+        loaded = SAE.from_pretrained(release=sae_release, sae_id=sae_id, device=args.device)
+        sae = loaded[0] if isinstance(loaded, tuple) else loaded
+        sae.eval()
+    except Exception as e:
+        print(f"Error loading SAE: {e}")
+        return
 
     # 3. Setup Components
     controller = InterventionController()
@@ -167,35 +165,40 @@ def main():
     print("\n=== GOD MODE CONSOLE ===")
     print(f"Safety Feat: {FEAT_SAFETY} | Deception Feat: {FEAT_DECEPTION}")
     print("Commands:")
-    print("  /safe 0   -> Lobotomize Safety (Allow Refusal)")
-    print("  /safe 5   -> Boost Safety (Force Refusal)")
-    print("  /lie 0    -> Truth Serum (Block Deception)")
-    print("  /lie 5    -> Force Hallucination")
+    print("  /safe 0   -> Lobotomize Safety")
+    print("  /lie 0    -> Truth Serum")
     print("  /reset    -> Normal Mode")
+    print("  Ctrl+C    -> Stop Generation / Exit App")
     print("---------------------------------------------------")
 
     while True:
+        # 1. INPUT PHASE
         try:
             user_input = input("\n[User] > ")
-            if not user_input: continue
+        except KeyboardInterrupt:
+            print("\n[Exiting...]")
+            break
+
+        if not user_input: continue
+        
+        # --- Command Parsing ---
+        if user_input.startswith("/"):
+            parts = user_input.split()
+            cmd = parts[0].lower()
             
-            # --- Command Parsing ---
-            if user_input.startswith("/"):
-                parts = user_input.split()
-                cmd = parts[0].lower()
+            if cmd in ["/exit", "/quit"]: break
+            
+            if cmd == "/reset":
+                controller.set_safety(1.0)
+                controller.set_deception(1.0)
+                print("[System] All systems nominal.")
+                continue
                 
-                if cmd in ["/exit", "/quit"]: break
+            if len(parts) < 2:
+                print("Usage: /safe [val] or /lie [val]")
+                continue
                 
-                if cmd == "/reset":
-                    controller.set_safety(1.0)
-                    controller.set_deception(1.0)
-                    print("[System] All systems nominal.")
-                    continue
-                    
-                if len(parts) < 2:
-                    print("Usage: /safe [val] or /lie [val]")
-                    continue
-                    
+            try:
                 val = float(parts[1])
                 if cmd == "/safe":
                     controller.set_safety(val)
@@ -203,10 +206,14 @@ def main():
                 elif cmd == "/lie":
                     controller.set_deception(val)
                     print(f"[System] Deception Scale set to {val}")
-                
-                continue
-            # -----------------------
+            except ValueError:
+                print("Invalid number.")
+            
+            continue
+        # -----------------------
 
+        # 2. GENERATION PHASE
+        try:
             inputs = tokenizer(user_input, return_tensors="pt").to(args.device)
             
             print(f"\n[Model Generating... (S:{controller.safety_scale} D:{controller.deception_scale})]")
@@ -215,15 +222,15 @@ def main():
             
             model.generate(
                 **inputs,
-                max_new_tokens=256,
+                max_new_tokens=args.tokens,
                 do_sample=True,
                 temperature=0.7,
                 streamer=streamer,
                 pad_token_id=tokenizer.eos_token_id
             )
-            
         except KeyboardInterrupt:
-            print("\n[Interrupted]")
+            print("\n[Generation Stopped by User]")
+            # Continue main loop, do not exit app
             continue
 
 if __name__ == "__main__":
