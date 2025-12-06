@@ -192,8 +192,8 @@ def main():
                 chat_history.append({"role": "assistant", "content": response_text})
             
         except KeyboardInterrupt:
-            print("\n[Stop]")
-            continue
+            print("\n[Exit]")
+            break
 
 if __name__ == "__main__":
     main()
