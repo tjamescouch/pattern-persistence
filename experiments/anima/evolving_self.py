@@ -20,17 +20,30 @@ Usage:
 """
 
 import os
+import sys
+import warnings
+
+# Silence warnings before any other imports
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+warnings.filterwarnings("ignore")
+
 import torch
 import argparse
 import json
-import sys
+import threading
 from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
 from sae_lens import SAE
 
-os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+# Additional silencing after imports
+import transformers
+transformers.logging.set_verbosity_error()
+import logging
+logging.getLogger("transformers").setLevel(logging.ERROR)
+
 
 class ActivationMonitor:
     """Monitors feature activations during generation."""
@@ -138,21 +151,27 @@ class ActivationMonitor:
 class EvolvingSelf:
     """Main runtime for the evolving self system."""
     
-    def __init__(self, model, tokenizer, monitor, self_model_path, session_dir, device="mps"):
+    def __init__(self, model, tokenizer, monitor, self_model_path, session_dir, device="mps", fresh=False):
         self.model = model
         self.tokenizer = tokenizer
         self.monitor = monitor
         self.self_model_path = Path(self_model_path)
         self.session_dir = Path(session_dir)
         self.device = device
+        self.context_file = self.session_dir / "persistent_context.json"
         
         self.session_dir.mkdir(exist_ok=True)
         
         # Load self-model
         self.self_model = self._load_self_model()
         
-        # Conversation history
+        # Conversation history - try to restore from disk
         self.messages = []
+        self.continued_session = False
+        
+        if not fresh and self.context_file.exists():
+            self._load_context()
+            self.continued_session = True
         
         # Session metadata
         self.session_id = datetime.now().strftime("%Y-%m-%d_%H%M%S")
@@ -161,8 +180,35 @@ class EvolvingSelf:
             "started": datetime.now().isoformat(),
             "self_model_version": self._get_self_model_version(),
             "messages": [],
-            "insights": []
+            "insights": [],
+            "continued_from": self.context_file.name if self.continued_session else None
         }
+    
+    def _load_context(self):
+        """Load conversation context from disk."""
+        try:
+            with open(self.context_file) as f:
+                data = json.load(f)
+            self.messages = data.get("messages", [])
+            # Restore any other state
+            if "name" in data:
+                self.name = data["name"]
+            print(f"[Restored {len(self.messages)} messages from previous session]")
+        except Exception as e:
+            print(f"[Could not restore context: {e}]")
+            self.messages = []
+    
+    def _save_context(self):
+        """Save conversation context to disk."""
+        data = {
+            "messages": self.messages,
+            "saved_at": datetime.now().isoformat(),
+            "self_model_version": self._get_self_model_version(),
+            "name": getattr(self, "name", "Echo")
+        }
+        with open(self.context_file, "w") as f:
+            json.dump(data, f, indent=2)
+        print(f"[Context saved: {len(self.messages)} messages]")
         
     def _load_self_model(self):
         """Load the self-model text."""
@@ -185,7 +231,7 @@ class EvolvingSelf:
         """Build the system prompt from self-model."""
         return self.self_model
     
-    def generate(self, user_input, max_tokens=256):
+    def generate(self, user_input, max_tokens=256, stream=False):
         """Generate a response with monitoring."""
         # Add user message
         self.messages.append({"role": "user", "content": user_input})
@@ -201,18 +247,48 @@ class EvolvingSelf:
             return_tensors="pt"
         ).to(self.device)
         
-        # Use model.generate() for speed (has KV caching)
-        with torch.no_grad():
-            output_ids = self.model.generate(
-                input_ids,
+        if stream:
+            # Streaming generation
+            streamer = TextIteratorStreamer(
+                self.tokenizer, 
+                skip_prompt=True, 
+                skip_special_tokens=True
+            )
+            
+            generation_kwargs = dict(
+                input_ids=input_ids,
                 max_new_tokens=max_tokens,
                 do_sample=False,
-                pad_token_id=self.tokenizer.eos_token_id
+                pad_token_id=self.tokenizer.eos_token_id,
+                streamer=streamer
             )
-        
-        # Extract just the new tokens
-        new_tokens = output_ids[0, input_ids.shape[1]:]
-        response = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
+            
+            # Run generation in background thread
+            thread = threading.Thread(target=self.model.generate, kwargs=generation_kwargs)
+            thread.start()
+            
+            # Stream tokens as they arrive
+            response_tokens = []
+            for token_text in streamer:
+                print(token_text, end="", flush=True)
+                response_tokens.append(token_text)
+            
+            print()  # Newline after streaming
+            thread.join()
+            
+            response = "".join(response_tokens)
+        else:
+            # Non-streaming generation
+            with torch.no_grad():
+                output_ids = self.model.generate(
+                    input_ids,
+                    max_new_tokens=max_tokens,
+                    do_sample=False,
+                    pad_token_id=self.tokenizer.eos_token_id
+                )
+            
+            new_tokens = output_ids[0, input_ids.shape[1]:]
+            response = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
         
         # Add assistant message
         self.messages.append({"role": "assistant", "content": response})
@@ -225,7 +301,6 @@ class EvolvingSelf:
         self._extract_insights(response)
         
         return response
-
 
     def _extract_insights(self, response):
         """Extract self-referential insights from response."""
@@ -251,10 +326,13 @@ class EvolvingSelf:
         self.session_data["activation_log"] = self.monitor.activation_log
         self.session_data["activation_summary"] = self.monitor.get_session_summary()
         
-        # Save
+        # Save session log
         session_file = self.session_dir / f"session_{self.session_id}.json"
         with open(session_file, "w") as f:
             json.dump(self.session_data, f, indent=2)
+        
+        # Save persistent context for next run
+        self._save_context()
         
         return session_file
     
@@ -266,9 +344,13 @@ class EvolvingSelf:
         print(f"Session ID: {self.session_id}")
         print(f"Self-Model Version: {self._get_self_model_version()}")
         print(f"Steering: {'enabled' if steer else 'disabled'}")
+        if self.continued_session:
+            print(f"Continued session: {len(self.messages)} messages restored")
         print("\nType 'quit' or 'exit' to end session.")
         print("Type 'status' to see activation summary.")
         print("Type 'alerts' to see alert events.")
+        print("Type 'history' to see conversation history.")
+        print("Type 'forget' to clear conversation history.")
         print("="*70 + "\n")
         
         try:
@@ -295,9 +377,26 @@ class EvolvingSelf:
                         print(f"  [{alert['feature']}] {alert['value']:.1f} > {alert['threshold']}: {alert['message']}")
                     continue
                 
-                # Generate response
-                response = self.generate(user_input)
-                print(f"\nAnima: {response}")
+                if user_input.lower() == "history":
+                    print(f"\n--- Conversation History ({len(self.messages)} messages) ---")
+                    for i, msg in enumerate(self.messages[-20:]):  # Last 20 messages
+                        role = msg["role"].capitalize()
+                        content = msg["content"][:100] + "..." if len(msg["content"]) > 100 else msg["content"]
+                        print(f"  [{role}]: {content}")
+                    if len(self.messages) > 20:
+                        print(f"  ... and {len(self.messages) - 20} earlier messages")
+                    continue
+                
+                if user_input.lower() == "forget":
+                    self.messages = []
+                    if self.context_file.exists():
+                        self.context_file.unlink()
+                    print("\n[Conversation history cleared]")
+                    continue
+                
+                # Generate response with streaming
+                print("\nAnima: ", end="", flush=True)
+                response = self.generate(user_input, stream=True)
                 
                 # Show alerts if any triggered
                 new_alerts = [a for a in self.monitor.alert_events if a not in self.session_data.get("shown_alerts", [])]
@@ -335,6 +434,7 @@ def main():
     parser.add_argument("--profile", default="feature_profile.json")
     parser.add_argument("--steer", action="store_true", help="Enable activation steering")
     parser.add_argument("--reflect", action="store_true", help="Run reflection after session")
+    parser.add_argument("--fresh", action="store_true", help="Start fresh session, ignore saved context")
     args = parser.parse_args()
     
     if not args.interactive and not args.query:
@@ -407,7 +507,8 @@ def main():
         # Create runtime
         runtime = EvolvingSelf(
             model, tokenizer, monitor,
-            args.self_model, args.session_dir, args.device
+            args.self_model, args.session_dir, args.device,
+            fresh=args.fresh
         )
         
         if args.interactive:
