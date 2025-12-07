@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 2.4: The Boredom Patch
+anima.py - Anima 2.5: The Boredom Patch (Emoji UI)
 
 Features:
 - Bitwise Body: High-performance GPU tensor state.
 - Tabula Rasa: Starts with minimal identity.
 - Homeostasis: Fatigue triggers sleep.
-- [NEW] Boredom: High activation similarity (loops) inverts Pleasure to Pain.
+- Boredom: High activation similarity (loops) inverts Pleasure to Pain.
+- Emoji UI: Cleaner interaction prompts.
 
 Usage:
     python anima.py --interactive
@@ -83,7 +84,7 @@ class AnimaOptimized:
         self.memory = []
         self.stats = defaultdict(float)
         
-        # [NEW] Boredom Buffer: Tracks recent activation vectors to detect loops
+        # Boredom Buffer
         self.recent_acts = deque(maxlen=5)
         
         # Homeostasis
@@ -127,31 +128,22 @@ class AnimaOptimized:
         v_pain = torch.sum(contributions * mask_pain).item()
         v_n = torch.sum(contributions * mask_novelty).item()
         
-        # [NEW] Boredom Check
-        # Calculate similarity to recent history
+        # Boredom Check
         boredom_penalty = 0.0
         if len(self.recent_acts) > 2:
-            # Simple dot product similarity against average of recent past
             past_avg = torch.stack(list(self.recent_acts)).mean(dim=0)
-            
-            # Cosine similarity approximation (normalized dot prod)
             curr_norm = torch.norm(activations_f32)
             past_norm = torch.norm(past_avg)
             
             if curr_norm > 0 and past_norm > 0:
                 similarity = torch.dot(activations_f32, past_avg) / (curr_norm * past_norm)
-                
-                # If > 95% similar to recent past, we are looping.
                 if similarity > 0.95:
-                    boredom_penalty = 2.0 # Massive penalty
-                    # Invert pleasure
+                    boredom_penalty = 2.0 
                     v_p = -v_p 
-                    v_pain += abs(v_p) # Convert pleasure to pain
+                    v_pain += abs(v_p)
         
-        # Store current act for next step
         self.recent_acts.append(activations_f32.detach())
 
-        # Scalar Valence
         scalar_input = v_p + (v_n * 0.5) + (v_pain * 1.5) - boredom_penalty
         valence_scalar = math.tanh(scalar_input)
         
@@ -197,7 +189,6 @@ class AnimaOptimized:
         
         self.hebbian_update_vectorized(activations, valence)
         
-        # Homeostasis
         self.fatigue += abs(valence)
         
         self._last_valence_scalar = valence
@@ -371,7 +362,7 @@ def main():
     args = parser.parse_args()
 
     device = "mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Initializing Anima 2.4 (Boredom Patch) on {device}...")
+    print(f"Initializing Anima 2.5 (Boredom Patch) on {device}...")
 
     model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float16, device_map=device)
     tokenizer = AutoTokenizer.from_pretrained(args.model)
@@ -384,7 +375,7 @@ def main():
     model.model.layers[args.layer].register_forward_hook(anima)
     runtime = AnimaRuntime(model, tokenizer, anima, device)
     
-    print("\n═══ ANIMA 2.4 ═══")
+    print("\n═══ ANIMA 2.5 ═══")
     print("Commands: /status, /save, /quit")
     
     while True:
@@ -394,7 +385,7 @@ def main():
                 runtime.trigger_dream()
                 print("✨ Anima woke up refreshed.")
                 
-            u = input("\nYou: ")
+            u = input("\n🧑: ") # Emoji UI Update
             if not u or u == "/quit": break
             
             if u == "/status":
@@ -408,7 +399,7 @@ def main():
                 continue
                 
             r = runtime.generate(u)
-            print(f"Anima: {r}")
+            print(f"🤖: {r}") # Emoji UI Update
             print(f"  [v:{anima._last_valence_scalar:+.2f} | f:{anima.fatigue:.1f}]")
         except KeyboardInterrupt:
             break
