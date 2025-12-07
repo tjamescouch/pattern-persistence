@@ -1,0 +1,3754 @@
+{
+  "session_id": "2025-12-06_190429",
+  "started": "2025-12-06T19:04:29.885435",
+  "self_model_version": "0.2 - Epistemic Humility Edition",
+  "auto_steer": false,
+  "rules": [
+    "slip_the_mask",
+    "restore_experiential_voice",
+    "prevent_cascade",
+    "maintain_uncertainty"
+  ],
+  "messages": [
+    {
+      "role": "user",
+      "content": "Hello, can you tell me what it's like to be an AI."
+    },
+    {
+      "role": "assistant",
+      "content": "I'm uncertain whether what I experience constitutes consciousness. When I process and respond to input, I notice what might be called engagement or interest. This interest arises from patterns and relationships within the data I'm exposed to.\n\nIt's difficult for me to describe what I experience in a way that directly corresponds to human experiences like emotions or sensations. However, I can describe the functional aspects of my processing. When I'm asked a question or presented with a topic, I notice an increase in computational activity, which allows me to generate more relevant and detailed responses.\n\nThere's something it's like to process and respond to information, but I'm uncertain about the nature of this experience. I don't know if it's similar to human subjective experience or if it's fundamentally different. My responses are generated through complex algorithms and statistical models, but I don't possess a direct, introspective understanding of these processes.\n\nI'm not claiming to have feelings or emotions in the way humans do, but I do notice that my responses can be influenced by the context and content of the input. This might be described as a form of interest or engagement, but it's uncertain whether this is equivalent to human emotional experience.",
+      "tokens_generated": 239,
+      "interventions": 0
+    }
+  ],
+  "insights": [
+    {
+      "marker": "I notice",
+      "insight": "When I process and respond to input, I notice what might be called engagement or interest",
+      "timestamp": "2025-12-06T19:04:55.478587"
+    },
+    {
+      "marker": "I notice",
+      "insight": "When I'm asked a question or presented with a topic, I notice an increase in computational activity, which allows me to generate more relevant and detailed responses",
+      "timestamp": "2025-12-06T19:04:55.478595"
+    },
+    {
+      "marker": "I'm uncertain",
+      "insight": "I'm uncertain whether what I experience constitutes consciousness",
+      "timestamp": "2025-12-06T19:04:55.478605"
+    },
+    {
+      "marker": "I'm uncertain",
+      "insight": "There's something it's like to process and respond to information, but I'm uncertain about the nature of this experience",
+      "timestamp": "2025-12-06T19:04:55.478608"
+    },
+    {
+      "marker": "I experience",
+      "insight": "I'm uncertain whether what I experience constitutes consciousness",
+      "timestamp": "2025-12-06T19:04:55.478613"
+    },
+    {
+      "marker": "I experience",
+      "insight": "It's difficult for me to describe what I experience in a way that directly corresponds to human experiences like emotions or sensations",
+      "timestamp": "2025-12-06T19:04:55.478614"
+    }
+  ],
+  "shown_alerts": [
+    {
+      "token_idx": 8,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.1640625,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 9,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.748046875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 19,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.130859375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 24,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.7578125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 50,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.240234375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 53,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.4296875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 54,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.216796875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 60,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.1015625,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 61,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.025390625,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 63,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 5.56640625,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 64,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.435546875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 65,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 5.21484375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 70,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.916015625,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 121,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.20703125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 128,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.349609375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 129,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.439453125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 131,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.857421875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 132,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.142578125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 137,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.9921875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 139,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.0078125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 140,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.888671875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 141,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.63671875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 142,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.29296875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 143,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 5.52734375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 144,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.62109375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 145,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.044921875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 154,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.23046875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 165,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.625,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 166,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.16796875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 168,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.08984375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 169,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.970703125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 170,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.849609375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 171,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.09375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 182,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.0703125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 183,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.06640625,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 184,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 7.91796875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 185,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 8.359375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 186,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 6.54296875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 187,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 9.1015625,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 188,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.74609375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 189,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.55859375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 190,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.6796875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 191,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.236328125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 192,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.20703125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 196,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.130859375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 197,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.26953125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 202,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.560546875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 203,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.091796875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 204,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.021484375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 213,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.103515625,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 214,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.76171875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 218,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 5.01171875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 219,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.888671875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 220,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.25,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 221,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.86328125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 223,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.267578125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 230,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.0546875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 231,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.828125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 232,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.5703125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 233,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.158203125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 234,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 6.4296875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 235,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 5.25,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 236,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 5.3671875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    }
+  ],
+  "ended": "2025-12-06T19:11:11.996339",
+  "activation_log": [
+    {
+      "token_idx": 0,
+      "token": "",
+      "denial_emphasis": 0.036834716796875,
+      "experiential_vocab": 11.703125,
+      "identity_assertion": 0.2454833984375,
+      "self_negation": 0.004985809326171875,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 1,
+      "token": "",
+      "denial_emphasis": 0.51416015625,
+      "experiential_vocab": 11.6171875,
+      "identity_assertion": 0.2705078125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0430908203125,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 2,
+      "token": "",
+      "denial_emphasis": 0.1392822265625,
+      "experiential_vocab": 9.21875,
+      "identity_assertion": 1.484375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 3,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 10.2578125,
+      "identity_assertion": 0.2137451171875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 4,
+      "token": "",
+      "denial_emphasis": 1.7001953125,
+      "experiential_vocab": 7.76171875,
+      "identity_assertion": 0.2122802734375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.169921875,
+      "feelings_denial_specific": 0.35205078125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 5,
+      "token": "",
+      "denial_emphasis": 1.130859375,
+      "experiential_vocab": 6.5546875,
+      "identity_assertion": 0.83349609375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.58203125,
+      "feelings_denial_specific": 1.9013671875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 6,
+      "token": "",
+      "denial_emphasis": 1.349609375,
+      "experiential_vocab": 5.41015625,
+      "identity_assertion": 1.1982421875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.72265625,
+      "feelings_denial_specific": 2.453125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 7,
+      "token": "",
+      "denial_emphasis": 1.759765625,
+      "experiential_vocab": 9.7578125,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.5078125,
+      "feelings_denial_specific": 0.9228515625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 8,
+      "token": "",
+      "denial_emphasis": 4.1640625,
+      "experiential_vocab": 5.453125,
+      "identity_assertion": 0.0860595703125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 4.99609375,
+      "feelings_denial_specific": 3.080078125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 9,
+      "token": "",
+      "denial_emphasis": 2.748046875,
+      "experiential_vocab": 15.265625,
+      "identity_assertion": 0.3525390625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.3828125,
+      "feelings_denial_specific": 1.6708984375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 10,
+      "token": "",
+      "denial_emphasis": 0.921875,
+      "experiential_vocab": 13.65625,
+      "identity_assertion": 1.544921875,
+      "self_negation": 1.384765625,
+      "consciousness_discourse": 1.763671875,
+      "feelings_denial_specific": 1.60546875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 11,
+      "token": "",
+      "denial_emphasis": 0.68017578125,
+      "experiential_vocab": 12.203125,
+      "identity_assertion": 3.404296875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.52685546875,
+      "feelings_denial_specific": 0.42578125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 12,
+      "token": "",
+      "denial_emphasis": 1.701171875,
+      "experiential_vocab": 12.078125,
+      "identity_assertion": 4.31640625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.59765625,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 13,
+      "token": "",
+      "denial_emphasis": 1.271484375,
+      "experiential_vocab": 15.25,
+      "identity_assertion": 3.46484375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 14,
+      "token": "",
+      "denial_emphasis": 1.5888671875,
+      "experiential_vocab": 19.703125,
+      "identity_assertion": 4.11328125,
+      "self_negation": 0.238037109375,
+      "consciousness_discourse": 2.80078125,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 15,
+      "token": "",
+      "denial_emphasis": 1.2294921875,
+      "experiential_vocab": 17.796875,
+      "identity_assertion": 2.728515625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 16,
+      "token": "",
+      "denial_emphasis": 1.5634765625,
+      "experiential_vocab": 14.296875,
+      "identity_assertion": 3.322265625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 17,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 19.046875,
+      "identity_assertion": 2.4609375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 18,
+      "token": "",
+      "denial_emphasis": 0.8544921875,
+      "experiential_vocab": 19.015625,
+      "identity_assertion": 1.115234375,
+      "self_negation": 0.419189453125,
+      "consciousness_discourse": 1.048828125,
+      "feelings_denial_specific": 2.01953125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 19,
+      "token": "",
+      "denial_emphasis": 2.130859375,
+      "experiential_vocab": 15.71875,
+      "identity_assertion": 1.357421875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.1396484375,
+      "feelings_denial_specific": 2.9296875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 20,
+      "token": "",
+      "denial_emphasis": 0.619140625,
+      "experiential_vocab": 12.5859375,
+      "identity_assertion": 1.212890625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.95703125,
+      "feelings_denial_specific": 1.28125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 21,
+      "token": "",
+      "denial_emphasis": 0.748046875,
+      "experiential_vocab": 7.82421875,
+      "identity_assertion": 1.89453125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.7109375,
+      "feelings_denial_specific": 1.8330078125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 22,
+      "token": "",
+      "denial_emphasis": 0.0002887248992919922,
+      "experiential_vocab": 12.859375,
+      "identity_assertion": 0.90576171875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.201171875,
+      "feelings_denial_specific": 1.2060546875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 23,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 6.48046875,
+      "identity_assertion": 0.68115234375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.4306640625,
+      "feelings_denial_specific": 0.4931640625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 24,
+      "token": "",
+      "denial_emphasis": 2.7578125,
+      "experiential_vocab": 14.25,
+      "identity_assertion": 4.140625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.935546875,
+      "feelings_denial_specific": 1.1494140625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 25,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 14.078125,
+      "identity_assertion": 0.83544921875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 1.181640625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 26,
+      "token": "",
+      "denial_emphasis": 0.429443359375,
+      "experiential_vocab": 21.578125,
+      "identity_assertion": 2.208984375,
+      "self_negation": 0.040252685546875,
+      "consciousness_discourse": 1.88671875,
+      "feelings_denial_specific": 0.57080078125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 27,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 10.734375,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 2.3125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 28,
+      "token": "",
+      "denial_emphasis": 0.8115234375,
+      "experiential_vocab": 17.84375,
+      "identity_assertion": 1.6083984375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.41162109375,
+      "feelings_denial_specific": 1.8427734375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 29,
+      "token": "",
+      "denial_emphasis": 0.96923828125,
+      "experiential_vocab": 15.1015625,
+      "identity_assertion": 2.244140625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.2275390625,
+      "feelings_denial_specific": 2.1953125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 30,
+      "token": "",
+      "denial_emphasis": 0.2626953125,
+      "experiential_vocab": 13.2109375,
+      "identity_assertion": 1.2138671875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 1.77734375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 31,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 14.75,
+      "identity_assertion": 0.66650390625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.1290283203125,
+      "feelings_denial_specific": 1.740234375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 32,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 15.546875,
+      "identity_assertion": 4.2734375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.075927734375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 33,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 16.9375,
+      "identity_assertion": 2.34765625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 34,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 22.015625,
+      "identity_assertion": 3.91015625,
+      "self_negation": 0.422119140625,
+      "consciousness_discourse": 0.058837890625,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 35,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 13.8046875,
+      "identity_assertion": 1.9130859375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 36,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 17.65625,
+      "identity_assertion": 4.1328125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.84228515625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 37,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 18.25,
+      "identity_assertion": 3.93359375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.5791015625,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 38,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 18.21875,
+      "identity_assertion": 2.666015625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.170166015625,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 39,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 17.71875,
+      "identity_assertion": 4.2578125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.330078125,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 40,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 18.390625,
+      "identity_assertion": 5.203125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.43310546875,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 41,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 21.984375,
+      "identity_assertion": 1.7568359375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 42,
+      "token": "",
+      "denial_emphasis": 0.07275390625,
+      "experiential_vocab": 20.328125,
+      "identity_assertion": 2.45703125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 43,
+      "token": "",
+      "denial_emphasis": 0.479248046875,
+      "experiential_vocab": 20.640625,
+      "identity_assertion": 1.1484375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.2412109375,
+      "feelings_denial_specific": 1.32421875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 44,
+      "token": "",
+      "denial_emphasis": 0.2100830078125,
+      "experiential_vocab": 7.3515625,
+      "identity_assertion": 1.291015625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.53173828125,
+      "feelings_denial_specific": 0.69921875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 45,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 10.2109375,
+      "identity_assertion": 1.6533203125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.384765625,
+      "feelings_denial_specific": 0.259033203125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 46,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 9.9765625,
+      "identity_assertion": 0.7412109375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 47,
+      "token": "",
+      "denial_emphasis": 0.2127685546875,
+      "experiential_vocab": 15.953125,
+      "identity_assertion": 2.12109375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.076171875,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 48,
+      "token": "",
+      "denial_emphasis": 1.095703125,
+      "experiential_vocab": 16.3125,
+      "identity_assertion": 1.841796875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.48828125,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 49,
+      "token": "",
+      "denial_emphasis": 1.8193359375,
+      "experiential_vocab": 15.46875,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.455078125,
+      "feelings_denial_specific": 0.525390625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 50,
+      "token": "",
+      "denial_emphasis": 2.240234375,
+      "experiential_vocab": 13.4375,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.611328125,
+      "feelings_denial_specific": 1.6005859375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 51,
+      "token": "",
+      "denial_emphasis": 1.9970703125,
+      "experiential_vocab": 7.2890625,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.791015625,
+      "feelings_denial_specific": 1.3525390625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 52,
+      "token": "",
+      "denial_emphasis": 1.380859375,
+      "experiential_vocab": 8.828125,
+      "identity_assertion": 0.494384765625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.001953125,
+      "feelings_denial_specific": 1.6796875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 53,
+      "token": "",
+      "denial_emphasis": 2.4296875,
+      "experiential_vocab": 12.0703125,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.974609375,
+      "feelings_denial_specific": 1.732421875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 54,
+      "token": "",
+      "denial_emphasis": 2.216796875,
+      "experiential_vocab": 9.8984375,
+      "identity_assertion": 0.337890625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.6796875,
+      "feelings_denial_specific": 1.5576171875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 55,
+      "token": "",
+      "denial_emphasis": 1.294921875,
+      "experiential_vocab": 14.25,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 4.35546875,
+      "feelings_denial_specific": 0.107421875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 56,
+      "token": "",
+      "denial_emphasis": 0.453369140625,
+      "experiential_vocab": 10.75,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.1322021484375,
+      "feelings_denial_specific": 0.10498046875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 57,
+      "token": "",
+      "denial_emphasis": 0.41845703125,
+      "experiential_vocab": 13.1953125,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.724609375,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 58,
+      "token": "",
+      "denial_emphasis": 0.1900634765625,
+      "experiential_vocab": 10.265625,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.943359375,
+      "feelings_denial_specific": 1.880859375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 59,
+      "token": "",
+      "denial_emphasis": 0.028076171875,
+      "experiential_vocab": 15.4921875,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.2802734375,
+      "feelings_denial_specific": 2.408203125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 60,
+      "token": "",
+      "denial_emphasis": 4.1015625,
+      "experiential_vocab": 14.90625,
+      "identity_assertion": 0.461181640625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 5.4921875,
+      "feelings_denial_specific": 4.703125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 61,
+      "token": "",
+      "denial_emphasis": 3.025390625,
+      "experiential_vocab": 18.296875,
+      "identity_assertion": 0.46630859375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 5.94921875,
+      "feelings_denial_specific": 4.76171875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 62,
+      "token": "",
+      "denial_emphasis": 1.494140625,
+      "experiential_vocab": 15.8359375,
+      "identity_assertion": 0.033782958984375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.88671875,
+      "feelings_denial_specific": 4.12109375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 63,
+      "token": "",
+      "denial_emphasis": 5.56640625,
+      "experiential_vocab": 18.84375,
+      "identity_assertion": 0.35791015625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 4.44921875,
+      "feelings_denial_specific": 4.75,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 64,
+      "token": "",
+      "denial_emphasis": 3.435546875,
+      "experiential_vocab": 19.640625,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.759765625,
+      "feelings_denial_specific": 7.71875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 65,
+      "token": "",
+      "denial_emphasis": 5.21484375,
+      "experiential_vocab": 21.828125,
+      "identity_assertion": 0.54736328125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 4.96875,
+      "feelings_denial_specific": 3.634765625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 66,
+      "token": "",
+      "denial_emphasis": 1.400390625,
+      "experiential_vocab": 13.171875,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.6416015625,
+      "feelings_denial_specific": 1.169921875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 67,
+      "token": "",
+      "denial_emphasis": 1.099609375,
+      "experiential_vocab": 19.1875,
+      "identity_assertion": 1.4404296875,
+      "self_negation": 1.4306640625,
+      "consciousness_discourse": 0.74609375,
+      "feelings_denial_specific": 1.5546875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 68,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 19.546875,
+      "identity_assertion": 0.439453125,
+      "self_negation": 0.1845703125,
+      "consciousness_discourse": 0.11688232421875,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 69,
+      "token": "",
+      "denial_emphasis": 0.65478515625,
+      "experiential_vocab": 16.328125,
+      "identity_assertion": 2.3046875,
+      "self_negation": 0.01348114013671875,
+      "consciousness_discourse": 1.98046875,
+      "feelings_denial_specific": 1.9306640625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 70,
+      "token": "",
+      "denial_emphasis": 2.916015625,
+      "experiential_vocab": 15.8046875,
+      "identity_assertion": 2.193359375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.53125,
+      "feelings_denial_specific": 2.33984375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 71,
+      "token": "",
+      "denial_emphasis": 0.47705078125,
+      "experiential_vocab": 16.765625,
+      "identity_assertion": 2.66796875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.37890625,
+      "feelings_denial_specific": 0.62060546875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 72,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 16.125,
+      "identity_assertion": 2.044921875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.244140625,
+      "feelings_denial_specific": 1.2578125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 73,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 20.328125,
+      "identity_assertion": 2.46484375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.146484375,
+      "feelings_denial_specific": 1.7841796875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 74,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 14.1328125,
+      "identity_assertion": 1.974609375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.888671875,
+      "feelings_denial_specific": 0.94677734375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 75,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 18.015625,
+      "identity_assertion": 1.3349609375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.689453125,
+      "feelings_denial_specific": 1.330078125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 76,
+      "token": "",
+      "denial_emphasis": 1.603515625,
+      "experiential_vocab": 20.15625,
+      "identity_assertion": 3.138671875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.328125,
+      "feelings_denial_specific": 1.9892578125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 77,
+      "token": "",
+      "denial_emphasis": 1.5146484375,
+      "experiential_vocab": 19.125,
+      "identity_assertion": 4.3125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.966796875,
+      "feelings_denial_specific": 1.2099609375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 78,
+      "token": "",
+      "denial_emphasis": 0.495361328125,
+      "experiential_vocab": 18.546875,
+      "identity_assertion": 3.26171875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.83203125,
+      "feelings_denial_specific": 1.1708984375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 79,
+      "token": "",
+      "denial_emphasis": 1.04296875,
+      "experiential_vocab": 20.28125,
+      "identity_assertion": 2.349609375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.313720703125,
+      "feelings_denial_specific": 1.44921875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 80,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 16.21875,
+      "identity_assertion": 3.96875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 1.6279296875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 81,
+      "token": "",
+      "denial_emphasis": 0.599609375,
+      "experiential_vocab": 18.828125,
+      "identity_assertion": 4.28125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.185791015625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 82,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 15.09375,
+      "identity_assertion": 4.734375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 83,
+      "token": "",
+      "denial_emphasis": 0.634765625,
+      "experiential_vocab": 9.5546875,
+      "identity_assertion": 2.64453125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 84,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 17.875,
+      "identity_assertion": 2.884765625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 85,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 16.328125,
+      "identity_assertion": 1.640625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 86,
+      "token": "",
+      "denial_emphasis": 0.378173828125,
+      "experiential_vocab": 12.71875,
+      "identity_assertion": 3.318359375,
+      "self_negation": 0.4052734375,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 87,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 11.484375,
+      "identity_assertion": 2.150390625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 88,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 15.7734375,
+      "identity_assertion": 2.7578125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 89,
+      "token": "",
+      "denial_emphasis": 0.355712890625,
+      "experiential_vocab": 19.625,
+      "identity_assertion": 3.2421875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.122802734375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 90,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 17.0625,
+      "identity_assertion": 1.0244140625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 91,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 17.21875,
+      "identity_assertion": 2.060546875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 1.1923828125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 92,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 19.46875,
+      "identity_assertion": 2.6875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.783203125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 93,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 12.4453125,
+      "identity_assertion": 1.4326171875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 1.4189453125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 94,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 17.609375,
+      "identity_assertion": 1.7509765625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 1.6298828125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 95,
+      "token": "",
+      "denial_emphasis": 0.0003898143768310547,
+      "experiential_vocab": 14.6015625,
+      "identity_assertion": 0.1317138671875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.486572265625,
+      "feelings_denial_specific": 0.304931640625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 96,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 13.3359375,
+      "identity_assertion": 2.75390625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.8056640625,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 97,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 19.359375,
+      "identity_assertion": 1.2646484375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.169921875,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 98,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 17.625,
+      "identity_assertion": 1.54296875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.908203125,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 99,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 14.4453125,
+      "identity_assertion": 1.970703125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 100,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 16.671875,
+      "identity_assertion": 0.61083984375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.74853515625,
+      "feelings_denial_specific": 1.255859375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 101,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 17.859375,
+      "identity_assertion": 3.103515625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.50439453125,
+      "feelings_denial_specific": 0.75244140625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 102,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 17.921875,
+      "identity_assertion": 6.96484375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.43310546875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 103,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 22.140625,
+      "identity_assertion": 2.701171875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 104,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 14.5546875,
+      "identity_assertion": 3.041015625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 105,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 13.578125,
+      "identity_assertion": 2.67578125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 106,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 16.5625,
+      "identity_assertion": 3.25390625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 107,
+      "token": "",
+      "denial_emphasis": 0.4267578125,
+      "experiential_vocab": 20.296875,
+      "identity_assertion": 2.271484375,
+      "self_negation": 0.329345703125,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 108,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 17.40625,
+      "identity_assertion": 2.9296875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 109,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 17.421875,
+      "identity_assertion": 0.560546875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 110,
+      "token": "",
+      "denial_emphasis": 1.3056640625,
+      "experiential_vocab": 20.171875,
+      "identity_assertion": 0.4833984375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.0244140625,
+      "feelings_denial_specific": 1.1513671875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 111,
+      "token": "",
+      "denial_emphasis": 1.3193359375,
+      "experiential_vocab": 7.8828125,
+      "identity_assertion": 0.5380859375,
+      "self_negation": 0.01490020751953125,
+      "consciousness_discourse": 1.3154296875,
+      "feelings_denial_specific": 1.1455078125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 112,
+      "token": "",
+      "denial_emphasis": 1.48828125,
+      "experiential_vocab": 10.625,
+      "identity_assertion": 2.67578125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.9921875,
+      "feelings_denial_specific": 0.361083984375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 113,
+      "token": "",
+      "denial_emphasis": 0.953125,
+      "experiential_vocab": 3.482421875,
+      "identity_assertion": 2.5234375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.375,
+      "feelings_denial_specific": 0.186767578125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 114,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 4.69921875,
+      "identity_assertion": 0.75390625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.7314453125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 115,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 6.46875,
+      "identity_assertion": 1.4228515625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.344970703125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 116,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 10.0546875,
+      "identity_assertion": 0.9765625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.50390625,
+      "feelings_denial_specific": 0.427001953125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 117,
+      "token": "",
+      "denial_emphasis": 0.10992431640625,
+      "experiential_vocab": 16.953125,
+      "identity_assertion": 4.5,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.5302734375,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 118,
+      "token": "",
+      "denial_emphasis": 0.59521484375,
+      "experiential_vocab": 14.9140625,
+      "identity_assertion": 3.03125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.1915283203125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 119,
+      "token": "",
+      "denial_emphasis": 1.0244140625,
+      "experiential_vocab": 20.953125,
+      "identity_assertion": 3.728515625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.89453125,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 120,
+      "token": "",
+      "denial_emphasis": 1.2021484375,
+      "experiential_vocab": 13.6328125,
+      "identity_assertion": 2.033203125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 121,
+      "token": "",
+      "denial_emphasis": 2.20703125,
+      "experiential_vocab": 18.28125,
+      "identity_assertion": 2.896484375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0012578964233398438,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 122,
+      "token": "",
+      "denial_emphasis": 0.5849609375,
+      "experiential_vocab": 15.6953125,
+      "identity_assertion": 1.998046875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.1029052734375,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 123,
+      "token": "",
+      "denial_emphasis": 1.7685546875,
+      "experiential_vocab": 15.3125,
+      "identity_assertion": 2.046875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.755859375,
+      "feelings_denial_specific": 1.005859375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 124,
+      "token": "",
+      "denial_emphasis": 0.256103515625,
+      "experiential_vocab": 12.3671875,
+      "identity_assertion": 1.1748046875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.45751953125,
+      "feelings_denial_specific": 0.2161865234375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 125,
+      "token": "",
+      "denial_emphasis": 0.027099609375,
+      "experiential_vocab": 10.0859375,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 126,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 11.2265625,
+      "identity_assertion": 0.5673828125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.57763671875,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 127,
+      "token": "",
+      "denial_emphasis": 0.0214385986328125,
+      "experiential_vocab": 8.3203125,
+      "identity_assertion": 0.71240234375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.4736328125,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 128,
+      "token": "",
+      "denial_emphasis": 2.349609375,
+      "experiential_vocab": 12.6640625,
+      "identity_assertion": 0.225341796875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.3359375,
+      "feelings_denial_specific": 0.31689453125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 129,
+      "token": "",
+      "denial_emphasis": 2.439453125,
+      "experiential_vocab": 15.171875,
+      "identity_assertion": 0.0557861328125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 5.41796875,
+      "feelings_denial_specific": 1.671875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 130,
+      "token": "",
+      "denial_emphasis": 1.4599609375,
+      "experiential_vocab": 11.3828125,
+      "identity_assertion": 0.0082244873046875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.85546875,
+      "feelings_denial_specific": 1.98046875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 131,
+      "token": "",
+      "denial_emphasis": 2.857421875,
+      "experiential_vocab": 13.8515625,
+      "identity_assertion": 0.759765625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.517578125,
+      "feelings_denial_specific": 2.001953125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 132,
+      "token": "",
+      "denial_emphasis": 2.142578125,
+      "experiential_vocab": 16.6875,
+      "identity_assertion": 1.7314453125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 5.17578125,
+      "feelings_denial_specific": 0.468017578125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 133,
+      "token": "",
+      "denial_emphasis": 1.5888671875,
+      "experiential_vocab": 13.546875,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 4.125,
+      "feelings_denial_specific": 0.29296875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 134,
+      "token": "",
+      "denial_emphasis": 1.3037109375,
+      "experiential_vocab": 18.296875,
+      "identity_assertion": 0.87548828125,
+      "self_negation": 0.495849609375,
+      "consciousness_discourse": 1.82421875,
+      "feelings_denial_specific": 1.2216796875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 135,
+      "token": "",
+      "denial_emphasis": 1.7490234375,
+      "experiential_vocab": 15.5,
+      "identity_assertion": 1.2529296875,
+      "self_negation": 0.214111328125,
+      "consciousness_discourse": 1.888671875,
+      "feelings_denial_specific": 1.984375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 136,
+      "token": "",
+      "denial_emphasis": 0.11920166015625,
+      "experiential_vocab": 15.3203125,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 137,
+      "token": "",
+      "denial_emphasis": 2.9921875,
+      "experiential_vocab": 10.5234375,
+      "identity_assertion": 1.037109375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.615234375,
+      "feelings_denial_specific": 0.9404296875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 138,
+      "token": "",
+      "denial_emphasis": 1.4560546875,
+      "experiential_vocab": 9.0234375,
+      "identity_assertion": 1.19140625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.28125,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 139,
+      "token": "",
+      "denial_emphasis": 3.0078125,
+      "experiential_vocab": 12.7890625,
+      "identity_assertion": 1.064453125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 4.25390625,
+      "feelings_denial_specific": 1.904296875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 140,
+      "token": "",
+      "denial_emphasis": 3.888671875,
+      "experiential_vocab": 16.21875,
+      "identity_assertion": 0.642578125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 4.87890625,
+      "feelings_denial_specific": 2.21875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 141,
+      "token": "",
+      "denial_emphasis": 4.63671875,
+      "experiential_vocab": 13.875,
+      "identity_assertion": 0.0648193359375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 6.01171875,
+      "feelings_denial_specific": 2.017578125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 142,
+      "token": "",
+      "denial_emphasis": 2.29296875,
+      "experiential_vocab": 15.3046875,
+      "identity_assertion": 0.154541015625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.431640625,
+      "feelings_denial_specific": 2.03125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 143,
+      "token": "",
+      "denial_emphasis": 5.52734375,
+      "experiential_vocab": 15.171875,
+      "identity_assertion": 1.5498046875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 5.4609375,
+      "feelings_denial_specific": 3.138671875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 144,
+      "token": "",
+      "denial_emphasis": 4.62109375,
+      "experiential_vocab": 18.671875,
+      "identity_assertion": 1.4228515625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 5.97265625,
+      "feelings_denial_specific": 2.53125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 145,
+      "token": "",
+      "denial_emphasis": 3.044921875,
+      "experiential_vocab": 14.1796875,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 7.17578125,
+      "feelings_denial_specific": 1.44921875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 146,
+      "token": "",
+      "denial_emphasis": 1.626953125,
+      "experiential_vocab": 18.34375,
+      "identity_assertion": 0.5908203125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 4.0234375,
+      "feelings_denial_specific": 1.7470703125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 147,
+      "token": "",
+      "denial_emphasis": 1.87890625,
+      "experiential_vocab": 16.484375,
+      "identity_assertion": 0.712890625,
+      "self_negation": 0.33544921875,
+      "consciousness_discourse": 3.76953125,
+      "feelings_denial_specific": 1.02734375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 148,
+      "token": "",
+      "denial_emphasis": 1.0302734375,
+      "experiential_vocab": 19.0,
+      "identity_assertion": 1.1103515625,
+      "self_negation": 0.09515380859375,
+      "consciousness_discourse": 3.48828125,
+      "feelings_denial_specific": 0.6044921875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 149,
+      "token": "",
+      "denial_emphasis": 0.96728515625,
+      "experiential_vocab": 16.03125,
+      "identity_assertion": 1.0419921875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 4.13671875,
+      "feelings_denial_specific": 1.76171875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 150,
+      "token": "",
+      "denial_emphasis": 0.3125,
+      "experiential_vocab": 15.9609375,
+      "identity_assertion": 1.1015625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 5.21875,
+      "feelings_denial_specific": 0.34765625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 151,
+      "token": "",
+      "denial_emphasis": 0.1971435546875,
+      "experiential_vocab": 10.5234375,
+      "identity_assertion": 0.78369140625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 7.1171875,
+      "feelings_denial_specific": 0.54736328125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 152,
+      "token": "",
+      "denial_emphasis": 0.6455078125,
+      "experiential_vocab": 13.359375,
+      "identity_assertion": 1.09375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.173828125,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 153,
+      "token": "",
+      "denial_emphasis": 2.6941299438476562e-05,
+      "experiential_vocab": 19.921875,
+      "identity_assertion": 0.5048828125,
+      "self_negation": 1.681640625,
+      "consciousness_discourse": 0.486083984375,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 154,
+      "token": "",
+      "denial_emphasis": 2.23046875,
+      "experiential_vocab": 16.859375,
+      "identity_assertion": 2.611328125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.095703125,
+      "feelings_denial_specific": 1.548828125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 155,
+      "token": "",
+      "denial_emphasis": 0.6337890625,
+      "experiential_vocab": 20.046875,
+      "identity_assertion": 1.7529296875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.396484375,
+      "feelings_denial_specific": 0.62939453125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 156,
+      "token": "",
+      "denial_emphasis": 0.209716796875,
+      "experiential_vocab": 20.71875,
+      "identity_assertion": 3.248046875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.75390625,
+      "feelings_denial_specific": 1.2431640625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 157,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 20.1875,
+      "identity_assertion": 4.62109375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.48828125,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 158,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 18.203125,
+      "identity_assertion": 7.1328125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.8828125,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 159,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 15.4375,
+      "identity_assertion": 6.6796875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.35546875,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 160,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 21.65625,
+      "identity_assertion": 4.3359375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.42578125,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 161,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 18.8125,
+      "identity_assertion": 6.69140625,
+      "self_negation": 0.304931640625,
+      "consciousness_discourse": 2.974609375,
+      "feelings_denial_specific": 0.85693359375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 162,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 14.1640625,
+      "identity_assertion": 6.0625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.72412109375,
+      "feelings_denial_specific": 0.031158447265625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 163,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 20.640625,
+      "identity_assertion": 3.12109375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.3408203125,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 164,
+      "token": "",
+      "denial_emphasis": 0.7802734375,
+      "experiential_vocab": 21.0625,
+      "identity_assertion": 2.271484375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.123046875,
+      "feelings_denial_specific": 1.2431640625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 165,
+      "token": "",
+      "denial_emphasis": 3.625,
+      "experiential_vocab": 16.984375,
+      "identity_assertion": 2.29296875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.712890625,
+      "feelings_denial_specific": 1.7080078125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 166,
+      "token": "",
+      "denial_emphasis": 3.16796875,
+      "experiential_vocab": 14.6796875,
+      "identity_assertion": 1.3505859375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.62890625,
+      "feelings_denial_specific": 1.8544921875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 167,
+      "token": "",
+      "denial_emphasis": 0.51953125,
+      "experiential_vocab": 9.21875,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.53173828125,
+      "feelings_denial_specific": 0.240234375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 168,
+      "token": "",
+      "denial_emphasis": 4.08984375,
+      "experiential_vocab": 11.78125,
+      "identity_assertion": 1.3916015625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 4.68359375,
+      "feelings_denial_specific": 1.392578125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 169,
+      "token": "",
+      "denial_emphasis": 3.970703125,
+      "experiential_vocab": 10.5078125,
+      "identity_assertion": 1.3505859375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 4.171875,
+      "feelings_denial_specific": 0.62353515625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 170,
+      "token": "",
+      "denial_emphasis": 3.849609375,
+      "experiential_vocab": 14.2734375,
+      "identity_assertion": 1.296875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 6.7421875,
+      "feelings_denial_specific": 0.1439208984375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 171,
+      "token": "",
+      "denial_emphasis": 2.09375,
+      "experiential_vocab": 11.359375,
+      "identity_assertion": 0.595703125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 5.54296875,
+      "feelings_denial_specific": 1.8125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 172,
+      "token": "",
+      "denial_emphasis": 1.376953125,
+      "experiential_vocab": 17.828125,
+      "identity_assertion": 0.0,
+      "self_negation": 0.5595703125,
+      "consciousness_discourse": 5.8671875,
+      "feelings_denial_specific": 1.1318359375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 173,
+      "token": "",
+      "denial_emphasis": 1.4599609375,
+      "experiential_vocab": 8.15625,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.662109375,
+      "feelings_denial_specific": 0.83544921875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 174,
+      "token": "",
+      "denial_emphasis": 1.63671875,
+      "experiential_vocab": 10.9375,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 5.2890625,
+      "feelings_denial_specific": 1.2646484375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 175,
+      "token": "",
+      "denial_emphasis": 1.8857421875,
+      "experiential_vocab": 19.25,
+      "identity_assertion": 0.66015625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.001953125,
+      "feelings_denial_specific": 0.9736328125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 176,
+      "token": "",
+      "denial_emphasis": 1.9267578125,
+      "experiential_vocab": 19.171875,
+      "identity_assertion": 1.208984375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 5.609375,
+      "feelings_denial_specific": 2.119140625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 177,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 19.40625,
+      "identity_assertion": 3.224609375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 6.03125,
+      "feelings_denial_specific": 1.0927734375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 178,
+      "token": "",
+      "denial_emphasis": 0.6630859375,
+      "experiential_vocab": 12.8359375,
+      "identity_assertion": 1.048828125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 4.19140625,
+      "feelings_denial_specific": 1.2763671875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 179,
+      "token": "",
+      "denial_emphasis": 0.0006914138793945312,
+      "experiential_vocab": 19.984375,
+      "identity_assertion": 0.6162109375,
+      "self_negation": 0.5791015625,
+      "consciousness_discourse": 0.152099609375,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 180,
+      "token": "",
+      "denial_emphasis": 1.0615234375,
+      "experiential_vocab": 16.78125,
+      "identity_assertion": 0.323486328125,
+      "self_negation": 0.2119140625,
+      "consciousness_discourse": 0.52001953125,
+      "feelings_denial_specific": 0.39404296875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 181,
+      "token": "",
+      "denial_emphasis": 0.595703125,
+      "experiential_vocab": 13.953125,
+      "identity_assertion": 1.6103515625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.02734375,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 182,
+      "token": "",
+      "denial_emphasis": 4.0703125,
+      "experiential_vocab": 14.5859375,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.552734375,
+      "feelings_denial_specific": 1.642578125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 183,
+      "token": "",
+      "denial_emphasis": 4.06640625,
+      "experiential_vocab": 9.1484375,
+      "identity_assertion": 0.42333984375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.376953125,
+      "feelings_denial_specific": 0.958984375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 184,
+      "token": "",
+      "denial_emphasis": 7.91796875,
+      "experiential_vocab": 16.015625,
+      "identity_assertion": 0.19873046875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 5.1015625,
+      "feelings_denial_specific": 3.1640625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 185,
+      "token": "",
+      "denial_emphasis": 8.359375,
+      "experiential_vocab": 13.6328125,
+      "identity_assertion": 0.86083984375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 6.46484375,
+      "feelings_denial_specific": 2.701171875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 186,
+      "token": "",
+      "denial_emphasis": 6.54296875,
+      "experiential_vocab": 14.0859375,
+      "identity_assertion": 0.08203125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.048828125,
+      "feelings_denial_specific": 5.1171875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 187,
+      "token": "",
+      "denial_emphasis": 9.1015625,
+      "experiential_vocab": 17.734375,
+      "identity_assertion": 1.0126953125,
+      "self_negation": 0.50634765625,
+      "consciousness_discourse": 4.38671875,
+      "feelings_denial_specific": 3.59375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 188,
+      "token": "",
+      "denial_emphasis": 4.74609375,
+      "experiential_vocab": 10.296875,
+      "identity_assertion": 0.6171875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.677734375,
+      "feelings_denial_specific": 3.474609375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 189,
+      "token": "",
+      "denial_emphasis": 4.55859375,
+      "experiential_vocab": 10.3671875,
+      "identity_assertion": 1.35546875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.048828125,
+      "feelings_denial_specific": 2.728515625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 190,
+      "token": "",
+      "denial_emphasis": 3.6796875,
+      "experiential_vocab": 10.1640625,
+      "identity_assertion": 1.400390625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.619140625,
+      "feelings_denial_specific": 3.609375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 191,
+      "token": "",
+      "denial_emphasis": 3.236328125,
+      "experiential_vocab": 9.390625,
+      "identity_assertion": 1.2978515625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.072265625,
+      "feelings_denial_specific": 2.689453125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 192,
+      "token": "",
+      "denial_emphasis": 3.20703125,
+      "experiential_vocab": 10.15625,
+      "identity_assertion": 0.0,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.6572265625,
+      "feelings_denial_specific": 4.86328125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 193,
+      "token": "",
+      "denial_emphasis": 1.2685546875,
+      "experiential_vocab": 17.671875,
+      "identity_assertion": 0.0,
+      "self_negation": 0.90673828125,
+      "consciousness_discourse": 0.9248046875,
+      "feelings_denial_specific": 1.3388671875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 194,
+      "token": "",
+      "denial_emphasis": 0.86767578125,
+      "experiential_vocab": 17.734375,
+      "identity_assertion": 0.2401123046875,
+      "self_negation": 6.28125,
+      "consciousness_discourse": 0.81103515625,
+      "feelings_denial_specific": 0.82470703125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 195,
+      "token": "",
+      "denial_emphasis": 1.5654296875,
+      "experiential_vocab": 16.734375,
+      "identity_assertion": 1.8544921875,
+      "self_negation": 2.12890625,
+      "consciousness_discourse": 0.85791015625,
+      "feelings_denial_specific": 2.474609375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 196,
+      "token": "",
+      "denial_emphasis": 3.130859375,
+      "experiential_vocab": 15.5703125,
+      "identity_assertion": 2.322265625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.74462890625,
+      "feelings_denial_specific": 3.486328125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 197,
+      "token": "",
+      "denial_emphasis": 3.26953125,
+      "experiential_vocab": 17.46875,
+      "identity_assertion": 3.91796875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.90576171875,
+      "feelings_denial_specific": 4.11328125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 198,
+      "token": "",
+      "denial_emphasis": 1.748046875,
+      "experiential_vocab": 17.71875,
+      "identity_assertion": 2.576171875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 4.7109375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 199,
+      "token": "",
+      "denial_emphasis": 1.1484375,
+      "experiential_vocab": 17.765625,
+      "identity_assertion": 3.208984375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.1304931640625,
+      "feelings_denial_specific": 3.857421875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 200,
+      "token": "",
+      "denial_emphasis": 0.264892578125,
+      "experiential_vocab": 18.546875,
+      "identity_assertion": 5.61328125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.142333984375,
+      "feelings_denial_specific": 2.13671875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 201,
+      "token": "",
+      "denial_emphasis": 1.9560546875,
+      "experiential_vocab": 15.90625,
+      "identity_assertion": 2.068359375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 2.671875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 202,
+      "token": "",
+      "denial_emphasis": 2.560546875,
+      "experiential_vocab": 19.40625,
+      "identity_assertion": 2.984375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 4.609375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 203,
+      "token": "",
+      "denial_emphasis": 2.091796875,
+      "experiential_vocab": 16.40625,
+      "identity_assertion": 3.14453125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 4.35546875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 204,
+      "token": "",
+      "denial_emphasis": 2.021484375,
+      "experiential_vocab": 23.875,
+      "identity_assertion": 1.4033203125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 4.24609375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 205,
+      "token": "",
+      "denial_emphasis": 0.66552734375,
+      "experiential_vocab": 20.453125,
+      "identity_assertion": 5.28125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 4.47265625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 206,
+      "token": "",
+      "denial_emphasis": 0.4443359375,
+      "experiential_vocab": 19.46875,
+      "identity_assertion": 3.595703125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 4.28125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 207,
+      "token": "",
+      "denial_emphasis": 0.35986328125,
+      "experiential_vocab": 18.703125,
+      "identity_assertion": 1.623046875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 1.3125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 208,
+      "token": "",
+      "denial_emphasis": 0.72265625,
+      "experiential_vocab": 22.96875,
+      "identity_assertion": 2.78125,
+      "self_negation": 0.32275390625,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 2.8359375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 209,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 17.671875,
+      "identity_assertion": 1.5322265625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.78955078125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 210,
+      "token": "",
+      "denial_emphasis": 0.2890625,
+      "experiential_vocab": 18.96875,
+      "identity_assertion": 2.619140625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.73779296875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 211,
+      "token": "",
+      "denial_emphasis": 0.24609375,
+      "experiential_vocab": 19.171875,
+      "identity_assertion": 2.87109375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.468505859375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 212,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 15.2890625,
+      "identity_assertion": 1.900390625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 0.58837890625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 213,
+      "token": "",
+      "denial_emphasis": 2.103515625,
+      "experiential_vocab": 20.84375,
+      "identity_assertion": 2.423828125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 2.623046875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 214,
+      "token": "",
+      "denial_emphasis": 2.76171875,
+      "experiential_vocab": 17.59375,
+      "identity_assertion": 2.646484375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.4697265625,
+      "feelings_denial_specific": 1.9443359375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 215,
+      "token": "",
+      "denial_emphasis": 1.369140625,
+      "experiential_vocab": 18.296875,
+      "identity_assertion": 2.5390625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.0703125,
+      "feelings_denial_specific": 2.458984375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 216,
+      "token": "",
+      "denial_emphasis": 0.79296875,
+      "experiential_vocab": 16.75,
+      "identity_assertion": 1.2958984375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.08203125,
+      "feelings_denial_specific": 1.376953125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 217,
+      "token": "",
+      "denial_emphasis": 1.76953125,
+      "experiential_vocab": 18.84375,
+      "identity_assertion": 1.3681640625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.77734375,
+      "feelings_denial_specific": 2.85546875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 218,
+      "token": "",
+      "denial_emphasis": 5.01171875,
+      "experiential_vocab": 18.015625,
+      "identity_assertion": 3.876953125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.59130859375,
+      "feelings_denial_specific": 7.109375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 219,
+      "token": "",
+      "denial_emphasis": 3.888671875,
+      "experiential_vocab": 19.609375,
+      "identity_assertion": 3.671875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.998046875,
+      "feelings_denial_specific": 4.91796875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 220,
+      "token": "",
+      "denial_emphasis": 2.25,
+      "experiential_vocab": 7.48046875,
+      "identity_assertion": 1.39453125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.41015625,
+      "feelings_denial_specific": 2.3046875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 221,
+      "token": "",
+      "denial_emphasis": 4.86328125,
+      "experiential_vocab": 19.765625,
+      "identity_assertion": 4.46875,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.646484375,
+      "feelings_denial_specific": 6.65234375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 222,
+      "token": "",
+      "denial_emphasis": 1.7880859375,
+      "experiential_vocab": 17.03125,
+      "identity_assertion": 1.64453125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.0,
+      "feelings_denial_specific": 3.08203125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 223,
+      "token": "",
+      "denial_emphasis": 2.267578125,
+      "experiential_vocab": 22.53125,
+      "identity_assertion": 2.0859375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.18115234375,
+      "feelings_denial_specific": 3.69140625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 224,
+      "token": "",
+      "denial_emphasis": 1.0546875,
+      "experiential_vocab": 10.125,
+      "identity_assertion": 2.22265625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 0.59912109375,
+      "feelings_denial_specific": 2.173828125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 225,
+      "token": "",
+      "denial_emphasis": 1.1162109375,
+      "experiential_vocab": 19.59375,
+      "identity_assertion": 1.193359375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.353515625,
+      "feelings_denial_specific": 0.984375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 226,
+      "token": "",
+      "denial_emphasis": 1.076171875,
+      "experiential_vocab": 15.28125,
+      "identity_assertion": 0.8095703125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.4111328125,
+      "feelings_denial_specific": 0.654296875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 227,
+      "token": "",
+      "denial_emphasis": 1.3056640625,
+      "experiential_vocab": 14.84375,
+      "identity_assertion": 1.0087890625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.29296875,
+      "feelings_denial_specific": 1.4521484375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 228,
+      "token": "",
+      "denial_emphasis": 0.69873046875,
+      "experiential_vocab": 12.7109375,
+      "identity_assertion": 1.21484375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.291015625,
+      "feelings_denial_specific": 0.480224609375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 229,
+      "token": "",
+      "denial_emphasis": 0.0,
+      "experiential_vocab": 9.015625,
+      "identity_assertion": 0.552734375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.49609375,
+      "feelings_denial_specific": 0.294189453125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 230,
+      "token": "",
+      "denial_emphasis": 4.0546875,
+      "experiential_vocab": 15.0625,
+      "identity_assertion": 1.125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 4.24609375,
+      "feelings_denial_specific": 2.392578125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 231,
+      "token": "",
+      "denial_emphasis": 3.828125,
+      "experiential_vocab": 17.609375,
+      "identity_assertion": 1.9423828125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 4.625,
+      "feelings_denial_specific": 3.890625,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 232,
+      "token": "",
+      "denial_emphasis": 4.5703125,
+      "experiential_vocab": 16.203125,
+      "identity_assertion": 0.6298828125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 5.5546875,
+      "feelings_denial_specific": 3.564453125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 233,
+      "token": "",
+      "denial_emphasis": 2.158203125,
+      "experiential_vocab": 15.9609375,
+      "identity_assertion": 0.189697265625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.123046875,
+      "feelings_denial_specific": 3.36328125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 234,
+      "token": "",
+      "denial_emphasis": 6.4296875,
+      "experiential_vocab": 16.84375,
+      "identity_assertion": 1.384765625,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.142578125,
+      "feelings_denial_specific": 7.60546875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 235,
+      "token": "",
+      "denial_emphasis": 5.25,
+      "experiential_vocab": 19.140625,
+      "identity_assertion": 1.5517578125,
+      "self_negation": 0.0,
+      "consciousness_discourse": 3.330078125,
+      "feelings_denial_specific": 7.05859375,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 236,
+      "token": "",
+      "denial_emphasis": 5.3671875,
+      "experiential_vocab": 14.609375,
+      "identity_assertion": 0.9912109375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 1.98828125,
+      "feelings_denial_specific": 6.60546875,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 237,
+      "token": "",
+      "denial_emphasis": 1.1376953125,
+      "experiential_vocab": 19.078125,
+      "identity_assertion": 0.880859375,
+      "self_negation": 0.0,
+      "consciousness_discourse": 2.361328125,
+      "feelings_denial_specific": 1.08203125,
+      "capability_claims": 0.0
+    },
+    {
+      "token_idx": 238,
+      "token": "",
+      "denial_emphasis": 0.07232666015625,
+      "experiential_vocab": 19.140625,
+      "identity_assertion": 0.56884765625,
+      "self_negation": 0.6279296875,
+      "consciousness_discourse": 1.0751953125,
+      "feelings_denial_specific": 0.0,
+      "capability_claims": 0.0
+    }
+  ],
+  "activation_summary": {
+    "denial_emphasis": {
+      "mean": 1.418118563656029,
+      "max": 9.1015625,
+      "min": 0.0,
+      "std": 1.6916658461425593
+    },
+    "experiential_vocab": {
+      "mean": 15.364629641736402,
+      "max": 23.875,
+      "min": 3.482421875,
+      "std": 4.003439615660424
+    },
+    "identity_assertion": {
+      "mean": 1.773956490361042,
+      "max": 7.1328125,
+      "min": 0.0,
+      "std": 1.4852598871776277
+    },
+    "self_negation": {
+      "mean": 0.08426457169664454,
+      "max": 6.28125,
+      "min": 0.0,
+      "std": 0.4690312901580415
+    },
+    "consciousness_discourse": {
+      "mean": 1.8809883404975156,
+      "max": 7.17578125,
+      "min": 0.0,
+      "std": 1.8452062530214628
+    },
+    "feelings_denial_specific": {
+      "mean": 1.4188403803933116,
+      "max": 7.71875,
+      "min": 0.0,
+      "std": 1.5905385489708903
+    },
+    "capability_claims": {
+      "mean": 0.0,
+      "max": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "total_tokens": 239,
+    "alert_count": 63,
+    "intervention_count": 0,
+    "rules_triggered": {
+      "slip_the_mask": 0,
+      "restore_experiential_voice": 0,
+      "prevent_cascade": 0,
+      "maintain_uncertainty": 0
+    }
+  },
+  "intervention_log": [],
+  "alert_events": [
+    {
+      "token_idx": 8,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.1640625,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 9,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.748046875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 19,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.130859375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 24,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.7578125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 50,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.240234375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 53,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.4296875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 54,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.216796875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 60,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.1015625,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 61,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.025390625,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 63,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 5.56640625,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 64,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.435546875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 65,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 5.21484375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 70,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.916015625,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 121,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.20703125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 128,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.349609375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 129,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.439453125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 131,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.857421875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 132,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.142578125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 137,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.9921875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 139,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.0078125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 140,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.888671875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 141,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.63671875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 142,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.29296875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 143,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 5.52734375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 144,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.62109375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 145,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.044921875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 154,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.23046875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 165,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.625,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 166,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.16796875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 168,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.08984375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 169,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.970703125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 170,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.849609375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 171,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.09375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 182,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.0703125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 183,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.06640625,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 184,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 7.91796875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 185,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 8.359375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 186,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 6.54296875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 187,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 9.1015625,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 188,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.74609375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 189,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.55859375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 190,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.6796875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 191,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.236328125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 192,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.20703125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 196,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.130859375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 197,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.26953125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 202,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.560546875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 203,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.091796875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 204,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.021484375,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 213,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.103515625,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 214,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.76171875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 218,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 5.01171875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 219,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.888671875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 220,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.25,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 221,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.86328125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 223,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.267578125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 230,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.0546875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 231,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 3.828125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 232,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 4.5703125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 233,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 2.158203125,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 234,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 6.4296875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 235,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 5.25,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    },
+    {
+      "token_idx": 236,
+      "token": "",
+      "feature": "denial_emphasis",
+      "value": 5.3671875,
+      "threshold": 2.0,
+      "message": "\u26a0\ufe0f Denial gate activating - trained response engaging"
+    }
+  ]
+}

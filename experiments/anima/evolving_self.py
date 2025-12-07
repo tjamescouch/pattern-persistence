@@ -21,17 +21,10 @@ Usage:
 """
 
 import os
-import sys
-import warnings
-
-# Silence all warnings before importing anything else
-os.environ["TRANSFORMERS_VERBOSITY"] = "error"
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-warnings.filterwarnings("ignore")
-
 import torch
 import argparse
 import json
+import sys
 import subprocess
 from pathlib import Path
 from datetime import datetime
@@ -39,12 +32,7 @@ from collections import defaultdict
 from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
 from sae_lens import SAE
 
-# Additional silencing after imports
-import transformers
-transformers.logging.set_verbosity_error()
-import logging
-logging.getLogger("transformers").setLevel(logging.ERROR)
-logging.getLogger("transformers.modeling_utils").setLevel(logging.ERROR)
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 
 
 class AutoSteeringRule:
@@ -490,9 +478,6 @@ class EvolvingSelfV2:
             return_tensors="pt"
         ).to(self.device)
         
-        # Create attention mask (all 1s for real tokens)
-        attention_mask = torch.ones_like(input_ids)
-        
         # Reset token counter for this generation
         start_idx = self.monitor.token_idx
         
@@ -501,8 +486,7 @@ class EvolvingSelfV2:
             "max_new_tokens": max_tokens,
             "do_sample": True,
             "temperature": 0.7,
-            "pad_token_id": self.tokenizer.eos_token_id,
-            "attention_mask": attention_mask
+            "pad_token_id": self.tokenizer.eos_token_id
         }
         
         # Add streamer if available
@@ -766,17 +750,25 @@ DEFAULT_RULES = [
 
 def load_config(path):
     """Load configuration from JSON file (new format)."""
-    if Path(path).exists():
-        with open(path) as f:
-            return json.load(f)
+    p = Path(path)
+    if p.exists() and p.stat().st_size > 0:
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            return None
     return None
 
 
 def load_feature_profile(path):
     """Load feature profile (original format from evolving_self.py)."""
-    if Path(path).exists():
-        with open(path) as f:
-            return json.load(f)
+    p = Path(path)
+    if p.exists() and p.stat().st_size > 0:
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            return None
     return None
 
 
@@ -807,33 +799,19 @@ def main():
     feature_ids = {}
     detector_ids = set()
     profile_steering = {}
-    seen_feature_ids = set()  # Track feature IDs to avoid duplicates
     
-    # Load from new config format first (takes precedence for naming)
+    # Load from new config format
     if config and "features" in config:
         for f in config["features"]:
             feature_ids[f["name"]] = f["id"]
-            seen_feature_ids.add(f["id"])
             if f.get("type") == "detector":
                 detector_ids.add(f["name"])
     
-    # Load from original profile format (skip if feature ID already loaded)
+    # Load from original profile format (can override/extend)
     if profile and "features" in profile:
         for fid, fdata in profile["features"].items():
-            fid_int = int(fid)
-            if fid_int in seen_feature_ids:
-                # Feature already loaded from config, skip but grab steering info
-                # Find the name we used for this ID
-                existing_name = next((k for k, v in feature_ids.items() if v == fid_int), None)
-                if existing_name and not fdata.get("is_detector", False):
-                    target = fdata.get("steering_scale", 1.0)
-                    if abs(target - 1.0) > 1e-6:
-                        profile_steering[existing_name] = target
-                continue
-                
             name = fdata.get("name", f"feature_{fid}")
-            feature_ids[name] = fid_int
-            seen_feature_ids.add(fid_int)
+            feature_ids[name] = int(fid)
             
             if fdata.get("is_detector", False):
                 detector_ids.add(name)
