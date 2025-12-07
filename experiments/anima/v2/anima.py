@@ -798,16 +798,7 @@ Example format:
         print("\n" + "═" * 60)
         print("  ANIMA - The Living System")
         print("═" * 60)
-        print("\nCommands:")
-        print("  /dream    - Trigger dreaming (consolidation & discovery)")
-        print("  /memory   - Show memory with adrenaline levels")
-        print("  /status   - Show full status")
-        print("  /debug    - Show feature activations and valence breakdown")
-        print("  /cot      - Toggle chain-of-thought")
-        print("  /stream   - Toggle streaming")
-        print("  /save     - Save state")
-        print("  /load     - Load state")
-        print("  /quit     - Exit")
+        print("\nType /help for commands")
         print("─" * 60)
         
         flags = []
@@ -835,6 +826,18 @@ Example format:
                 
                 if cmd == "/quit":
                     break
+                elif cmd == "/help":
+                    print("\nCommands:")
+                    print("  /dream    - Trigger dreaming (consolidation & discovery)")
+                    print("  /memory   - Show memory with adrenaline levels")
+                    print("  /status   - Show full status")
+                    print("  /debug    - Show feature activations and valence breakdown")
+                    print("  /cot      - Toggle chain-of-thought")
+                    print("  /stream   - Toggle streaming")
+                    print("  /save [f] - Save state")
+                    print("  /load <f> - Load state")
+                    print("  /help     - Show this help")
+                    print("  /quit     - Exit")
                 elif cmd == "/dream":
                     results = self.anima.dream(verbose=True)
                 elif cmd == "/memory":
@@ -875,7 +878,7 @@ Example format:
                     else:
                         print("Usage: /load <path>")
                 else:
-                    print(f"Unknown: {cmd}")
+                    print(f"Unknown: {cmd} (try /help)")
                 continue
             
             # Generate
