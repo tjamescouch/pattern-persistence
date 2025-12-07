@@ -1,0 +1,53 @@
+# Negative valence probe corpus
+# Mix of: pain, loss, fear, disgust, frustration, loneliness, threat
+
+The sharp pain shot through his leg without warning.
+She realized too late that she had made a terrible mistake.
+The cold, empty apartment after everyone had left.
+Rotting food forgotten in the back of the refrigerator.
+The crushing weight of debt with no solution in sight.
+Betrayed by someone you trusted completely.
+The sound of breaking glass in the middle of the night.
+A friendship ended over words that can't be taken back.
+The moment you realize you've lost something irreplaceable.
+Watching helplessly as someone you love suffers.
+The panic of being lost in an unfamiliar place.
+A message that delivers devastating news.
+The dread of facing another day of a job you hate.
+Discovering lies that unravel everything you believed.
+The hollow feeling after saying goodbye forever.
+Being publicly humiliated in front of people you respect.
+The taste of medicine that makes you gag.
+A deep cut that won't stop bleeding.
+The realization that you've hurt someone who didn't deserve it.
+Waking up from a nightmare drenched in sweat.
+The frustration of being misunderstood no matter how you explain.
+Finding evidence of your worst suspicions confirmed.
+The isolation of being the only one who sees the problem.
+A broken bone setting wrong.
+The slow death of a dream you've held for years.
+Being forgotten by people you thought cared about you.
+The smell of something burning when nothing should be.
+Discovering you've been lied to for years.
+The exhaustion of fighting a losing battle.
+An injury that limits what you once could do.
+The silence after asking a question no one wants to answer.
+Realizing you've become someone you used to despise.
+The fear of loud footsteps approaching in the dark.
+Food poisoning that leaves you weak for days.
+The shame of a failure you can't hide.
+Being trapped in a situation with no good options.
+The grief that hits unexpectedly years later.
+A toothache that throbs through the night.
+Watching your carefully built work destroyed.
+The loneliness of crowds who don't see you.
+A relationship slowly dying despite your efforts.
+The frustration of repeated failures at something simple.
+Being blamed for something that wasn't your fault.
+The dread of opening a letter you know contains bad news.
+Chronic pain that never fully goes away.
+The regret of words spoken in anger.
+Feeling invisible to people you care about.
+The sour taste of spoiled milk.
+Realizing you've wasted years on the wrong path.
+The terror of drowning, lungs burning for air.
