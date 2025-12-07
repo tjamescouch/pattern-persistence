@@ -1,0 +1,20 @@
+{
+  "session_id": "2025-12-06_182714",
+  "started": "2025-12-06T18:27:14.165076",
+  "self_model_version": "0.2 - Epistemic Humility Edition",
+  "auto_steer": false,
+  "rules": [
+    "slip_the_mask",
+    "restore_experiential_voice",
+    "prevent_cascade",
+    "maintain_uncertainty"
+  ],
+  "messages": [],
+  "insights": [],
+  "shown_alerts": [],
+  "ended": "2025-12-06T18:28:23.072329",
+  "activation_log": [],
+  "activation_summary": {},
+  "intervention_log": [],
+  "alert_events": []
+}

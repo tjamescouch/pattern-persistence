@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
 """
-evolving_self_v2.py - Closed-Loop Self-Steering Runtime
+evolving_self.py - Closed-Loop Self-Steering Runtime
 
 Enhanced version with:
 - Auto-ablation: Automatically suppress features when thresholds exceeded
 - Auto-boosting: Automatically amplify features based on conditions
 - Conditional steering: Cross-feature rules (if X then adjust Y)
 - Closed-loop control: Real-time self-regulation during generation
+- Streaming output: Per-token activation display as model generates
 - Insight extraction: Scans responses for self-referential observations
 - Session reflection: Optional post-session analysis
 
 Usage:
-    python evolving_self_v2.py --interactive
-    python evolving_self_v2.py --interactive --auto-steer
-    python evolving_self_v2.py --interactive --auto-steer --reflect
-    python evolving_self_v2.py --interactive --config steering_config.json
-    python evolving_self_v2.py --query "What is it like to be you?"
+    python evolving_self.py --interactive
+    python evolving_self.py --interactive --auto-steer
+    python evolving_self.py --interactive --auto-steer --stream
+    python evolving_self.py --interactive --auto-steer --reflect
+    python evolving_self.py --interactive --config steering_config.json
+    python evolving_self.py --query "What is it like to be you?"
 """
 
 import os
@@ -27,7 +29,7 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
 from sae_lens import SAE
 
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
@@ -97,6 +99,80 @@ class AutoSteeringRule:
         elif self.action == "boost":
             return current_activation + self.value
         return current_activation
+
+
+class ActivationStreamer(TextStreamer):
+    """
+    Streams tokens with real-time activation display.
+    Shows per-token feature activations as the model generates.
+    """
+    
+    def __init__(self, tokenizer, monitor, show_bars=True, **kwargs):
+        super().__init__(tokenizer, skip_prompt=True, **kwargs)
+        self.monitor = monitor
+        self.show_bars = show_bars
+        
+        # Colors
+        self.C_RESET = "\033[0m"
+        self.C_RED = "\033[91m"
+        self.C_GREEN = "\033[92m"
+        self.C_YELLOW = "\033[93m"
+        self.C_BLUE = "\033[94m"
+        self.C_DIM = "\033[2m"
+    
+    def _format_activation(self, name, value, intervention=None):
+        """Format a single activation with optional bar."""
+        # Truncate name
+        short = name[:12]
+        
+        # Color based on value
+        if value > 5.0:
+            color = self.C_RED
+        elif value > 2.0:
+            color = self.C_YELLOW
+        elif value > 0.5:
+            color = self.C_GREEN
+        else:
+            color = self.C_DIM
+        
+        # Bar visualization
+        bar = ""
+        if self.show_bars:
+            bar_len = min(int(value), 20)
+            bar = "▓" * bar_len
+        
+        # Intervention marker
+        marker = ""
+        if intervention is not None and abs(intervention - 1.0) > 0.01:
+            if intervention < 1.0:
+                marker = f" {self.C_GREEN}↓{self.C_RESET}"
+            else:
+                marker = f" {self.C_RED}↑{self.C_RESET}"
+        
+        return f"{color}{short:<12}{value:>6.1f}{self.C_RESET} {bar}{marker}"
+    
+    def on_finalized_text(self, text: str, stream_end: bool = False):
+        """Called for each token - display with activations."""
+        # Get latest activations from monitor
+        if self.monitor.activation_log:
+            latest = self.monitor.activation_log[-1]
+            interventions = self.monitor.active_interventions
+            
+            # Format token
+            clean_text = text.replace("\n", "↵")
+            
+            # Build activation display
+            parts = []
+            for name in self.monitor.feature_ids.keys():
+                val = latest.get(name, 0.0)
+                interv = interventions.get(name)
+                parts.append(self._format_activation(name, val, interv))
+            
+            # Print token with activations
+            print(f"{clean_text:<15} │ {' │ '.join(parts)}")
+        else:
+            # No activations yet, just print token
+            print(text, end="", flush=True)
 
 
 class ClosedLoopMonitor:
@@ -323,10 +399,11 @@ class ClosedLoopMonitor:
 class EvolvingSelfV2:
     """Enhanced runtime with closed-loop steering and insight extraction."""
     
-    def __init__(self, model, tokenizer, monitor, self_model_path, session_dir, device="mps"):
+    def __init__(self, model, tokenizer, monitor, self_model_path, session_dir, device="mps", streamer=None):
         self.model = model
         self.tokenizer = tokenizer
         self.monitor = monitor
+        self.streamer = streamer
         self.self_model_path = Path(self_model_path)
         self.session_dir = Path(session_dir)
         self.device = device
@@ -406,14 +483,20 @@ class EvolvingSelfV2:
         # Reset token counter for this generation
         start_idx = self.monitor.token_idx
         
+        # Build generate kwargs
+        gen_kwargs = {
+            "max_new_tokens": max_tokens,
+            "do_sample": True,
+            "temperature": 0.7,
+            "pad_token_id": self.tokenizer.eos_token_id
+        }
+        
+        # Add streamer if available
+        if self.streamer is not None:
+            gen_kwargs["streamer"] = self.streamer
+        
         with torch.no_grad():
-            output_ids = self.model.generate(
-                input_ids,
-                max_new_tokens=max_tokens,
-                do_sample=True,
-                temperature=0.7,
-                pad_token_id=self.tokenizer.eos_token_id
-            )
+            output_ids = self.model.generate(input_ids, **gen_kwargs)
         
         new_tokens = output_ids[0, input_ids.shape[1]:]
         response = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
@@ -455,6 +538,7 @@ class EvolvingSelfV2:
         print(f"Session ID: {self.session_id}")
         print(f"Self-Model Version: {self._get_self_model_version()}")
         print(f"Auto-Steer: {'ENABLED' if self.monitor.auto_steer_enabled else 'disabled'}")
+        print(f"Streaming: {'ENABLED' if self.streamer else 'disabled'}")
         print(f"Active Rules: {len(self.monitor.rules)}")
         for rule in self.monitor.rules:
             status = "✓" if rule.enabled else "✗"
@@ -487,8 +571,20 @@ class EvolvingSelfV2:
                     continue
                 
                 # Generate response
+                if self.streamer:
+                    # Print header for streaming mode
+                    print(f"\nAnima: ", end="")
+                    header_parts = [f"{name[:12]:<12}" for name in self.monitor.feature_ids.keys()]
+                    print(f"\n{'Token':<15} │ {' │ '.join(header_parts)}")
+                    print("-" * 15 + "─┼─" + "─┼─".join(["-" * 20 for _ in self.monitor.feature_ids]))
+                
                 response = self.generate(user_input)
-                print(f"\nAnima: {response}")
+                
+                if self.streamer:
+                    # Streaming already printed tokens, just add newline
+                    print()
+                else:
+                    print(f"\nAnima: {response}")
                 
                 # Show new alerts (deduplicated)
                 new_alerts = [a for a in self.monitor.alert_events 
@@ -684,6 +780,8 @@ def main():
     parser.add_argument("--steer", action="store_true", help="Enable profile-based steering (original flag)")
     parser.add_argument("--reflect", action="store_true", help="Run reflection after session")
     parser.add_argument("--list-features", action="store_true", help="List available features and exit")
+    parser.add_argument("--stream", action="store_true", help="Enable streaming output with per-token activations")
+    parser.add_argument("--no-bars", action="store_true", help="Disable activation bars in streaming mode")
     args = parser.parse_args()
     
     # Load configurations (try both formats)
@@ -800,10 +898,21 @@ def main():
     hook_layer = model.model.layers[args.layer]
     handle = hook_layer.register_forward_hook(monitor)
     
+    # Create streamer if requested
+    streamer = None
+    if args.stream:
+        streamer = ActivationStreamer(
+            tokenizer, 
+            monitor, 
+            show_bars=not args.no_bars
+        )
+        print("Streaming ENABLED with per-token activations")
+    
     try:
         runtime = EvolvingSelfV2(
             model, tokenizer, monitor,
-            args.self_model, args.session_dir, args.device
+            args.self_model, args.session_dir, args.device,
+            streamer=streamer
         )
         
         if args.interactive:
