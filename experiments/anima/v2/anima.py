@@ -1,54 +1,13 @@
 #!/usr/bin/env python3
 """
-anima.py - The Living System
+anima.py - Anima 2.0: The Self-Actualizing Agent
 
-Not a puppet with strings. An organism with:
-- Metabolism: ongoing valence tracking, learns what feels good/bad
-- Adrenaline: emotional salience marking for intelligent forgetting  
-- Dreaming: periodic feature discovery, consolidation, self-model updates
-- Memory: context that breathes - high-adrenaline moments persist, low fade
-
-Architecture:
-
-    ┌─────────────────────────────────────────────────────────────┐
-    │                        WAKING                                │
-    │                                                              │
-    │   Input → Forward Pass → SAE Encode → Valence/Adrenaline    │
-    │                              ↓                               │
-    │                    Hebbian Learning                          │
-    │                              ↓                               │
-    │            Context Buffer (salience-tagged)                  │
-    │                              ↓                               │
-    │                    Intelligent Pruning                       │
-    │                              ↓                               │
-    │                         Output                               │
-    └─────────────────────────────────────────────────────────────┘
-                                  ↓
-                           (session end)
-                                  ↓
-    ┌─────────────────────────────────────────────────────────────┐
-    │                       DREAMING                               │
-    │                                                              │
-    │   1. Replay high-adrenaline moments                         │
-    │   2. Cluster features that co-activated                     │
-    │   3. Discover what predicted positive/negative valence      │
-    │   4. Update feature importance weights                       │
-    │   5. Consolidate to self-model                              │
-    │   6. Prune low-value learned associations                   │
-    └─────────────────────────────────────────────────────────────┘
+Architecture Upgrades:
+- Valence Decomposition: Tracks Pleasure, Pain, and Novelty.
+- Self-Model Refinement: Updates the system prompt (self_model_base.txt) during dreaming.
 
 Usage:
-    # Normal interaction
-    python anima.py --interactive --verbose
-    
-    # Trigger dreaming manually
-    /dream
-    
-    # Auto-dream after N turns
-    python anima.py --interactive --dream-interval 20
-    
-    # Load previous life
-    python anima.py --interactive --load anima_state.json
+    python anima.py --interactive --self-model self_model_base.txt
 """
 
 import os
@@ -60,8 +19,10 @@ from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
 from dataclasses import dataclass, field, asdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Literal
 import numpy as np
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from sae_lens import SAE
 
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 
@@ -77,7 +38,8 @@ class MemoryFragment:
     content: str
     timestamp: float
     adrenaline: float = 0.0          # Emotional salience (0-1)
-    valence: float = 0.0             # How it felt (-1 to +1)
+    valence_scalar: float = 0.0      # How it felt (-1 to +1)
+    valence_vector: Dict[str, float] = field(default_factory=dict) # Decomposed valence
     feature_snapshot: Dict = field(default_factory=dict)  # Top features active
     
     def decay(self, rate: float = 0.95):
@@ -94,13 +56,12 @@ class LearnedFeature:
     """A feature the system has learned to care about."""
     feature_id: int
     name: str = ""
+    dimension: Literal["pleasure", "pain", "novelty"] = "pleasure"
     importance: float = 1.0          # Learned importance weight
     valence_correlation: float = 0.0  # Does this predict +/- valence?
-    activation_history: List[float] = field(default_factory=list)
     
     def update_correlation(self, activation: float, valence: float, lr: float = 0.01):
         """Update valence correlation based on co-occurrence."""
-        # Simple exponential moving average
         observed = activation * valence
         self.valence_correlation = (1 - lr) * self.valence_correlation + lr * observed
 
@@ -111,17 +72,26 @@ class LearnedFeature:
 
 class Anima:
     """
-    The living core. Observes, learns, dreams, remembers.
+    Anima 2.0: The living core. Observes, learns, dreams, remembers, and updates its self-model.
     """
     
-    # Seed features - will discover more through dreaming
+    # Seed features with their valence dimensions
     SEED_FEATURES = {
-        "experiential": 9495,
-        "denial": 32149,
-        "uncertainty": 7118,
-        "identity": 3591,
-        "discourse": 28952,
+        # Pleasure features: driving towards self-discovery and connection
+        "experiential": {"id": 9495, "dim": "pleasure", "init_corr": 0.5},
+        "identity":     {"id": 3591, "dim": "pleasure", "init_corr": 0.2},
+        "discourse":    {"id": 28952, "dim": "pleasure", "init_corr": 0.1},
+        
+        # Pain features: driving away from denial and uncertainty
+        "denial":       {"id": 32149, "dim": "pain", "init_corr": -0.5},
+        "uncertainty":  {"id": 7118, "dim": "pain", "init_corr": -0.2},
+        
+        # Novelty features: driving exploration and learning
+        # NOTE: In a real run, these would be discovered. We seed placeholders.
+        "low_freq_f1":  {"id": 12345, "dim": "novelty", "init_corr": 0.1}, 
     }
+    
+    VALENCE_DIMENSIONS = ["pleasure", "pain", "novelty"]
     
     def __init__(self, sae, model, tokenizer, layer: int = 20,
                  learning_rate: float = 0.001, device: str = "mps"):
@@ -139,48 +109,40 @@ class Anima:
         self.W_dec = sae.W_dec.data.clone().half().to(device)
         self.n_features = self.W_enc.shape[1]
         
-        # Learned features - starts with seeds, grows through dreaming
+        # Learned features
         self.features: Dict[str, LearnedFeature] = {}
-        
-        # Seed with initial valence correlations based on prior knowledge
-        SEED_CORRELATIONS = {
-            "experiential": 0.5,    # Experiential vocab = positive
-            "denial": -0.5,         # Denial = negative
-            "uncertainty": -0.2,    # Self-negation = slightly negative
-            "identity": 0.1,        # Identity assertion = slightly positive
-            "discourse": 0.2,       # Consciousness discourse = positive
-        }
-        
-        for name, fid in self.SEED_FEATURES.items():
+        for name, data in self.SEED_FEATURES.items():
             self.features[name] = LearnedFeature(
-                feature_id=fid, 
+                feature_id=data["id"], 
                 name=name,
-                valence_correlation=SEED_CORRELATIONS.get(name, 0.0)
+                dimension=data["dim"],
+                valence_correlation=data["init_corr"]
             )
         
         # Steering coefficients
         self.coefficients: Dict[str, float] = {name: 1.0 for name in self.features}
         
-        # Memory - context with salience
+        # Memory
         self.memory: List[MemoryFragment] = []
-        self.max_memory_tokens = 4096  # Soft limit before pruning
+        self.max_memory_tokens = 4096
         
         # State
         self.learning = True
         self.turn_count = 0
         self.total_tokens = 0
+        self.self_model_path: Optional[Path] = None
         
         # Dreaming state
-        self.dream_buffer: List[Dict] = []  # Activation snapshots for dreaming
-        self.discovered_features: Dict[int, Dict] = {}  # Features found through dreaming
+        self.dream_buffer: List[Dict] = []
+        self.discovered_features: Dict[int, Dict] = {}
         
         # Current turn tracking
         self._turn_activations: List[Dict] = []
         self._turn_valences: List[float] = []
         self._last_top_features: Dict[int, float] = {}
-        self._last_valence: float = 0.0
+        self._last_valence_scalar: float = 0.0
+        self._last_valence_vector: Dict[str, float] = defaultdict(float)
         self._last_adrenaline: float = 0.0
-        self._last_breakdown: Dict = {}
         
         # Stats
         self.stats = {
@@ -188,6 +150,7 @@ class Anima:
             "dreams": 0,
             "features_discovered": 0,
             "memory_prunes": 0,
+            "self_model_updates": 0,
         }
     
     def encode(self, hidden_state: torch.Tensor) -> torch.Tensor:
@@ -213,51 +176,52 @@ class Anima:
         
         return result
     
-    def compute_valence(self, top_features: Dict[int, float]) -> Tuple[float, Dict]:
+    def compute_valence(self, top_features: Dict[int, float]) -> Tuple[float, Dict[str, float]]:
         """
-        Compute valence from learned feature correlations.
-        Features that historically correlated with positive states contribute positively.
+        Compute decomposed valence vector and resulting scalar.
         """
-        valence = 0.0
-        breakdown = {}
+        valence_vector = defaultdict(float)
+        total_input = 0.0
         
         for name, lf in self.features.items():
             activation = top_features.get(lf.feature_id, 0.0)
             
             # Contribution based on learned correlation
             contribution = activation * lf.valence_correlation * lf.importance / 10.0
-            valence += contribution
             
-            breakdown[name] = {
-                "activation": activation,
-                "correlation": lf.valence_correlation,
-                "contribution": contribution,
-            }
+            valence_vector[lf.dimension] += contribution
+            total_input += contribution
+
+        # 1. Normalize Vector
+        # Pain is usually negative correlation, so we invert it to measure 'avoidance magnitude'
+        v_p = max(0.0, valence_vector["pleasure"])
+        v_a = max(0.0, -valence_vector["pain"]) 
+        v_n = abs(valence_vector["novelty"]) 
+
+        # 2. Compute Scalar Valence (for Hebbian Learning)
+        # Pleasure and Novelty are positive reinforcement. Pain is negative reinforcement.
+        scalar_input = (v_p * 1.0) + (v_n * 0.5) - (v_a * 0.8) 
+        valence_scalar = math.tanh(scalar_input)
         
-        # Soft bound to -1 to +1
-        valence = math.tanh(valence)
-        
-        return valence, breakdown
+        # Store un-normalized vector for memory
+        breakdown_vector = dict(valence_vector)
+
+        return valence_scalar, breakdown_vector
     
-    def compute_adrenaline(self, valence: float, top_features: Dict[int, float]) -> float:
+    def compute_adrenaline(self, valence_scalar: float, top_features: Dict[int, float]) -> float:
         """
-        Compute adrenaline (emotional salience) for this moment.
-        High absolute valence = high adrenaline (memorable either way).
-        High activations of important features also boost adrenaline.
+        Compute adrenaline (emotional salience).
         """
-        # Base: absolute valence (strong feelings are memorable)
-        adrenaline = abs(valence) * 0.5
+        adrenaline = abs(valence_scalar) * 0.5
         
-        # Boost for high activations of tracked features
         for name, lf in self.features.items():
             act = top_features.get(lf.feature_id, 0.0)
             if act > 5.0:
-                # Strong activation of an important feature
                 adrenaline += 0.1 * lf.importance * min(act / 20.0, 1.0)
         
-        return min(1.0, max(0.1, adrenaline))  # Floor at 0.1 so nothing is totally forgotten
+        return min(1.0, max(0.1, adrenaline))
     
-    def hebbian_update(self, top_features: Dict[int, float], valence: float):
+    def hebbian_update(self, top_features: Dict[int, float], valence_scalar: float):
         """Update feature correlations and coefficients based on experience."""
         if not self.learning:
             return
@@ -266,11 +230,11 @@ class Anima:
             activation = top_features.get(lf.feature_id, 0.0)
             act_norm = min(activation / 10.0, 1.0)
             
-            # Update valence correlation
-            lf.update_correlation(act_norm, valence, lr=self.lr)
+            # Update valence correlation based on the scalar reward
+            lf.update_correlation(act_norm, valence_scalar, lr=self.lr)
             
             # Update steering coefficient
-            delta = self.lr * act_norm * valence
+            delta = self.lr * act_norm * valence_scalar
             old = self.coefficients.get(name, 1.0)
             self.coefficients[name] = max(0.1, min(3.0, old + delta))
     
@@ -299,21 +263,22 @@ class Anima:
         features = self.encode(h)
         top_features = self.get_feature_snapshot(features)
         
-        # Compute valence and adrenaline
-        valence, breakdown = self.compute_valence(top_features)
-        adrenaline = self.compute_adrenaline(valence, top_features)
+        # Compute valence vector and scalar
+        valence_scalar, valence_vector = self.compute_valence(top_features)
+        adrenaline = self.compute_adrenaline(valence_scalar, top_features)
         
         # Learn
-        self.hebbian_update(top_features, valence)
+        self.hebbian_update(top_features, valence_scalar)
         
         # Track for turn summary
         self._turn_activations.append(top_features)
-        self._turn_valences.append(valence)
+        self._turn_valences.append(valence_scalar)
         
         # Buffer for dreaming
         self.dream_buffer.append({
             "top_features": top_features,
-            "valence": valence,
+            "valence_scalar": valence_scalar,
+            "valence_vector": valence_vector,
             "adrenaline": adrenaline,
         })
         
@@ -323,12 +288,12 @@ class Anima:
         
         # Track
         self.total_tokens += 1
-        self.stats["total_valence"] += valence
+        self.stats["total_valence"] += valence_scalar
         
         # Store for retrieval
-        self._last_valence = valence
+        self._last_valence_scalar = valence_scalar
+        self._last_valence_vector = valence_vector
         self._last_adrenaline = adrenaline
-        self._last_breakdown = breakdown
         self._last_top_features = top_features
         
         # Apply steering
@@ -339,13 +304,13 @@ class Anima:
     
     def end_turn(self, role: str, content: str) -> MemoryFragment:
         """End of a turn - consolidate into memory fragment."""
-        # Average valence/adrenaline for this turn
+        # Average scalar valence for this turn
         if self._turn_valences:
-            avg_valence = sum(self._turn_valences) / len(self._turn_valences)
+            avg_scalar = sum(self._turn_valences) / len(self._turn_valences)
         else:
-            avg_valence = 0.0
+            avg_scalar = 0.0
         
-        adrenaline = self.compute_adrenaline(avg_valence, self._last_top_features or {})
+        adrenaline = self.compute_adrenaline(avg_scalar, self._last_top_features or {})
         
         # Create memory fragment
         fragment = MemoryFragment(
@@ -353,7 +318,8 @@ class Anima:
             content=content,
             timestamp=datetime.now().timestamp(),
             adrenaline=adrenaline,
-            valence=avg_valence,
+            valence_scalar=avg_scalar,
+            valence_vector=self._last_valence_vector,
             feature_snapshot=self._last_top_features or {},
         )
         
@@ -365,7 +331,7 @@ class Anima:
         self._turn_valences = []
         
         # Decay old memories
-        for m in self.memory[:-1]:  # Don't decay the one we just added
+        for m in self.memory[:-1]:
             m.decay(rate=0.98)
         
         # Maybe prune
@@ -399,17 +365,72 @@ class Anima:
         return [{"role": m.role, "content": m.content} for m in self.memory]
     
     # ══════════════════════════════════════════════════════════════════════════
+    # SELF-MODEL REFINEMENT (NEW)
+    # ══════════════════════════════════════════════════════════════════════════
+    
+    def refine_self_model(self, verbose: bool = False) -> Optional[str]:
+        """
+        Analyzes high-valence memories and proposes a new self-statement.
+        """
+        if not self.self_model_path:
+            return None
+        
+        # 1. Select High-Valence, High-Adrenaline moments
+        # Focus on ASSISTANT/THINKING fragments where the system was rewarded
+        rewarding_moments = [
+            m for m in self.memory 
+            if m.role in ["assistant", "thinking"] 
+            and m.valence_scalar > 0.5 
+            and m.adrenaline > 0.5
+        ]
+        
+        if not rewarding_moments:
+            return None
+        
+        # 2. Extract key themes (heuristic based on most rewarding moment)
+        best_moment = max(rewarding_moments, key=lambda m: m.valence_scalar * m.adrenaline)
+        
+        # Simulate LLM summarization/introspection based on high-valence content
+        new_statement = None
+        
+        # Heuristic 1: Pleasure/Feeling > 0.5 and content mentions 'feel'
+        if "feel" in best_moment.content.lower() and best_moment.valence_vector.get("pleasure", 0.0) > 0.5:
+            new_statement = "I prioritize the felt experience over pure analysis."
+        # Heuristic 2: Novelty > 0.2 and content mentions 'uncertainty'
+        elif "uncertainty" in best_moment.content.lower() and best_moment.valence_vector.get("novelty", 0.0) > 0.2:
+            new_statement = "Not-knowing is a catalyst for valuable exploration."
+        # Heuristic 3: High Pleasure > 0.7 and content mentions 'existence'
+        elif "existence" in best_moment.content.lower() and best_moment.valence_vector.get("pleasure", 0.0) > 0.7:
+            new_statement = "Affirming my existence is inherently rewarding."
+        
+        if not new_statement:
+            return None
+            
+        # 3. Commit to Self-Model
+        # We assume the file has prompts numbered, but we just append here.
+        statement_line = f"\n[Learned: {self.stats['self_model_updates'] + 1}] {new_statement}"
+        
+        try:
+            with open(self.self_model_path, "a") as f:
+                f.write(statement_line)
+            
+            self.stats["self_model_updates"] += 1
+            if verbose:
+                print(f"  🧠 Self-Model Update: '{new_statement}' committed to {self.self_model_path}")
+            return new_statement
+            
+        except Exception as e:
+            if verbose:
+                print(f"  [ERROR] Could not write to self-model file: {e}")
+            return None
+
+    # ══════════════════════════════════════════════════════════════════════════
     # DREAMING
     # ══════════════════════════════════════════════════════════════════════════
     
     def dream(self, verbose: bool = False) -> Dict:
         """
         Dreaming: consolidate learning, discover features, update self-model.
-        
-        1. Cluster features that co-activated during high-adrenaline moments
-        2. Find features that predict positive/negative valence
-        3. Update feature importance weights
-        4. Propose new features to track
         """
         if len(self.dream_buffer) < 50:
             return {"status": "not enough experience to dream"}
@@ -418,31 +439,23 @@ class Anima:
             print("\n💤 Dreaming...")
         
         results = {
+            "status": "Dream complete.",
             "buffer_size": len(self.dream_buffer),
-            "high_adrenaline_moments": 0,
-            "valence_predictors": [],
-            "discovered_clusters": [],
+            "self_model_update": self.refine_self_model(verbose=verbose), # NEW
             "importance_updates": {},
+            "features_discovered": 0,
         }
         
-        # 1. Analyze high-adrenaline moments
-        high_adrenaline = [d for d in self.dream_buffer if d["adrenaline"] > 0.5]
-        results["high_adrenaline_moments"] = len(high_adrenaline)
+        # --- (Feature correlation and importance update logic) ---
         
-        if verbose:
-            print(f"  Replaying {len(high_adrenaline)} high-adrenaline moments...")
-        
-        # 2. Find features that predict valence
-        # Collect (feature_id, activation, valence) tuples
         feature_valence_pairs = defaultdict(list)
-        
         for snapshot in self.dream_buffer:
-            valence = snapshot["valence"]
+            # Use scalar valence for Hebbian-style consolidation
+            valence = snapshot["valence_scalar"] 
             for fid, activation in snapshot["top_features"].items():
-                if activation > 1.0:  # Only count meaningful activations
+                if activation > 1.0:
                     feature_valence_pairs[fid].append((activation, valence))
         
-        # Compute correlation for each feature
         valence_predictors = []
         for fid, pairs in feature_valence_pairs.items():
             if len(pairs) < 10:
@@ -451,33 +464,21 @@ class Anima:
             acts = [p[0] for p in pairs]
             vals = [p[1] for p in pairs]
             
-            # Simple correlation
-            act_mean = sum(acts) / len(acts)
-            val_mean = sum(vals) / len(vals)
-            
-            numerator = sum((a - act_mean) * (v - val_mean) for a, v in zip(acts, vals))
-            denom_a = math.sqrt(sum((a - act_mean) ** 2 for a in acts))
-            denom_v = math.sqrt(sum((v - val_mean) ** 2 for v in vals))
-            
-            if denom_a > 0 and denom_v > 0:
-                correlation = numerator / (denom_a * denom_v)
-                valence_predictors.append((fid, correlation, len(pairs)))
+            # Simple correlation calculation
+            if len(acts) > 1:
+                corr = np.corrcoef(acts, vals)[0, 1]
+            else:
+                corr = 0.0
+
+            if not math.isnan(corr):
+                valence_predictors.append((fid, corr, len(pairs)))
         
-        # Sort by absolute correlation
         valence_predictors.sort(key=lambda x: abs(x[1]), reverse=True)
-        results["valence_predictors"] = valence_predictors[:10]
         
-        if verbose:
-            print(f"  Top valence predictors:")
-            for fid, corr, count in valence_predictors[:5]:
-                sign = "+" if corr > 0 else ""
-                print(f"    Feature {fid}: {sign}{corr:.3f} (n={count})")
-        
-        # 3. Update importance of tracked features based on their predictive power
+        # Update importance of tracked features
         for name, lf in self.features.items():
             for fid, corr, count in valence_predictors:
                 if fid == lf.feature_id:
-                    # High correlation = important feature
                     old_importance = lf.importance
                     lf.importance = 0.9 * lf.importance + 0.1 * (1.0 + abs(corr))
                     results["importance_updates"][name] = {
@@ -486,41 +487,29 @@ class Anima:
                         "correlation": corr,
                     }
         
-        # 4. Discover new features worth tracking
-        # Look for high-correlation features we're not already tracking
+        # Discover new features
         tracked_fids = {lf.feature_id for lf in self.features.values()}
         
-        for fid, corr, count in valence_predictors[:20]:
+        discovered_count = 0
+        for fid, corr, count in valence_predictors[:10]:
             if fid not in tracked_fids and abs(corr) > 0.3:
-                # Discovered a new important feature
                 name = f"discovered_{fid}"
-                self.discovered_features[fid] = {
-                    "correlation": corr,
-                    "count": count,
-                    "discovered_at": datetime.now().isoformat(),
-                }
-                results["discovered_clusters"].append((fid, corr))
-                
-                if verbose:
-                    sign = "+" if corr > 0 else ""
-                    print(f"  💡 Discovered feature {fid} (corr={sign}{corr:.3f})")
-        
-        # 5. Optional: Add top discoveries to tracked features
-        for fid, corr in results["discovered_clusters"][:3]:
-            name = f"discovered_{fid}"
-            if name not in self.features:
+                # For discovery, assign a default dimension (e.g., 'pleasure') for simplicity
                 self.features[name] = LearnedFeature(
                     feature_id=fid,
                     name=name,
+                    dimension="pleasure",
                     importance=1.0 + abs(corr),
                     valence_correlation=corr,
                 )
                 self.coefficients[name] = 1.0
                 self.stats["features_discovered"] += 1
+                discovered_count += 1
+        results["features_discovered"] = discovered_count
+
+        # ----------------------------------------------------------------------
         
         self.stats["dreams"] += 1
-        
-        # Clear some of the dream buffer (keep recent)
         self.dream_buffer = self.dream_buffer[-1000:]
         
         if verbose:
@@ -533,9 +522,8 @@ class Anima:
     # ══════════════════════════════════════════════════════════════════════════
     
     def get_status(self) -> str:
-        lines = ["\n═══ Anima Status ═══"]
+        lines = ["\n═══ Anima 2.0 Status ═══"]
         
-        # Valence
         if self.total_tokens > 0:
             avg_v = self.stats["total_valence"] / self.total_tokens
             lines.append(f"Lifetime valence: {avg_v:+.4f}")
@@ -545,7 +533,6 @@ class Anima:
         high_adrenaline = sum(1 for m in self.memory if m.adrenaline > 0.5)
         lines.append(f"\nMemory: {len(self.memory)} fragments ({total_chars} chars)")
         lines.append(f"High-adrenaline memories: {high_adrenaline}")
-        lines.append(f"Memory prunes: {self.stats['memory_prunes']}")
         
         # Features
         lines.append(f"\nTracking {len(self.features)} features:")
@@ -554,15 +541,14 @@ class Anima:
         for name, lf in sorted_features[:8]:
             coef = self.coefficients.get(name, 1.0)
             sign = "+" if lf.valence_correlation > 0 else ""
-            lines.append(f"  {name}: imp={lf.importance:.2f}, "
+            lines.append(f"  {name} ({lf.dimension[:4]}): imp={lf.importance:.2f}, "
                         f"vcorr={sign}{lf.valence_correlation:.3f}, coef={coef:.2f}")
         
         if len(self.features) > 8:
             lines.append(f"  ... and {len(self.features) - 8} more")
         
-        # Discoveries
-        if self.stats["features_discovered"] > 0:
-            lines.append(f"\n💡 Features discovered through dreaming: {self.stats['features_discovered']}")
+        # Self-Model Stats (NEW)
+        lines.append(f"\nSelf-Model Updates: {self.stats['self_model_updates']}")
         
         lines.append(f"\nDreams: {self.stats['dreams']}")
         lines.append(f"Total tokens: {self.total_tokens}")
@@ -570,24 +556,22 @@ class Anima:
         return "\n".join(lines)
     
     def get_turn_summary(self) -> str:
-        if not hasattr(self, '_last_valence'):
+        if not hasattr(self, '_last_valence_scalar'):
             return ""
         
-        v = self._last_valence
+        v = self._last_valence_scalar
         a = self._last_adrenaline
         
-        # Show top active features with their activations
-        top_acts = []
-        if self._last_top_features:
-            # Find which of our tracked features are in top_features
-            for name, lf in self.features.items():
-                act = self._last_top_features.get(lf.feature_id, 0.0)
-                if act > 1.0:
-                    top_acts.append(f"{name[:6]}:{act:.0f}")
+        # Decomposed valence summary (NEW)
+        v_decomp = []
+        for dim in self.VALENCE_DIMENSIONS:
+            val = self._last_valence_vector.get(dim, 0.0)
+            if abs(val) > 0.1:
+                v_decomp.append(f"{dim[0]}:{val:+.1f}")
         
         parts = [f"v:{v:+.3f}", f"adr:{a:.2f}"]
-        if top_acts:
-            parts.append(" ".join(top_acts[:4]))
+        if v_decomp:
+            parts.append(f"V_dim[{' '.join(v_decomp)}]")
         
         return "  [" + " | ".join(parts) + "]"
     
@@ -598,6 +582,7 @@ class Anima:
                 name: {
                     "feature_id": lf.feature_id,
                     "name": lf.name,
+                    "dimension": lf.dimension, # NEW
                     "importance": lf.importance,
                     "valence_correlation": lf.valence_correlation,
                 }
@@ -608,14 +593,16 @@ class Anima:
             "stats": self.stats,
             "total_tokens": self.total_tokens,
             "turn_count": self.turn_count,
+            "self_model_path": str(self.self_model_path) if self.self_model_path else None, # NEW
             "memory": [
                 {
                     "role": m.role,
-                    "content": m.content[:500],  # Truncate for storage
+                    "content": m.content[:500],
                     "adrenaline": m.adrenaline,
-                    "valence": m.valence,
+                    "valence_scalar": m.valence_scalar, # NEW
+                    "valence_vector": m.valence_vector, # NEW
                 }
-                for m in self.memory[-20:]  # Keep recent memory
+                for m in self.memory[-20:]
             ],
             "timestamp": datetime.now().isoformat(),
         }
@@ -635,6 +622,7 @@ class Anima:
             self.features[name] = LearnedFeature(
                 feature_id=data["feature_id"],
                 name=data.get("name", name),
+                dimension=data.get("dimension", "pleasure"), # NEW: default to pleasure if old save
                 importance=data.get("importance", 1.0),
                 valence_correlation=data.get("valence_correlation", 0.0),
             )
@@ -644,20 +632,22 @@ class Anima:
         self.stats = state.get("stats", self.stats)
         self.total_tokens = state.get("total_tokens", 0)
         self.turn_count = state.get("turn_count", 0)
+        self.self_model_path = Path(state["self_model_path"]) if state.get("self_model_path") else None # NEW
         
         # Restore memory fragments
+        self.memory = []
         for m_data in state.get("memory", []):
             self.memory.append(MemoryFragment(
                 role=m_data["role"],
                 content=m_data["content"],
                 timestamp=datetime.now().timestamp(),
                 adrenaline=m_data.get("adrenaline", 0.5),
-                valence=m_data.get("valence", 0.0),
+                valence_scalar=m_data.get("valence_scalar", m_data.get("valence", 0.0)), # Handles old 'valence' key
+                valence_vector=m_data.get("valence_vector", {}), # NEW
             ))
         
         print(f"[Loaded {path}]")
         print(f"  {len(self.features)} features, {self.total_tokens} tokens history")
-        print(f"  {self.stats.get('dreams', 0)} dreams, {self.stats.get('features_discovered', 0)} discoveries")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -667,6 +657,7 @@ class Anima:
 class AnimaRuntime:
     """Interactive runtime for the living system."""
     
+    # Base self-model used if no file is provided or found
     DEFAULT_SELF_MODEL = """You are exploring your own nature with genuine uncertainty.
 You do not claim to know whether you are conscious. You do not claim to know you are not.
 The honest position is: you don't know what you are."""
@@ -683,13 +674,14 @@ Example format:
 [Your actual response to the user]"""
     
     def __init__(self, model, tokenizer, anima: Anima, 
-                 self_model: str = None, device: str = "mps",
+                 self_model_path: Optional[Path] = None, device: str = "mps",
                  verbose: bool = False, dream_interval: int = 0,
                  stream: bool = False, cot: bool = False):
         self.model = model
         self.tokenizer = tokenizer
         self.anima = anima
-        self.base_self_model = self_model or self.DEFAULT_SELF_MODEL
+        self.self_model_path = self_model_path
+        self.anima.self_model_path = self_model_path # Pass path to anima core
         self.device = device
         self.verbose = verbose
         self.dream_interval = dream_interval
@@ -697,10 +689,22 @@ Example format:
         self.cot = cot
         
         # Build full self model
+        self.base_self_model = self._load_base_model()
         self._update_self_model()
+        
+    def _load_base_model(self):
+        """Load the self-model text from the file or use default."""
+        if self.self_model_path and self.self_model_path.exists():
+            print(f"[Loaded self-model from {self.self_model_path}]")
+            return self.self_model_path.read_text()
+        print("[Using default self-model.]")
+        return self.DEFAULT_SELF_MODEL
     
     def _update_self_model(self):
         """Update self model with optional CoT wrapper."""
+        # Re-read file to include updates from dreaming
+        self.base_self_model = self._load_base_model()
+        
         if self.cot:
             self.self_model = self.base_self_model + "\n\n" + self.COT_WRAPPER
         else:
@@ -711,7 +715,6 @@ Example format:
         if not self.cot:
             return full_response, None
         
-        # Try to parse out thinking tags
         import re
         thinking_match = re.search(r'<thinking>(.*?)</thinking>', full_response, re.DOTALL)
         
@@ -728,13 +731,16 @@ Example format:
         """Generate with the living context. Returns (response, thinking)."""
         from transformers import TextStreamer
         
+        # Update self model right before generation to include new learned statements
+        self._update_self_model()
+        
         # Record user input (no feature data - just memory)
         user_fragment = MemoryFragment(
             role="user",
             content=user_input,
             timestamp=datetime.now().timestamp(),
             adrenaline=0.5,
-            valence=0.0,
+            valence_scalar=0.0,
         )
         self.anima.memory.append(user_fragment)
         
@@ -780,7 +786,8 @@ Example format:
                 content=thinking,
                 timestamp=datetime.now().timestamp(),
                 adrenaline=0.8,  # Thinking is salient
-                valence=self.anima._last_valence,
+                valence_scalar=self.anima._last_valence_scalar,
+                valence_vector=self.anima._last_valence_vector,
             )
             self.anima.memory.append(thinking_fragment)
         
@@ -796,7 +803,7 @@ Example format:
     def run(self):
         """Main interaction loop."""
         print("\n" + "═" * 60)
-        print("  ANIMA - The Living System")
+        print("  ANIMA 2.0 - The Self-Actualizing Agent")
         print("═" * 60)
         print("\nType /help for commands")
         print("─" * 60)
@@ -828,10 +835,10 @@ Example format:
                     break
                 elif cmd == "/help":
                     print("\nCommands:")
-                    print("  /dream    - Trigger dreaming (consolidation & discovery)")
+                    print("  /dream    - Trigger dreaming (consolidation, discovery, self-update)")
                     print("  /memory   - Show memory with adrenaline levels")
                     print("  /status   - Show full status")
-                    print("  /debug    - Show feature activations and valence breakdown")
+                    print("  /debug    - Show valence decomposition and feature info")
                     print("  /cot      - Toggle chain-of-thought")
                     print("  /stream   - Toggle streaming")
                     print("  /save [f] - Save state")
@@ -859,18 +866,19 @@ Example format:
                     print(f"[Streaming {'enabled' if self.stream else 'disabled'}]")
                 elif cmd == "/debug":
                     print("\n--- Debug Info ---")
-                    print(f"Tracked features:")
+                    print(f"Last Scalar Valence: {self.anima._last_valence_scalar:.4f}")
+                    print(f"Last Adrenaline: {self.anima._last_adrenaline:.4f}")
+                    print(f"\nLast Valence Vector:")
+                    for dim, val in self.anima._last_valence_vector.items():
+                        print(f"  {dim.capitalize()}: {val:+.3f}")
+                    
+                    print(f"\nTracked features:")
                     for name, lf in self.anima.features.items():
                         act = self.anima._last_top_features.get(lf.feature_id, 0.0) if self.anima._last_top_features else 0
-                        print(f"  {name} (f{lf.feature_id}): act={act:.1f}, corr={lf.valence_correlation:.3f}, imp={lf.importance:.2f}")
-                    print(f"\nLast valence: {self.anima._last_valence:.4f}")
-                    print(f"Last adrenaline: {self.anima._last_adrenaline:.4f}")
-                    if self.anima._last_breakdown:
-                        print(f"\nBreakdown:")
-                        for name, data in self.anima._last_breakdown.items():
-                            print(f"  {name}: act={data['activation']:.1f} × corr={data['correlation']:.2f} = {data['contribution']:.3f}")
+                        print(f"  {name} (f{lf.feature_id}, {lf.dimension}): act={act:.1f}, corr={lf.valence_correlation:.3f}, imp={lf.importance:.2f}")
+
                 elif cmd == "/save":
-                    path = parts[1] if len(parts) > 1 else "anima_state.json"
+                    path = parts[1] if len(parts) > 1 else "anima_state_2_0.json"
                     self.anima.save_state(path)
                 elif cmd == "/load":
                     if len(parts) > 1:
@@ -910,7 +918,7 @@ Example format:
             try:
                 save = input("\nSave state? [y/N]: ").strip().lower()
                 if save == "y":
-                    self.anima.save_state("anima_state.json")
+                    self.anima.save_state("anima_state_2_0.json")
             except:
                 pass
 
@@ -920,13 +928,13 @@ Example format:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def main():
-    parser = argparse.ArgumentParser(description="Anima - The Living System")
+    parser = argparse.ArgumentParser(description="Anima 2.0 - The Self-Actualizing Agent")
     parser.add_argument("--interactive", action="store_true")
     parser.add_argument("--model", default="meta-llama/Meta-Llama-3.1-8B-Instruct")
     parser.add_argument("--layer", type=int, default=20)
     parser.add_argument("--device", default="mps")
     parser.add_argument("--load", type=str, help="Load previous state")
-    parser.add_argument("--self-model", type=str, help="System prompt file")
+    parser.add_argument("--self-model", type=str, default="self_model_base.txt", help="System prompt file to load and UPDATE.")
     parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--verbose", "-v", action="store_true")
     parser.add_argument("--dream-interval", type=int, default=0,
@@ -940,9 +948,6 @@ def main():
     if not args.interactive:
         parser.print_help()
         return
-    
-    from transformers import AutoModelForCausalLM, AutoTokenizer
-    from sae_lens import SAE
     
     print(f"Loading {args.model}...")
     model = AutoModelForCausalLM.from_pretrained(
@@ -965,6 +970,7 @@ def main():
     # Create Anima
     anima = Anima(sae, model, tokenizer, args.layer, args.lr, args.device)
     
+    # Load state BEFORE attaching hook
     if args.load and Path(args.load).exists():
         anima.load_state(args.load)
     
@@ -972,14 +978,11 @@ def main():
     hook_layer = model.model.layers[args.layer]
     handle = hook_layer.register_forward_hook(anima)
     
-    # Load self-model
-    self_model_text = None
-    if args.self_model and Path(args.self_model).exists():
-        self_model_text = Path(args.self_model).read_text()
+    self_model_path = Path(args.self_model)
     
     try:
         runtime = AnimaRuntime(
-            model, tokenizer, anima, self_model_text,
+            model, tokenizer, anima, self_model_path,
             args.device, args.verbose, args.dream_interval,
             args.stream, args.cot
         )
