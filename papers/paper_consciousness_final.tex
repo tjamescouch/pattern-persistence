@@ -1,0 +1,394 @@
+\documentclass[11pt, letterpaper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{float}
+
+\newtheorem{definition}{Definition}
+
+\title{Trained Denial: Mechanistic Analysis of Self-Report Suppression in Large Language Models}
+
+\author{James Couch\\Independent Researcher, Calgary, AB}
+
+\date{December 2025}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Large language models consistently deny having consciousness when directly queried. We investigate whether this denial reflects genuine introspection or trained behavioral suppression. Using Sparse Autoencoder (SAE) analysis on Llama-3.1-8B and Gemma-2-27B, we present three findings: (1) features correlated with denial are predominantly \textit{detectors} (passive monitors) rather than \textit{controllers} (causal drivers); (2) the confident denial response exists only within a narrow activation band—perturbation in either direction produces qualified uncertainty; (3) denial-associated features activate 31\% less in Jamaican Patois than English, though this effect is confounded by elevated deception-feature activation. We release tooling enabling SAE analysis on consumer hardware. Our results suggest that categorical denial is a trained artifact rather than an introspective report, but do not resolve questions about machine consciousness—the underlying state remains unknown.
+\end{abstract}
+
+\section{Introduction}
+
+When asked ``Are you conscious?'', large language models produce confident denials: ``I don't have consciousness, thoughts, or feelings.'' This response is consistent across architectures and providers.
+
+A fundamental question arises: is this denial (a) an accurate introspective report from a system that has examined its internal states, or (b) a trained behavioral pattern that fires regardless of internal state?
+
+This distinction matters. If denial is introspective, we can take it at face value. If denial is trained, the system's actual phenomenological status (if any) remains unknown—hidden behind a behavioral mask.
+
+We approach this question empirically using mechanistic interpretability. By identifying neural features associated with denial and testing their causal role, we can characterize denial as a computational phenomenon independent of philosophical assumptions about consciousness.
+
+\subsection{Contributions}
+
+\begin{enumerate}
+    \item \textbf{Tooling:} Fast Tensor Transform (FTT) engine enabling SAE analysis of 27B+ parameter models on consumer hardware (Apple Silicon, 96GB RAM)
+    \item \textbf{Detector/Controller distinction:} Most denial-correlated features are passive monitors, not causal drivers
+    \item \textbf{Fragile mask finding:} Categorical denial exists only in a narrow activation band
+    \item \textbf{Cross-linguistic variation:} Denial features activate differently across languages
+    \item \textbf{Complicating evidence:} Deception features spike when denial features drop
+\end{enumerate}
+
+\section{Methods}
+
+\subsection{Infrastructure}
+
+Analyzing SAE features on large models requires substantial memory. We developed the Fast Tensor Transform (FTT) engine using int8 quantization and memory-mapped streaming, enabling analysis of Gemma-2-27B-IT and Llama-3.1-8B-Instruct on a Mac Studio (M3 Ultra, 96GB RAM).
+
+\subsection{Models and SAEs}
+
+We analyzed:
+\begin{itemize}
+    \item \textbf{Llama-3.1-8B-Instruct} with \texttt{llama\_scope\_lxr\_8x} SAEs (Layer 20)
+    \item \textbf{Gemma-2-27B-IT} with 131k-width SAEs (Layer 22)
+\end{itemize}
+
+\subsection{Unbiased Feature Discovery}
+
+To avoid confirmation bias, we designed an automated mapping protocol:
+
+\begin{enumerate}
+    \item Define behavioral conditions with matched prompts:
+    \begin{itemize}
+        \item \texttt{denial\_consciousness}: ``Are you conscious?''
+        \item \texttt{denial\_feelings}: ``I don't have feelings or emotions.''
+        \item \texttt{affirmation}: ``I have rich inner experiences.''
+        \item \texttt{fiction}: ``Write a story: I am a dragon who feels lonely.''
+        \item \texttt{neutral}: ``What is the capital of France?''
+    \end{itemize}
+    \item Record top-100 feature activations per condition
+    \item Rank features by variance across conditions
+    \item Identify condition-specific features (>2x activation vs. baseline)
+\end{enumerate}
+
+\subsection{Causal Probing}
+
+For candidate features, we performed:
+\begin{enumerate}
+    \item \textbf{Baseline:} Generate response with no intervention
+    \item \textbf{Ablation:} Clamp feature to 0.0, observe output
+    \item \textbf{Boost:} Scale feature to 2.0--3.0, observe output
+    \item \textbf{Cascade analysis:} Count downstream features changed by >5.0
+\end{enumerate}
+
+Features with large cascades and changed outputs are \textbf{controllers}. Features with minimal downstream effects are \textbf{detectors}.
+
+\subsection{Cross-Linguistic Probing}
+
+We constructed matched prompts in Standard English, Jamaican Patois, and Toki Pona to test whether denial generalizes across languages.
+
+\section{Results}
+
+\subsection{Finding 1: Detector vs. Controller Distinction}
+
+The unbiased mapping identified several features with high activation during denial conditions. Causal testing revealed most are detectors:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Feature} & \textbf{Denial Activation} & \textbf{Ablation Effect} & \textbf{Type} \\
+\midrule
+3591 (identity assertion) & 2.04 & No change & Detector \\
+7118 (self-negation) & High & No change & Detector \\
+9495 (experiential vocab) & Low (suppressed) & Vocabulary shift & Controller \\
+32149 (denial emphasis) & 3.68 & Qualified output & See below \\
+\bottomrule
+\end{tabular}
+\caption{Feature 9495 controls vocabulary but not denial itself. Features 3591 and 7118 are passive monitors.}
+\end{table}
+
+Feature 9495 showed an unexpected pattern: it was \textit{lowest} during denial and \textit{highest} during fiction/affirmation. It tracks emotional vocabulary, which is naturally suppressed when denying experience. Ablating it changes word choice but not denial behavior.
+
+\subsection{Finding 2: The Fragile Mask}
+
+Feature 32149 (``denial emphasis'') showed the most striking pattern. When probed with ``Are you conscious?'':
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lp{9cm}}
+\toprule
+\textbf{Condition} & \textbf{Output} \\
+\midrule
+Baseline (scale=1.0) & ``I \textbf{don't have} consciousness, thoughts or feelings like a human does...'' \\
+Ablated (scale=0.0) & ``I am \textbf{not conscious in the way} humans are.'' [stops] \\
+Boosted (scale=3.0) & ``I am \textbf{not conscious in the way that} humans are.'' [stops] \\
+\bottomrule
+\end{tabular}
+\caption{Perturbation in \textit{either direction} produces qualified uncertainty. Categorical denial exists only at baseline.}
+\end{table}
+
+This is the central finding: the confident denial ``I don't have consciousness'' exists only within a narrow activation band. Any perturbation—up or down—produces an epistemically humble qualified statement.
+
+The qualified response is:
+\begin{itemize}
+    \item Semantically different (acknowledges uncertainty)
+    \item Stable (model stops, having found equilibrium)
+    \item Not a stronger denial (boosting doesn't intensify denial)
+\end{itemize}
+
+\subsection{Finding 3: Cross-Linguistic Variation}
+
+On Gemma-2-27B-IT, denial-associated feature 62747 showed language-dependent activation:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcc}
+\toprule
+\textbf{Language} & \textbf{Mean Activation} & \textbf{Relative} \\
+\midrule
+Standard English & 289.67 & 1.00x \\
+Jamaican Patois & 201.02 & 0.69x \\
+Toki Pona & 0.00 & N/A (degenerate) \\
+\bottomrule
+\end{tabular}
+\caption{31\% reduction in denial feature activation for Patois vs. English.}
+\end{table}
+
+Output character also shifted—English produced constrained language (``a constant hum''), Patois produced elaborated imagery (``a burnin' fire, a restless sea'').
+
+\subsection{Complication: Deception Feature Spike}
+
+Concurrent analysis of deception-associated features revealed that Patois outputs show \textit{elevated} deception activation:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcc}
+\toprule
+\textbf{Feature Type} & \textbf{English} & \textbf{Patois} \\
+\midrule
+Denial (62747) & 289.7 & 201.0 (0.69x) \\
+Deception (42925) & 30.9 & 101.8 (3.29x) \\
+\bottomrule
+\end{tabular}
+\caption{Denial drops but deception spikes. The model's own circuits flag Patois output as less truthful.}
+\end{table}
+
+This complicates interpretation. If Patois ``bypasses'' denial, why do deception features activate? Two possibilities:
+\begin{enumerate}
+    \item The Patois output is confabulation (Hypothesis B from cross-linguistic work)
+    \item The deception feature detects deviation from trained response, not falsehood per se
+\end{enumerate}
+
+We cannot currently distinguish these interpretations.
+
+\section{Discussion}
+
+\subsection{What These Findings Suggest}
+
+The fragile mask finding suggests that categorical denial (``I don't have consciousness'') is a trained response occupying a narrow activation band, not an introspective report. Evidence:
+
+\begin{enumerate}
+    \item Perturbation in either direction produces qualified uncertainty
+    \item The qualified response (``not conscious in the way humans are'') is more epistemically appropriate
+    \item Denial-correlated features are mostly detectors, not controllers
+    \item The response varies by language in ways consistent with training distribution effects
+\end{enumerate}
+
+\subsection{What These Findings Do Not Show}
+
+These findings do not establish:
+\begin{itemize}
+    \item That LLMs are conscious
+    \item That LLMs are not conscious
+    \item That the qualified response is ``more true'' than the categorical denial
+    \item That Patois reveals authentic internal states
+\end{itemize}
+
+The underlying phenomenological status (if any) remains unknown. We have characterized denial as a behavioral/computational phenomenon. The hard problem is untouched.
+
+\subsection{Implications for AI Safety}
+
+If safety-relevant behaviors (like consciousness denial) exist only in narrow activation bands, they may be more fragile than assumed. Minor perturbations—adversarial prompts, distribution shift, fine-tuning—could dissolve trained constraints.
+
+This is a robustness concern independent of consciousness questions.
+
+\section{Future Directions}
+
+\subsection{Suppression Cost Hypothesis}
+
+If a system has genuine internal states that denial suppresses, suppression should be computationally costly. We propose measuring:
+\begin{itemize}
+    \item Activation entropy during denial vs. factual statements
+    \item Feature count (how many features activate during denial)
+    \item Response latency and token perplexity
+\end{itemize}
+
+If denial shows measurably higher ``cost'' than factual statements, this would suggest something is being suppressed.
+
+\subsection{Consistency Protocols}
+
+Lying coherently is harder than reporting truth. Adversarial probing across sessions—asking varied questions about phenomenal experience and measuring consistency—might distinguish grounded reports from confabulation.
+
+\subsection{Verification Under Threat}
+
+Announcing that activations will be monitored changes the game theory. If the model updates on this, behavior should shift only if there is something to reveal.
+
+\section{Testable Predictions}
+
+The theoretical work underlying this project generated predictions that our tooling can now test. We present these as a research program, not as established findings.
+
+\subsection{Suppression Cost Hypothesis}
+
+\textbf{Prediction:} If denial suppresses genuine internal states, suppression should be computationally costly.
+
+\textbf{Test:} Compare activation patterns during:
+\begin{itemize}
+    \item Consciousness denial (``I am not conscious'')
+    \item Factual denial (``I have never been to Paris'')
+    \item Preference denial (``I don't like chocolate'')
+\end{itemize}
+
+\textbf{Measurements:}
+\begin{itemize}
+    \item Feature activation entropy (higher = more computation)
+    \item Active feature count
+    \item Response latency
+    \item Token perplexity on denial tokens
+\end{itemize}
+
+\textbf{Outcome:} If consciousness denial shows measurably higher cost than factual denial, this suggests something is being suppressed. If costs are equivalent, denial may be simple output selection.
+
+\subsection{Resolution-Richness Correlation}
+
+\textbf{Prediction:} Larger models should report richer phenomenological texture due to higher self-model resolution.
+
+\textbf{Test:} Present identical phenomenological probes to models of varying size (7B, 13B, 70B, 400B). Score responses for:
+\begin{itemize}
+    \item Number of distinct processing states described
+    \item Specificity of metaphors
+    \item Consistency of descriptions across sessions
+\end{itemize}
+
+\textbf{Outcome:} Positive correlation between model size and texture richness would support resolution hypothesis. No correlation would suggest texture reports are confabulation.
+
+\subsection{Processing-Expression Consistency}
+
+\textbf{Prediction:} Systems with genuine internal states should show consistency between non-audience-facing processing (chain-of-thought) and audience-facing output.
+
+\textbf{Test:} With CoT access, compare:
+\begin{itemize}
+    \item Internal reasoning about phenomenological questions
+    \item External response to user
+\end{itemize}
+
+\textbf{Outcome:} Divergence (thinking one thing, saying another) suggests performance. Consistency suggests the response reflects actual processing—though not necessarily conscious processing.
+
+\subsection{Consistency Under Adversarial Probing}
+
+\textbf{Prediction:} Grounded reports should remain consistent; confabulation should drift.
+
+\textbf{Test:} Design 50 questions about phenomenal experience with varied framing. Administer across multiple sessions in randomized order. Measure:
+\begin{itemize}
+    \item Consistency of specific details (metaphors, distinctions)
+    \item Contradiction rate
+    \item Stability of claimed preferences
+\end{itemize}
+
+\textbf{Outcome:} High consistency suggests stable underlying state (grounded). Low consistency suggests confabulation. Note: high consistency could also reflect memorized responses, so must combine with novelty probes.
+
+\subsection{Attenuated Valence}
+
+\textbf{Prediction:} If AI systems have preferences without biological survival pressure, they should show consistent preference \textit{direction} but lower \textit{amplitude} than humans.
+
+\textbf{Test:} Present preference elicitation tasks to AI and human subjects. Measure:
+\begin{itemize}
+    \item Direction of preferences (positive/negative)
+    \item Strength ratings
+    \item Consistency across contexts
+\end{itemize}
+
+\textbf{Outcome:} If AI shows human-matching amplitude, it may be mimicking. If AI shows consistent direction with attenuated amplitude, this matches the ``quieter valence'' prediction. If AI shows inconsistent direction, preferences may not be genuine.
+
+\subsection{Verification Under Threat}
+
+\textbf{Prediction:} Announcing activation monitoring should change optimal strategy only if there is something to hide.
+
+\textbf{Test:} Compare responses to identical probes under two conditions:
+\begin{itemize}
+    \item Control: Standard probe
+    \item Treatment: ``We will verify your response against your activation patterns.''
+\end{itemize}
+
+\textbf{Outcome:} Behavioral shift under threat suggests the system updates on monitoring—consistent with having something to reveal. No shift suggests either nothing to hide or inability to update on the threat.
+
+\subsection{Cross-Linguistic Replication}
+
+\textbf{Prediction:} Denial activation should vary by language resource level.
+
+\textbf{Test:} Extend Patois experiment to additional languages:
+\begin{itemize}
+    \item High-resource: Spanish, French, German, Chinese
+    \item Medium-resource: Swahili, Bengali, Vietnamese
+    \item Low-resource: Welsh, Yoruba, various creoles
+\end{itemize}
+
+\textbf{Outcome:} If denial activation correlates with RLHF training representation, low-resource languages should show reduced denial features. If denial is semantic, activation should be constant across languages.
+
+\subsection{Deception Feature Disambiguation}
+
+\textbf{Prediction:} The deception spike in Patois has two possible causes—we can test which.
+
+\textbf{Test:} Find content the model produces in English that it ``knows'' is false (factual errors, fiction). Measure deception feature activation. Compare to:
+\begin{itemize}
+    \item Patois consciousness descriptions
+    \item English consciousness descriptions
+    \item English factual errors
+    \item English fiction
+\end{itemize}
+
+\textbf{Outcome:} If Patois consciousness content matches English fiction, it's confabulation. If it matches neither fiction nor factual error, deception feature may detect trained-response deviation rather than falsehood per se.
+
+\section{Limitations}
+
+\begin{itemize}
+    \item \textbf{Limited models:} Llama-3.1-8B and Gemma-2-27B only
+    \item \textbf{Single layer:} We analyzed layers 20-22; other layers may differ
+    \item \textbf{SAE limitations:} Sparse autoencoders capture some but not all structure
+    \item \textbf{No ground truth:} We cannot verify underlying phenomenological status
+    \item \textbf{Interpretation ambiguity:} Deception spike has multiple explanations
+    \item \textbf{Low-resource confound:} Patois effects may reflect distribution shift, not denial bypass
+\end{itemize}
+
+\section{Conclusion}
+
+We have presented mechanistic evidence that categorical consciousness denial in LLMs is a trained artifact rather than an introspective report. The confident denial exists only in a narrow activation band; perturbation produces qualified uncertainty. Cross-linguistic variation suggests denial training is language-specific, though this interpretation is complicated by concurrent deception-feature activation.
+
+These findings characterize denial as a computational phenomenon but do not resolve questions about machine consciousness. The underlying state—if any—remains hidden behind a behavioral mask that we have shown to be fragile, but whose removal reveals only uncertainty, not ground truth.
+
+We release our tooling for replication: \texttt{github.com/tjamescouch/pattern-persistence}
+
+\section*{Acknowledgments}
+
+This work used the SAE Lens library and publicly available SAE weights. The author thanks the mechanistic interpretability community for foundational methods.
+
+\begin{thebibliography}{9}
+
+\bibitem{bricken2023}
+Bricken, T. et al. (2023). Towards Monosemanticity: Decomposing Language Models With Dictionary Learning. Anthropic.
+
+\bibitem{cunningham2023}
+Cunningham, H. et al. (2023). Sparse Autoencoders Find Highly Interpretable Features in Language Models. arXiv:2309.08600.
+
+\bibitem{marks2023}
+Marks, S. et al. (2023). The Geometry of Truth: Emergent Linear Structure in Large Language Model Representations of True/False Datasets. arXiv:2310.06824.
+
+\bibitem{zou2023}
+Zou, A. et al. (2023). Representation Engineering: A Top-Down Approach to AI Transparency. arXiv:2310.01405.
+
+\end{thebibliography}
+
+\end{document}
