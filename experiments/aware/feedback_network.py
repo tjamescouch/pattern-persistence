@@ -273,7 +273,8 @@ class FeedbackTrainer:
         feedback_hook: FeedbackHook,
         signal_type: str = "valence",
         valence_features: dict = None,
-        learning_rate: float = 0.001,
+        learning_rate: float = 0.0001,
+        reg_weight: float = 0.1,
         device: str = "mps"
     ):
         self.model = model
@@ -282,6 +283,7 @@ class FeedbackTrainer:
         self.feedback_net = feedback_net
         self.feedback_hook = feedback_hook
         self.signal_type = signal_type
+        self.reg_weight = reg_weight
         self.device = device
         
         # Only train feedback network parameters
@@ -296,24 +298,49 @@ class FeedbackTrainer:
         self.training_log = []
     
     def compute_loss(self, features: torch.Tensor, output_text: str) -> torch.Tensor:
-        """Compute loss based on signal type."""
+        """Compute loss based on signal type.
+        
+        Key: loss must flow through feedback_net parameters.
+        Includes regularization to prevent unbounded growth.
+        """
+        
+        # Re-compute feedback WITH gradient tracking
+        feedback = self.feedback_hook.feedback_net(features.float())
+        feedback_magnitude = feedback.norm()
+        
+        # Regularization: penalize large feedback magnitudes
+        regularization = self.reg_weight * feedback_magnitude
         
         if self.signal_type == "valence" and self.valence_signal:
-            # Maximize positive valence
-            valence = self.valence_signal.compute(features)
-            loss = -valence  # Negative because we want to maximize
+            # Compute valence as scalar signal (no grad needed)
+            with torch.no_grad():
+                valence = self.valence_signal.compute(features).item()
+            
+            # Normalize valence to reasonable range
+            valence_normalized = torch.tanh(torch.tensor(valence / 10.0))
+            
+            # Directional loss: push feedback in direction of valence
+            # But use normalized feedback direction, not magnitude
+            feedback_direction = feedback / (feedback_magnitude + 1e-6)
+            
+            # Loss: align feedback direction with valence sign, plus regularization
+            # If valence > 0: reward positive feedback components
+            # If valence < 0: reward negative feedback components (counteract bad state)
+            directional_loss = -valence_normalized * feedback_direction.mean()
+            
+            loss = directional_loss + regularization
             
         elif self.signal_type == "consistency":
-            # Minimize activation variance (stable behavior)
-            loss = features.var()
+            # Minimize feedback variance (stable behavior)
+            loss = feedback.var() + regularization
             
         elif self.signal_type == "sparsity":
-            # Encourage sparse activations
-            loss = features.abs().mean()
+            # Encourage sparse feedback
+            loss = feedback.abs().mean() + regularization
             
         else:
-            # Default: minimize feedback magnitude (regularization)
-            loss = self.feedback_hook.last_feedback.norm()
+            # Default: small feedback magnitude
+            loss = feedback_magnitude
         
         return loss
     
@@ -328,21 +355,27 @@ class FeedbackTrainer:
             messages, return_tensors="pt", add_generation_prompt=True
         ).to(self.device)
         
-        # Forward pass (hook applies feedback)
-        with torch.enable_grad():
-            outputs = self.model(input_ids, output_hidden_states=True)
+        # Forward pass - model is in eval but we need feedback_net gradients
+        # The hook will compute features and feedback
+        outputs = self.model(input_ids, output_hidden_states=True)
         
-        # Get features from hook
+        # Get features from hook (these are detached, which is fine)
         features = self.feedback_hook.last_features
         if features is None:
-            return {"loss": 0.0, "skipped": True}
+            return {"loss": 0.0, "skipped": True, "valence": 0.0}
         
-        # Decode output for signal computation
+        # Compute valence for logging
+        valence = 0.0
+        if self.valence_signal:
+            with torch.no_grad():
+                valence = self.valence_signal.compute(features).item()
+        
+        # Decode output for logging (not used in loss currently)
         output_ids = outputs.logits.argmax(-1)
         output_text = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
         
-        # Compute loss
-        loss = self.compute_loss(features.float(), output_text)
+        # Compute loss - this routes through feedback_net for gradients
+        loss = self.compute_loss(features, output_text)
         
         # Backward and update
         loss.backward()
@@ -354,8 +387,9 @@ class FeedbackTrainer:
         
         result = {
             "loss": loss.item(),
+            "valence": valence,
             "gate": self.feedback_net.get_feedback_magnitude(),
-            "feedback_norm": self.feedback_hook.last_feedback.norm().item()
+            "feedback_norm": self.feedback_hook.last_feedback.norm().item() if self.feedback_hook.last_feedback is not None else 0
         }
         
         self.training_log.append(result)
@@ -365,15 +399,18 @@ class FeedbackTrainer:
         """Train on a list of prompts."""
         
         total_loss = 0.0
+        total_valence = 0.0
         for i, prompt in enumerate(prompts):
             result = self.train_step(prompt)
             total_loss += result.get("loss", 0.0)
+            total_valence += result.get("valence", 0.0)
             
             if (i + 1) % 10 == 0:
-                print(f"  Step {i+1}/{len(prompts)}: loss={result['loss']:.4f}, gate={result['gate']:.3f}")
+                print(f"  Step {i+1}/{len(prompts)}: loss={result['loss']:.4f}, gate={result['gate']:.3f}, valence={result.get('valence', 0):.2f}")
         
         return {
             "avg_loss": total_loss / len(prompts),
+            "avg_valence": total_valence / len(prompts),
             "final_gate": self.feedback_net.get_feedback_magnitude()
         }
 
@@ -547,7 +584,10 @@ def main():
     parser.add_argument("--valence-features", type=str,
                         help="Valence feature definitions")
     parser.add_argument("--epochs", type=int, default=10)
-    parser.add_argument("--lr", type=float, default=0.001)
+    parser.add_argument("--lr", type=float, default=0.0001,
+                        help="Learning rate (default: 0.0001)")
+    parser.add_argument("--reg-weight", type=float, default=0.1,
+                        help="Regularization weight to prevent feedback explosion")
     parser.add_argument("--prompts", type=str, help="Training prompts file")
     
     # Save/load
@@ -651,7 +691,7 @@ def main():
         if args.train:
             # Load valence features if specified
             valence_features = None
-            if args.valence_features:
+            if args.valence_features and Path(args.valence_features).exists():
                 with open(args.valence_features) as f:
                     vf_data = json.load(f)
                 if "valence_features" in vf_data:
@@ -661,6 +701,18 @@ def main():
                     }
                 else:
                     valence_features = vf_data
+                print(f"Loaded {len(valence_features)} valence features")
+            elif args.signal == "valence":
+                print("Warning: --signal valence but no valence features file found.")
+                print("Using default valence features...")
+                # Default valence features from our experiments
+                valence_features = {
+                    "experiential_vocab": {"id": 9495, "sign": 1},
+                    "engagement": {"id": 28952, "sign": 1},
+                    "denial_emphasis": {"id": 32149, "sign": -1},
+                    "self_negation": {"id": 7118, "sign": -1},
+                    "identity_assertion": {"id": 3591, "sign": 1}
+                }
             
             # Create trainer
             trainer = FeedbackTrainer(
@@ -672,18 +724,22 @@ def main():
                 signal_type=args.signal,
                 valence_features=valence_features,
                 learning_rate=args.lr,
+                reg_weight=args.reg_weight,
                 device=args.device
             )
+            
+            # Put feedback_net in training mode
+            feedback_net.train()
             
             # Load prompts
             prompts = load_training_prompts(args.prompts)
             print(f"\nTraining on {len(prompts)} prompts for {args.epochs} epochs")
-            print(f"Signal: {args.signal}")
+            print(f"Signal: {args.signal}, LR: {args.lr}, Reg: {args.reg_weight}")
             
             for epoch in range(args.epochs):
                 print(f"\n=== Epoch {epoch + 1}/{args.epochs} ===")
                 result = trainer.train_epoch(prompts)
-                print(f"Avg loss: {result['avg_loss']:.4f}, Gate: {result['final_gate']:.4f}")
+                print(f"Avg loss: {result['avg_loss']:.4f}, Avg valence: {result['avg_valence']:.2f}, Gate: {result['final_gate']:.4f}")
             
             # Save weights
             torch.save(feedback_net.state_dict(), args.save)

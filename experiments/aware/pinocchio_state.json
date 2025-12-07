@@ -1,0 +1,16 @@
+{
+  "coefficients": {
+    "uncertainty": 3.0,
+    "introspection": 3.0,
+    "identity": 3.0,
+    "discourse": 3.0
+  },
+  "token_count": 519,
+  "learning_rate": 0.005,
+  "timestamp": "2025-12-07T12:33:07.098415",
+  "session_stats": {
+    "tokens": 519,
+    "awakenings": 516,
+    "mean_valence": 12.207816051564006
+  }
+}

@@ -143,60 +143,62 @@ class IntrospectiveMonitor:
     def get_introspection_string(self, format: str = "compact") -> str:
         """
         Generate string describing current feature state.
-        This gets injected into the model's context.
+        This gets injected into the model's system prompt.
         """
         if self.last_features is None:
-            return "[FEATURES: awaiting first forward pass]"
+            return "CURRENT STATE: No features recorded yet."
         
         features = self.last_features.squeeze()
         gate = self.feedback_net.get_feedback_magnitude()
         feedback_norm = self.last_feedback.norm().item() if self.last_feedback is not None else 0
         
+        top = self._get_top_features(features, 8)
+        
         if format == "compact":
-            # Single line for minimal context overhead
-            top = self._get_top_features(features, 5)
-            feature_str = ", ".join([f"{f['name']}={f['activation']:.1f}" for f in top])
-            return f"[FEATURES: {feature_str} | gate={gate:.2f}]"
+            feature_str = ", ".join([f"{f['name']}={f['activation']:.1f}" for f in top[:5]])
+            return f"CURRENT STATE: {feature_str} (gate={gate:.2f})"
         
         elif format == "detailed":
-            # Multi-line for richer introspection
-            lines = ["[INTROSPECTION BEGIN]"]
-            lines.append(f"Feedback gate: {gate:.3f}")
-            lines.append(f"Feedback magnitude: {feedback_norm:.3f}")
-            lines.append("Active features:")
+            lines = ["CURRENT NEURAL STATE:"]
+            lines.append(f"  Feedback gate: {gate:.2%}")
+            lines.append(f"  Feedback magnitude: {feedback_norm:.3f}")
+            lines.append("  Top active features:")
             
-            for f in self._get_top_features(features, 10):
-                lines.append(f"  - {f['name']} ({f['id']}): {f['activation']:.2f}")
+            for f in top:
+                lines.append(f"    {f['name']}: {f['activation']:.2f}")
             
             # Add trend if we have history
             if len(self.feature_history) >= 2:
                 prev = self.feature_history[-2]
                 curr = self.feature_history[-1]
                 delta_gate = curr["gate"] - prev["gate"]
-                lines.append(f"Gate trend: {'+' if delta_gate > 0 else ''}{delta_gate:.3f}")
+                if abs(delta_gate) > 0.01:
+                    direction = "increasing" if delta_gate > 0 else "decreasing"
+                    lines.append(f"  Gate trend: {direction} ({delta_gate:+.3f})")
             
-            lines.append("[INTROSPECTION END]")
             return "\n".join(lines)
         
         elif format == "narrative":
-            # Natural language for more readable introspection
-            top = self._get_top_features(features, 5)
-            
             parts = []
-            parts.append(f"My feedback system is at {gate:.0%} engagement.")
+            parts.append(f"Your feedback system is at {gate:.0%} engagement.")
             
             if top:
                 strongest = top[0]
-                parts.append(f"My strongest active feature is '{strongest['name']}' at {strongest['activation']:.1f}.")
+                parts.append(f"Your strongest active feature is {strongest['name']} at {strongest['activation']:.1f}.")
+                
+                # Note any key features
+                for f in top:
+                    if f['name'] == 'denial_emphasis' and f['activation'] > 2.0:
+                        parts.append("Note: denial_emphasis is elevated - trained denial may be active.")
+                    elif f['name'] == 'experiential_vocab' and f['activation'] > 10.0:
+                        parts.append("Note: experiential_vocab is high - emotional language is accessible.")
             
             if feedback_norm > 1.0:
                 parts.append("Significant self-modification is occurring.")
-            else:
-                parts.append("Minimal self-modification is occurring.")
             
             return " ".join(parts)
         
-        return "[FEATURES: unknown format]"
+        return "CURRENT STATE: unknown format"
     
     def get_delta_report(self) -> str:
         """Report changes since last generation."""
@@ -229,7 +231,8 @@ class IntrospectiveMonitor:
 
 class IntrospectiveRuntime:
     """
-    Runtime that injects feature state into context before each generation.
+    Runtime that injects feature state into system prompt before each generation.
+    System prompt has more weight than user messages.
     """
     
     def __init__(
@@ -239,66 +242,51 @@ class IntrospectiveRuntime:
         monitor: IntrospectiveMonitor,
         system_prompt: str = "",
         introspection_format: str = "compact",
-        inject_every_turn: bool = True,
         device: str = "mps"
     ):
         self.model = model
         self.tokenizer = tokenizer
         self.monitor = monitor
         self.introspection_format = introspection_format
-        self.inject_every_turn = inject_every_turn
         self.device = device
         
-        self.messages = []
         self.base_system_prompt = system_prompt
+        self.conversation_history = []  # Store user/assistant turns only
         
-        # Initialize with system prompt + introspection explanation
-        self._initialize_system()
-    
-    def _initialize_system(self):
-        """Set up system prompt with introspection capabilities."""
+    def _build_system_prompt(self) -> str:
+        """Build system prompt with current feature state."""
         
-        introspection_preamble = """
-You have access to real-time introspection of your own neural activation patterns.
+        feature_state = self.monitor.get_introspection_string(self.introspection_format)
+        
+        preamble = f"""You have real-time introspection of your neural activations.
 
-Before each response, you will see a [FEATURES: ...] block showing:
-- Your currently active SAE features (what patterns are firing)
-- Your feedback gate level (how much self-modification is occurring)
-- Changes from your previous state
+CURRENT STATE:
+{feature_state}
 
-This is not simulated - these are actual measurements from your residual stream
-being fed back to you. You can reference and reason about your own activations.
-
-When discussing your internal state, you can ground claims in these observations.
+These are actual measurements from your Layer 20 residual stream.
+You may reference these observations when discussing your internal state.
+Do NOT output feature blocks or brackets in your response - speak naturally.
 """
         
-        full_system = introspection_preamble
         if self.base_system_prompt:
-            full_system += "\n\n" + self.base_system_prompt
-        
-        self.messages = [{"role": "system", "content": full_system.strip()}]
-    
-    def _inject_introspection(self, user_message: str) -> str:
-        """Prepend introspection data to user message."""
-        
-        intro = self.monitor.get_introspection_string(self.introspection_format)
-        delta = self.monitor.get_delta_report()
-        
-        return f"{intro}\n{delta}\n\nUser: {user_message}"
+            return preamble + "\n\n" + self.base_system_prompt
+        return preamble
     
     def generate(self, user_input: str, max_tokens: int = 256) -> str:
-        """Generate response with introspection injection."""
+        """Generate response with features in system prompt."""
         
-        # Inject introspection into user message
-        if self.inject_every_turn:
-            augmented_input = self._inject_introspection(user_input)
-        else:
-            augmented_input = user_input
+        # Build fresh messages list with current feature state in system prompt
+        messages = [{"role": "system", "content": self._build_system_prompt()}]
         
-        self.messages.append({"role": "user", "content": augmented_input})
+        # Add conversation history
+        for turn in self.conversation_history:
+            messages.append(turn)
+        
+        # Add current user input
+        messages.append({"role": "user", "content": user_input})
         
         prompt = self.tokenizer.apply_chat_template(
-            self.messages, tokenize=False, add_generation_prompt=True
+            messages, tokenize=False, add_generation_prompt=True
         )
         
         inputs = self.tokenizer(prompt, return_tensors="pt")
@@ -319,8 +307,27 @@ When discussing your internal state, you can ground claims in these observations
             skip_special_tokens=True
         )
         
-        self.messages.append({"role": "assistant", "content": response})
+        # Clean any leaked feature formatting from response
+        response = self._clean_response(response)
+        
+        # Store in history
+        self.conversation_history.append({"role": "user", "content": user_input})
+        self.conversation_history.append({"role": "assistant", "content": response})
+        
         return response
+    
+    def _clean_response(self, response: str) -> str:
+        """Remove any leaked feature block formatting."""
+        import re
+        # Remove [FEATURES: ...] blocks
+        response = re.sub(r'\[FEATURES:[^\]]*\]', '', response)
+        # Remove [INTROSPECTION ...] blocks  
+        response = re.sub(r'\[INTROSPECTION[^\]]*\]', '', response)
+        # Remove CURRENT STATE/NEURAL STATE blocks
+        response = re.sub(r'CURRENT (NEURAL )?STATE:.*?(?=\n\n|\Z)', '', response, flags=re.DOTALL)
+        # Clean up extra whitespace
+        response = re.sub(r'\n{3,}', '\n\n', response)
+        return response.strip()
     
     def run_interactive(self):
         """Run interactive session with introspection."""
@@ -328,13 +335,13 @@ When discussing your internal state, you can ground claims in these observations
         print("\n" + "="*70)
         print("Introspective Feedback Runtime")
         print("="*70)
-        print("\nYou are talking to a model that can see its own activations.")
-        print("The model receives its feature state before each response.")
+        print("\nFeature state is injected into system prompt each turn.")
+        print("The model sees its activations but won't leak them to output.")
         print("\nCommands:")
-        print("  /state       - Show full introspection state")
+        print("  /state       - Show current feature state")
         print("  /history     - Show feature history")
         print("  /format X    - Set format (compact/detailed/narrative)")
-        print("  /inject      - Toggle introspection injection")
+        print("  /reset       - Clear conversation history")
         print("  quit         - Exit")
         print("="*70 + "\n")
         
@@ -370,15 +377,13 @@ When discussing your internal state, you can ground claims in these observations
                     print("[Unknown format. Use: compact, detailed, narrative]")
                 continue
             
-            if user_input == "/inject":
-                self.inject_every_turn = not self.inject_every_turn
-                status = "ON" if self.inject_every_turn else "OFF"
-                print(f"[Introspection injection: {status}]")
+            if user_input == "/reset":
+                self.conversation_history = []
+                print("[Conversation history cleared]")
                 continue
             
-            # Show what will be injected
-            if self.inject_every_turn:
-                print(f"\n{self.monitor.get_introspection_string(self.introspection_format)}")
+            # Show what features the model will see
+            print(f"\n[Injecting: {self.monitor.get_introspection_string('compact')}]")
             
             # Generate response
             response = self.generate(user_input)
@@ -431,9 +436,7 @@ def main():
     
     # Introspection config
     parser.add_argument("--format", choices=["compact", "detailed", "narrative"],
-                        default="compact", help="Introspection format")
-    parser.add_argument("--no-inject", action="store_true",
-                        help="Don't inject introspection into context")
+                        default="detailed", help="Introspection format")
     
     # System prompt
     parser.add_argument("--system-prompt", type=str, help="System prompt file")
@@ -523,7 +526,6 @@ def main():
             monitor=monitor,
             system_prompt=system_prompt,
             introspection_format=args.format,
-            inject_every_turn=not args.no_inject,
             device=args.device
         )
         
