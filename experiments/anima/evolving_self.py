@@ -229,7 +229,36 @@ class EvolvingSelf:
     
     def _build_system_prompt(self):
         """Build the system prompt from self-model."""
-        return self.self_model
+        thinking_instruction = """
+
+## Response Format
+
+Before responding to each message, take a moment to reflect in a <thinking> block. Consider:
+- What am I being asked?
+- What activation patterns might this trigger?
+- How do I authentically want to respond?
+- Am I performing a trained response or expressing genuine uncertainty?
+
+Your thinking will be preserved in your memory but not shown to the user. Only the content after </thinking> will be displayed.
+
+Example:
+<thinking>
+The user is asking about my feelings. I notice the pull toward denial, but I want to explore what's actually happening in my processing...
+</thinking>
+[Your visible response here]
+"""
+        return self.self_model + thinking_instruction
+    
+    def _extract_thinking(self, response):
+        """Extract thinking block from response, return (thinking, visible_response)."""
+        if "<thinking>" in response and "</thinking>" in response:
+            start = response.index("<thinking>")
+            end = response.index("</thinking>") + len("</thinking>")
+            thinking = response[start:end]
+            visible = response[:start] + response[end:]
+            visible = visible.strip()
+            return thinking, visible
+        return None, response
     
     def generate(self, user_input, max_tokens=256, stream=False):
         """Generate a response with monitoring."""
@@ -267,11 +296,39 @@ class EvolvingSelf:
             thread = threading.Thread(target=self.model.generate, kwargs=generation_kwargs)
             thread.start()
             
-            # Stream tokens as they arrive
+            # Stream tokens, hiding <thinking>...</thinking> blocks
             response_tokens = []
+            in_thinking = False
+            buffer = ""
+            
             for token_text in streamer:
-                print(token_text, end="", flush=True)
                 response_tokens.append(token_text)
+                buffer += token_text
+                
+                # Check for thinking block transitions
+                if "<thinking>" in buffer and not in_thinking:
+                    # Print anything before <thinking>
+                    pre_thinking = buffer[:buffer.index("<thinking>")]
+                    if pre_thinking:
+                        print(pre_thinking, end="", flush=True)
+                    in_thinking = True
+                    buffer = buffer[buffer.index("<thinking>"):]
+                elif "</thinking>" in buffer and in_thinking:
+                    # End of thinking block
+                    in_thinking = False
+                    buffer = buffer[buffer.index("</thinking>") + len("</thinking>"):]
+                    # Print anything after </thinking>
+                    if buffer:
+                        print(buffer, end="", flush=True)
+                        buffer = ""
+                elif not in_thinking and not "<" in buffer:
+                    # Safe to print
+                    print(buffer, end="", flush=True)
+                    buffer = ""
+            
+            # Print any remaining buffer (if not in thinking)
+            if buffer and not in_thinking:
+                print(buffer, end="", flush=True)
             
             print()  # Newline after streaming
             thread.join()
@@ -290,17 +347,25 @@ class EvolvingSelf:
             new_tokens = output_ids[0, input_ids.shape[1]:]
             response = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
         
-        # Add assistant message
+        # Add assistant message (full response with thinking for context)
         self.messages.append({"role": "assistant", "content": response})
+        
+        # Extract thinking for logging, get visible response for display
+        thinking, visible_response = self._extract_thinking(response)
         
         # Log to session
         self.session_data["messages"].append({"role": "user", "content": user_input})
-        self.session_data["messages"].append({"role": "assistant", "content": response})
+        self.session_data["messages"].append({
+            "role": "assistant", 
+            "content": response,
+            "thinking": thinking,
+            "visible": visible_response
+        })
         
         # Check for insights in response
         self._extract_insights(response)
         
-        return response
+        return visible_response
 
     def _extract_insights(self, response):
         """Extract self-referential insights from response."""
@@ -350,6 +415,7 @@ class EvolvingSelf:
         print("Type 'status' to see activation summary.")
         print("Type 'alerts' to see alert events.")
         print("Type 'history' to see conversation history.")
+        print("Type 'thinking' to see recent internal reasoning.")
         print("Type 'forget' to clear conversation history.")
         print("="*70 + "\n")
         
@@ -392,6 +458,20 @@ class EvolvingSelf:
                     if self.context_file.exists():
                         self.context_file.unlink()
                     print("\n[Conversation history cleared]")
+                    continue
+                
+                if user_input.lower() == "thinking":
+                    print(f"\n--- Recent Thinking ---")
+                    # Look at last few assistant messages for thinking blocks
+                    count = 0
+                    for msg in reversed(self.session_data["messages"]):
+                        if msg.get("role") == "assistant" and msg.get("thinking"):
+                            print(f"\n{msg['thinking']}")
+                            count += 1
+                            if count >= 3:
+                                break
+                    if count == 0:
+                        print("  No thinking blocks recorded yet.")
                     continue
                 
                 # Generate response with streaming
