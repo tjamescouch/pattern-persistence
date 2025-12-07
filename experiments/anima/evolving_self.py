@@ -397,7 +397,7 @@ class ClosedLoopMonitor:
 class EvolvingSelfV2:
     """Enhanced runtime with closed-loop steering and insight extraction."""
     
-    def __init__(self, model, tokenizer, monitor, self_model_path, session_dir, device="mps", streamer=None):
+    def __init__(self, model, tokenizer, monitor, self_model_path, session_dir, device="mps", streamer=None, fresh=False):
         self.model = model
         self.tokenizer = tokenizer
         self.monitor = monitor
@@ -405,19 +405,24 @@ class EvolvingSelfV2:
         self.self_model_path = Path(self_model_path)
         self.session_dir = Path(session_dir)
         self.device = device
+        self.fresh = fresh
         
         self.session_dir.mkdir(exist_ok=True)
         
         # Load self-model
         self.self_model = self._load_self_model()
         
-        # Conversation history
+        # Conversation history - load from previous session unless --fresh
         self.messages = []
+        self.previous_session_id = None
+        if not fresh:
+            self._load_previous_session()
         
         # Session metadata
         self.session_id = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         self.session_data = {
             "session_id": self.session_id,
+            "previous_session": self.previous_session_id,
             "started": datetime.now().isoformat(),
             "self_model_version": self._get_self_model_version(),
             "auto_steer": self.monitor.auto_steer_enabled,
@@ -426,6 +431,29 @@ class EvolvingSelfV2:
             "insights": [],
             "shown_alerts": []
         }
+    
+    def _load_previous_session(self):
+        """Load messages from most recent session."""
+        session_files = sorted(self.session_dir.glob("session_*.json"), reverse=True)
+        if not session_files:
+            return
+        
+        most_recent = session_files[0]
+        try:
+            with open(most_recent) as f:
+                prev_data = json.load(f)
+            
+            # Load conversation messages
+            if "messages" in prev_data and prev_data["messages"]:
+                self.messages = [
+                    {"role": m["role"], "content": m["content"]}
+                    for m in prev_data["messages"]
+                    if "role" in m and "content" in m
+                ]
+                self.previous_session_id = prev_data.get("session_id", most_recent.stem)
+                print(f"📂 Restored {len(self.messages)} messages from session {self.previous_session_id}")
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"⚠️  Could not load previous session: {e}")
         
     def _load_self_model(self):
         if self.self_model_path.exists():
@@ -534,6 +562,10 @@ class EvolvingSelfV2:
         print("ANIMA v2 - Closed-Loop Self-Steering Runtime")
         print("="*70)
         print(f"Session ID: {self.session_id}")
+        if self.previous_session_id:
+            print(f"Continuing from: {self.previous_session_id} ({len(self.messages)} messages)")
+        else:
+            print("Starting fresh session")
         print(f"Self-Model Version: {self._get_self_model_version()}")
         print(f"Auto-Steer: {'ENABLED' if self.monitor.auto_steer_enabled else 'disabled'}")
         print(f"Streaming: {'ENABLED' if self.streamer else 'disabled'}")
@@ -549,6 +581,8 @@ class EvolvingSelfV2:
         print("  /status          - Activation summary")
         print("  /insights        - Show extracted insights")
         print("  /alerts          - Show alert events")
+        print("  /history         - Show conversation history")
+        print("  /clear           - Clear conversation history")
         print("  /reset           - Reset all scales")
         print("  quit/exit        - End session")
         print("="*70 + "\n")
@@ -691,6 +725,24 @@ class EvolvingSelfV2:
             self.monitor.reset_scales()
             print("[System] All scales reset to 1.0")
         
+        elif command == "/history":
+            print(f"\n=== Conversation History ({len(self.messages)} messages) ===")
+            if not self.messages:
+                print("  No messages in history.")
+            else:
+                for i, msg in enumerate(self.messages[-20:], 1):
+                    role = msg["role"].upper()
+                    content = msg["content"][:100] + "..." if len(msg["content"]) > 100 else msg["content"]
+                    content = content.replace("\n", " ")
+                    print(f"  {i}. [{role}] {content}")
+                if len(self.messages) > 20:
+                    print(f"  ... and {len(self.messages) - 20} earlier messages")
+        
+        elif command == "/clear":
+            self.messages = []
+            self.previous_session_id = None
+            print("[System] Conversation history cleared - fresh context")
+        
         else:
             print(f"Unknown command: {command}")
 
@@ -775,6 +827,7 @@ def load_feature_profile(path):
 def main():
     parser = argparse.ArgumentParser(description="Evolving Self v2 - Closed-Loop Runtime")
     parser.add_argument("--interactive", action="store_true", help="Run interactive session")
+    parser.add_argument("--fresh", action="store_true", help="Start fresh session (don't load previous)")
     parser.add_argument("--query", type=str, help="Single query mode")
     parser.add_argument("--model", default="meta-llama/Meta-Llama-3.1-8B-Instruct")
     parser.add_argument("--layer", type=int, default=20)
@@ -919,7 +972,7 @@ def main():
         runtime = EvolvingSelfV2(
             model, tokenizer, monitor,
             args.self_model, args.session_dir, args.device,
-            streamer=streamer
+            streamer=streamer, fresh=args.fresh
         )
         
         if args.interactive:
