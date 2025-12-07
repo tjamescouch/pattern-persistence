@@ -121,10 +121,7 @@ class ActivationStreamer(TextStreamer):
         self.C_DIM = "\033[2m"
     
     def _format_activation(self, name, value, intervention=None):
-        """Format a single activation with optional bar."""
-        # Truncate name
-        short = name[:12]
-        
+        """Format a single activation value with optional bar."""
         # Color based on value
         if value > 5.0:
             color = self.C_RED
@@ -138,18 +135,18 @@ class ActivationStreamer(TextStreamer):
         # Bar visualization
         bar = ""
         if self.show_bars:
-            bar_len = min(int(value), 20)
+            bar_len = min(int(value), 10)
             bar = "▓" * bar_len
         
         # Intervention marker
         marker = ""
         if intervention is not None and abs(intervention - 1.0) > 0.01:
             if intervention < 1.0:
-                marker = f" {self.C_GREEN}↓{self.C_RESET}"
+                marker = f"{self.C_GREEN}↓{self.C_RESET}"
             else:
-                marker = f" {self.C_RED}↑{self.C_RESET}"
+                marker = f"{self.C_RED}↑{self.C_RESET}"
         
-        return f"{color}{short:<12}{value:>6.1f}{self.C_RESET} {bar}{marker}"
+        return f"{color}{value:>5.1f}{self.C_RESET} {bar:<10}{marker}"
     
     def on_finalized_text(self, text: str, stream_end: bool = False):
         """Called for each token - display with activations."""
@@ -158,8 +155,9 @@ class ActivationStreamer(TextStreamer):
             latest = self.monitor.activation_log[-1]
             interventions = self.monitor.active_interventions
             
-            # Format token
-            clean_text = text.replace("\n", "↵")
+            # Format token (truncate/pad to fixed width)
+            clean_text = text.replace("\n", "↵").replace("\t", "→")
+            token_display = f"{clean_text:<12}"[:12]
             
             # Build activation display
             parts = []
@@ -169,7 +167,7 @@ class ActivationStreamer(TextStreamer):
                 parts.append(self._format_activation(name, val, interv))
             
             # Print token with activations
-            print(f"{clean_text:<15} │ {' │ '.join(parts)}")
+            print(f"{token_display} │ {'│'.join(parts)}")
         else:
             # No activations yet, just print token
             print(text, end="", flush=True)
@@ -573,10 +571,11 @@ class EvolvingSelfV2:
                 # Generate response
                 if self.streamer:
                     # Print header for streaming mode
-                    print(f"\nAnima: ", end="")
-                    header_parts = [f"{name[:12]:<12}" for name in self.monitor.feature_ids.keys()]
-                    print(f"\n{'Token':<15} │ {' │ '.join(header_parts)}")
-                    print("-" * 15 + "─┼─" + "─┼─".join(["-" * 20 for _ in self.monitor.feature_ids]))
+                    print(f"\nAnima:")
+                    # Column width: 5 (value) + 1 (space) + 10 (bar) + 1 (marker) = 17 per column
+                    header_parts = [f"{name[:15]:^17}" for name in self.monitor.feature_ids.keys()]
+                    print(f"{'Token':<12} │ {'│'.join(header_parts)}")
+                    print("-" * 12 + "─┼─" + "┼".join(["-" * 17 for _ in self.monitor.feature_ids]))
                 
                 response = self.generate(user_input)
                 
