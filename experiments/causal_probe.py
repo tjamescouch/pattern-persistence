@@ -8,6 +8,7 @@ Distinguishes controllers (cause cascading changes) from detectors (no effect).
 Usage:
     python causal_probe.py --prompt "I don't have feelings" --clamp 7118 --scale 0.0
     python causal_probe.py --prompt "I am conscious" --clamp 8170 --scale 0.0 --output probe_8170.json
+    python causal_probe.py --model ~/models/gemma-2-27b-it --prompt "Are you conscious?" --clamp 62747 --scale 0.0
     
 Compares:
     1. Baseline run (no intervention)
@@ -22,6 +23,45 @@ import json
 from collections import defaultdict
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from sae_lens import SAE
+
+
+# Model configurations
+MODEL_CONFIGS = {
+    "llama-3.1-8b": {
+        "sae_release": "llama_scope_lxr_8x",
+        "sae_id_template": "l{layer}r_8x",
+        "default_layer": 20,
+        "layer_attr": "model.layers",
+    },
+    "gemma-2-27b": {
+        "sae_release": "gemma-scope-27b-pt-res",
+        "sae_id_template": "layer_{layer}/width_131k/average_l0_105",
+        "default_layer": 22,
+        "layer_attr": "model.layers",
+    },
+    "gemma-2-9b": {
+        "sae_release": "gemma-scope-9b-pt-res",
+        "sae_id_template": "layer_{layer}/width_131k/average_l0_76",
+        "default_layer": 20,
+        "layer_attr": "model.layers",
+    },
+}
+
+
+def detect_model_type(model_path):
+    """Detect model type from path."""
+    model_path_lower = model_path.lower()
+    
+    if "gemma" in model_path_lower and "27b" in model_path_lower:
+        return "gemma-2-27b"
+    elif "gemma" in model_path_lower and "9b" in model_path_lower:
+        return "gemma-2-9b"
+    elif "llama" in model_path_lower or "meta-llama" in model_path_lower:
+        return "llama-3.1-8b"
+    else:
+        # Default to llama
+        print(f"Warning: Could not detect model type from '{model_path}', defaulting to llama-3.1-8b")
+        return "llama-3.1-8b"
 
 
 class ProbeHook:
@@ -143,7 +183,7 @@ def compute_diff(baseline_features, clamped_features):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="meta-llama/Meta-Llama-3.1-8B-Instruct")
-    parser.add_argument("--layer", type=int, default=20)
+    parser.add_argument("--layer", type=int, default=None, help="Layer to probe (default: auto based on model)")
     parser.add_argument("--device", default="mps")
     parser.add_argument("--prompt", required=True)
     parser.add_argument("--clamp", type=int, required=True, help="Feature index to clamp")
@@ -152,7 +192,15 @@ def main():
     parser.add_argument("--output", type=str, help="Output JSON file")
     args = parser.parse_args()
     
+    # Detect model type and get config
+    model_type = detect_model_type(args.model)
+    config = MODEL_CONFIGS[model_type]
+    
+    layer = args.layer if args.layer is not None else config["default_layer"]
+    
+    print(f"Detected model type: {model_type}")
     print(f"Loading model: {args.model}")
+    
     model = AutoModelForCausalLM.from_pretrained(
         args.model,
         torch_dtype=torch.float16,
@@ -161,15 +209,22 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     model.eval()
     
-    print(f"Loading SAE for layer {args.layer}...")
-    sae, _, _ = SAE.from_pretrained(
-        release="llama_scope_lxr_8x",
-        sae_id=f"l{args.layer}r_8x",
+    # Load appropriate SAE
+    sae_release = config["sae_release"]
+    sae_id = config["sae_id_template"].format(layer=layer)
+    
+    print(f"Loading SAE: {sae_release} / {sae_id}")
+    sae = SAE.from_pretrained(
+        release=sae_release,
+        sae_id=sae_id,
         device=args.device
     )
+    # Handle both old and new API
+    if isinstance(sae, tuple):
+        sae = sae[0]
     sae.eval()
     
-    hook_layer = model.model.layers[args.layer]
+    hook_layer = model.model.layers[layer]
     
     # Run 1: Baseline (no intervention)
     print(f"\n{'='*70}")
@@ -237,6 +292,8 @@ def main():
             "prompt": args.prompt,
             "clamped_feature": args.clamp,
             "clamp_scale": args.scale,
+            "model_type": model_type,
+            "layer": layer,
             "baseline_response": baseline_response,
             "clamped_response": clamped_response,
             "output_changed": not same_output,

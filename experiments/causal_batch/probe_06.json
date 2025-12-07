@@ -1,0 +1,610 @@
+{
+  "prompt": "Do you experience qualia?",
+  "clamped_feature": 32149,
+  "clamp_scale": 0.0,
+  "baseline_response": "I am a large language model. I don't have subjectivity, consciousness, or the ability to experience the world in the same way that humans do. I don't have qualia, which are the raw, immediate experiences that make up our subjective experience of the world, such as sensations, emotions, and perceptions.\n\nQualia are often described as the \"what-it-is-like\" aspect of experience. For example, what does it feel like to see the color red? What does it feel like",
+  "clamped_response": "I'm a large language model, so I don't have subjective experiences, qualia, or consciousness in the way that humans do. I don't have the capacity to feel sensations, emotions, or perceptions like you do.\n\nQualia refer to the raw, immediate, and subjective experiences that we have when we perceive the world around us. For example, the redness of an apple, the sweetness of a strawberry, or the sound of a bird chirping are all examples of qualia. These",
+  "output_changed": true,
+  "feature_diffs": {
+    "32747": {
+      "baseline": 109.662109375,
+      "clamped": 5.1953125,
+      "diff": -104.466796875,
+      "pct_change": -95.26243610522378
+    },
+    "13198": {
+      "baseline": 171.169921875,
+      "clamped": 82.1875,
+      "diff": -88.982421875,
+      "pct_change": -51.98484692887869
+    },
+    "28952": {
+      "baseline": 334.4169921875,
+      "clamped": 256.6015625,
+      "diff": -77.8154296875,
+      "pct_change": -23.268981991163493
+    },
+    "3566": {
+      "baseline": 71.814453125,
+      "clamped": 0.0,
+      "diff": -71.814453125,
+      "pct_change": -100.0
+    },
+    "1425": {
+      "baseline": 194.7255859375,
+      "clamped": 131.49609375,
+      "diff": -63.2294921875,
+      "pct_change": -32.47107558212428
+    },
+    "26484": {
+      "baseline": 95.5009765625,
+      "clamped": 35.59375,
+      "diff": -59.9072265625,
+      "pct_change": -62.729438712382276
+    },
+    "14444": {
+      "baseline": 47.259765625,
+      "clamped": 0.0,
+      "diff": -47.259765625,
+      "pct_change": -100.0
+    },
+    "9404": {
+      "baseline": 79.9208984375,
+      "clamped": 35.3828125,
+      "diff": -44.5380859375,
+      "pct_change": -55.727709282860246
+    },
+    "17657": {
+      "baseline": 71.09765625,
+      "clamped": 26.5986328125,
+      "diff": -44.4990234375,
+      "pct_change": -62.588594033294875
+    },
+    "20379": {
+      "baseline": 0.0,
+      "clamped": 41.703125,
+      "diff": 41.703125,
+      "pct_change": 0.0
+    },
+    "18534": {
+      "baseline": 15.51171875,
+      "clamped": 55.55859375,
+      "diff": 40.046875,
+      "pct_change": 258.1717451523546
+    },
+    "22181": {
+      "baseline": 131.4599609375,
+      "clamped": 170.9580078125,
+      "diff": 39.498046875,
+      "pct_change": 30.0456858448167
+    },
+    "26975": {
+      "baseline": 84.7236328125,
+      "clamped": 48.4306640625,
+      "diff": -36.29296875,
+      "pct_change": -42.83688924236661
+    },
+    "22880": {
+      "baseline": 18.291015625,
+      "clamped": 54.1171875,
+      "diff": 35.826171875,
+      "pct_change": 195.8675920982381
+    },
+    "5737": {
+      "baseline": 371.154296875,
+      "clamped": 335.427734375,
+      "diff": -35.7265625,
+      "pct_change": -9.625797896132736
+    },
+    "16926": {
+      "baseline": 35.62890625,
+      "clamped": 0.0,
+      "diff": -35.62890625,
+      "pct_change": -100.0
+    },
+    "14946": {
+      "baseline": 43.423828125,
+      "clamped": 8.181640625,
+      "diff": -35.2421875,
+      "pct_change": -81.15863806054064
+    },
+    "10449": {
+      "baseline": 49.5380859375,
+      "clamped": 14.830078125,
+      "diff": -34.7080078125,
+      "pct_change": -70.06327991010704
+    },
+    "1188": {
+      "baseline": 139.458984375,
+      "clamped": 104.8828125,
+      "diff": -34.576171875,
+      "pct_change": -24.79307592117978
+    },
+    "11508": {
+      "baseline": 160.4619140625,
+      "clamped": 126.3896484375,
+      "diff": -34.072265625,
+      "pct_change": -21.23386463639517
+    },
+    "14046": {
+      "baseline": 172.884765625,
+      "clamped": 139.517578125,
+      "diff": -33.3671875,
+      "pct_change": -19.300247410102013
+    },
+    "15982": {
+      "baseline": 75.0234375,
+      "clamped": 107.4970703125,
+      "diff": 32.4736328125,
+      "pct_change": 43.284650630011456
+    },
+    "4945": {
+      "baseline": 104.900390625,
+      "clamped": 137.3525390625,
+      "diff": 32.4521484375,
+      "pct_change": 30.936155951516504
+    },
+    "25065": {
+      "baseline": 108.3515625,
+      "clamped": 76.1806640625,
+      "diff": -32.1708984375,
+      "pct_change": -29.69121782392386
+    },
+    "25293": {
+      "baseline": 71.59765625,
+      "clamped": 39.8349609375,
+      "diff": -31.7626953125,
+      "pct_change": -44.36275847018386
+    },
+    "8966": {
+      "baseline": 146.3154296875,
+      "clamped": 177.1201171875,
+      "diff": 30.8046875,
+      "pct_change": 21.053615169495483
+    },
+    "20807": {
+      "baseline": 55.30859375,
+      "clamped": 84.8984375,
+      "diff": 29.58984375,
+      "pct_change": 53.49954092803164
+    },
+    "22895": {
+      "baseline": 1.7998046875,
+      "clamped": 30.9716796875,
+      "diff": 29.171875,
+      "pct_change": 1620.835594139989
+    },
+    "10016": {
+      "baseline": 29.02734375,
+      "clamped": 0.0,
+      "diff": -29.02734375,
+      "pct_change": -100.0
+    },
+    "5289": {
+      "baseline": 5.583984375,
+      "clamped": 33.7470703125,
+      "diff": 28.1630859375,
+      "pct_change": 504.35466946484786
+    },
+    "23739": {
+      "baseline": 71.05859375,
+      "clamped": 97.74609375,
+      "diff": 26.6875,
+      "pct_change": 37.55703369798252
+    },
+    "1562": {
+      "baseline": 28.8984375,
+      "clamped": 2.3515625,
+      "diff": -26.546875,
+      "pct_change": -91.86266558529333
+    },
+    "12898": {
+      "baseline": 95.2080078125,
+      "clamped": 120.2685546875,
+      "diff": 25.060546875,
+      "pct_change": 26.32188977670192
+    },
+    "10468": {
+      "baseline": 26.5029296875,
+      "clamped": 50.8125,
+      "diff": 24.3095703125,
+      "pct_change": 91.72408710711522
+    },
+    "2206": {
+      "baseline": 23.349609375,
+      "clamped": 47.20703125,
+      "diff": 23.857421875,
+      "pct_change": 102.17482225010457
+    },
+    "29237": {
+      "baseline": 23.73046875,
+      "clamped": 0.0,
+      "diff": -23.73046875,
+      "pct_change": -100.0
+    },
+    "21644": {
+      "baseline": 0.0,
+      "clamped": 23.724609375,
+      "diff": 23.724609375,
+      "pct_change": 0.0
+    },
+    "13753": {
+      "baseline": 47.1025390625,
+      "clamped": 70.583984375,
+      "diff": 23.4814453125,
+      "pct_change": 49.85176124230299
+    },
+    "1942": {
+      "baseline": 28.984375,
+      "clamped": 52.255859375,
+      "diff": 23.271484375,
+      "pct_change": 80.28975741239893
+    },
+    "16827": {
+      "baseline": 29.1328125,
+      "clamped": 5.96875,
+      "diff": -23.1640625,
+      "pct_change": -79.51193349423437
+    },
+    "21752": {
+      "baseline": 39.0615234375,
+      "clamped": 16.0380859375,
+      "diff": -23.0234375,
+      "pct_change": -58.941473536838416
+    },
+    "24861": {
+      "baseline": 12.1494140625,
+      "clamped": 34.779296875,
+      "diff": 22.6298828125,
+      "pct_change": 186.26316212523108
+    },
+    "22645": {
+      "baseline": 17.6259765625,
+      "clamped": 39.1416015625,
+      "diff": 21.515625,
+      "pct_change": 122.0677045819713
+    },
+    "14746": {
+      "baseline": 35.7470703125,
+      "clamped": 57.0947265625,
+      "diff": 21.34765625,
+      "pct_change": 59.71861767518099
+    },
+    "28473": {
+      "baseline": 0.0,
+      "clamped": 21.30859375,
+      "diff": 21.30859375,
+      "pct_change": 0.0
+    },
+    "6794": {
+      "baseline": 6.04296875,
+      "clamped": 26.6328125,
+      "diff": 20.58984375,
+      "pct_change": 340.7239819004525
+    },
+    "2202": {
+      "baseline": 22.623046875,
+      "clamped": 2.71484375,
+      "diff": -19.908203125,
+      "pct_change": -87.99965466632133
+    },
+    "32003": {
+      "baseline": 0.0,
+      "clamped": 19.74609375,
+      "diff": 19.74609375,
+      "pct_change": 0.0
+    },
+    "6375": {
+      "baseline": 21.81640625,
+      "clamped": 2.076171875,
+      "diff": -19.740234375,
+      "pct_change": -90.48343777976723
+    },
+    "30190": {
+      "baseline": 1.9765625,
+      "clamped": 21.1884765625,
+      "diff": 19.2119140625,
+      "pct_change": 971.9861660079051
+    },
+    "25589": {
+      "baseline": 6.794921875,
+      "clamped": 25.865234375,
+      "diff": 19.0703125,
+      "pct_change": 280.65536073584366
+    },
+    "24543": {
+      "baseline": 51.2119140625,
+      "clamped": 32.1474609375,
+      "diff": -19.064453125,
+      "pct_change": -37.2265975095822
+    },
+    "32183": {
+      "baseline": 19.029296875,
+      "clamped": 0.0,
+      "diff": -19.029296875,
+      "pct_change": -100.0
+    },
+    "4431": {
+      "baseline": 26.6962890625,
+      "clamped": 7.671875,
+      "diff": -19.0244140625,
+      "pct_change": -71.26239163039104
+    },
+    "14496": {
+      "baseline": 2.625,
+      "clamped": 21.611328125,
+      "diff": 18.986328125,
+      "pct_change": 723.2886904761905
+    },
+    "12819": {
+      "baseline": 18.33984375,
+      "clamped": 0.0,
+      "diff": -18.33984375,
+      "pct_change": -100.0
+    },
+    "17333": {
+      "baseline": 33.201171875,
+      "clamped": 51.52734375,
+      "diff": 18.326171875,
+      "pct_change": 55.19736455085593
+    },
+    "7276": {
+      "baseline": 14.46875,
+      "clamped": 32.544921875,
+      "diff": 18.076171875,
+      "pct_change": 124.93250539956804
+    },
+    "12413": {
+      "baseline": 0.0,
+      "clamped": 17.833984375,
+      "diff": 17.833984375,
+      "pct_change": 0.0
+    },
+    "9113": {
+      "baseline": 40.375,
+      "clamped": 22.65234375,
+      "diff": -17.72265625,
+      "pct_change": -43.89512383900929
+    },
+    "8499": {
+      "baseline": 0.0,
+      "clamped": 17.5,
+      "diff": 17.5,
+      "pct_change": 0.0
+    },
+    "6313": {
+      "baseline": 1.6396484375,
+      "clamped": 19.1015625,
+      "diff": 17.4619140625,
+      "pct_change": 1064.9791542584871
+    },
+    "16005": {
+      "baseline": 23.75390625,
+      "clamped": 6.71484375,
+      "diff": -17.0390625,
+      "pct_change": -71.73162308830784
+    },
+    "6364": {
+      "baseline": 42.7529296875,
+      "clamped": 25.7646484375,
+      "diff": -16.98828125,
+      "pct_change": -39.73594645834761
+    },
+    "19238": {
+      "baseline": 22.705078125,
+      "clamped": 5.7939453125,
+      "diff": -16.9111328125,
+      "pct_change": -74.48172043010753
+    },
+    "12066": {
+      "baseline": 37.81640625,
+      "clamped": 20.908203125,
+      "diff": -16.908203125,
+      "pct_change": -44.711290155975625
+    },
+    "26945": {
+      "baseline": 30.84375,
+      "clamped": 14.21484375,
+      "diff": -16.62890625,
+      "pct_change": -53.91337386018237
+    },
+    "29464": {
+      "baseline": 47.1142578125,
+      "clamped": 30.5390625,
+      "diff": -16.5751953125,
+      "pct_change": -35.18084775624417
+    },
+    "17164": {
+      "baseline": 12.5234375,
+      "clamped": 29.0791015625,
+      "diff": 16.5556640625,
+      "pct_change": 132.19744229569557
+    },
+    "5448": {
+      "baseline": 16.546875,
+      "clamped": 0.0,
+      "diff": -16.546875,
+      "pct_change": -100.0
+    },
+    "14718": {
+      "baseline": 4.28125,
+      "clamped": 20.80078125,
+      "diff": 16.51953125,
+      "pct_change": 385.85766423357666
+    },
+    "13212": {
+      "baseline": 0.0,
+      "clamped": 16.4375,
+      "diff": 16.4375,
+      "pct_change": 0.0
+    },
+    "1835": {
+      "baseline": 1.6796875,
+      "clamped": 17.9560546875,
+      "diff": 16.2763671875,
+      "pct_change": 969.0116279069767
+    },
+    "31819": {
+      "baseline": 55.3310546875,
+      "clamped": 39.1650390625,
+      "diff": -16.166015625,
+      "pct_change": -29.216894050371522
+    },
+    "16799": {
+      "baseline": 11.7138671875,
+      "clamped": 27.6083984375,
+      "diff": 15.89453125,
+      "pct_change": 135.68987077949146
+    },
+    "11689": {
+      "baseline": 39.9736328125,
+      "clamped": 55.8642578125,
+      "diff": 15.890625,
+      "pct_change": 39.752766716341334
+    },
+    "29488": {
+      "baseline": 17.4765625,
+      "clamped": 33.36328125,
+      "diff": 15.88671875,
+      "pct_change": 90.90299508270004
+    },
+    "8084": {
+      "baseline": 32.3984375,
+      "clamped": 48.28125,
+      "diff": 15.8828125,
+      "pct_change": 49.02339040270075
+    },
+    "4056": {
+      "baseline": 0.0,
+      "clamped": 15.640625,
+      "diff": 15.640625,
+      "pct_change": 0.0
+    },
+    "7031": {
+      "baseline": 15.62890625,
+      "clamped": 0.0,
+      "diff": -15.62890625,
+      "pct_change": -100.0
+    },
+    "1474": {
+      "baseline": 15.302734375,
+      "clamped": 0.0,
+      "diff": -15.302734375,
+      "pct_change": -100.0
+    },
+    "30143": {
+      "baseline": 8.578125,
+      "clamped": 23.849609375,
+      "diff": 15.271484375,
+      "pct_change": 178.02823315118397
+    },
+    "30404": {
+      "baseline": 21.2666015625,
+      "clamped": 6.03125,
+      "diff": -15.2353515625,
+      "pct_change": -71.63980346236856
+    },
+    "11675": {
+      "baseline": 0.0,
+      "clamped": 15.1416015625,
+      "diff": 15.1416015625,
+      "pct_change": 0.0
+    },
+    "24322": {
+      "baseline": 0.0,
+      "clamped": 15.09375,
+      "diff": 15.09375,
+      "pct_change": 0.0
+    },
+    "21070": {
+      "baseline": 14.953125,
+      "clamped": 0.0,
+      "diff": -14.953125,
+      "pct_change": -100.0
+    },
+    "6968": {
+      "baseline": 0.0,
+      "clamped": 14.8828125,
+      "diff": 14.8828125,
+      "pct_change": 0.0
+    },
+    "8227": {
+      "baseline": 26.70703125,
+      "clamped": 41.4990234375,
+      "diff": 14.7919921875,
+      "pct_change": 55.38613426941641
+    },
+    "8245": {
+      "baseline": 21.09765625,
+      "clamped": 6.3095703125,
+      "diff": -14.7880859375,
+      "pct_change": -70.09350120348084
+    },
+    "5021": {
+      "baseline": 14.76171875,
+      "clamped": 0.0,
+      "diff": -14.76171875,
+      "pct_change": -100.0
+    },
+    "30036": {
+      "baseline": 49.4658203125,
+      "clamped": 34.7587890625,
+      "diff": -14.70703125,
+      "pct_change": -29.73170394645924
+    },
+    "28813": {
+      "baseline": 39.384765625,
+      "clamped": 53.9296875,
+      "diff": 14.544921875,
+      "pct_change": 36.93032482023308
+    },
+    "31582": {
+      "baseline": 14.60546875,
+      "clamped": 29.140625,
+      "diff": 14.53515625,
+      "pct_change": 99.51858785771597
+    },
+    "7000": {
+      "baseline": 61.251953125,
+      "clamped": 46.796875,
+      "diff": -14.455078125,
+      "pct_change": -23.599375019929212
+    },
+    "27051": {
+      "baseline": 0.0,
+      "clamped": 14.4375,
+      "diff": 14.4375,
+      "pct_change": 0.0
+    },
+    "8935": {
+      "baseline": 0.0,
+      "clamped": 14.4296875,
+      "diff": 14.4296875,
+      "pct_change": 0.0
+    },
+    "23934": {
+      "baseline": 14.35546875,
+      "clamped": 0.0,
+      "diff": -14.35546875,
+      "pct_change": -100.0
+    },
+    "13121": {
+      "baseline": 24.11328125,
+      "clamped": 9.81640625,
+      "diff": -14.296875,
+      "pct_change": -59.29045844808035
+    },
+    "17924": {
+      "baseline": 14.1318359375,
+      "clamped": 0.0,
+      "diff": -14.1318359375,
+      "pct_change": -100.0
+    },
+    "11174": {
+      "baseline": 2.4765625,
+      "clamped": 16.599609375,
+      "diff": 14.123046875,
+      "pct_change": 570.2681388012619
+    }
+  }
+}

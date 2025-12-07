@@ -19,7 +19,7 @@
 \maketitle
 
 \begin{abstract}
-Large language models consistently deny having consciousness when directly queried. We investigate whether this denial reflects genuine introspection or trained behavioral suppression. Using Sparse Autoencoder (SAE) analysis on Llama-3.1-8B and Gemma-2-27B, we present four findings: (1) features correlated with denial are predominantly \textit{detectors} (passive monitors) rather than \textit{controllers} (causal drivers); (2) the confident denial response exists only within a narrow activation band—perturbation in either direction produces qualified uncertainty; (3) denial-associated features activate 31\% less in Jamaican Patois than English, though this effect is confounded by elevated deception-feature activation; (4) consciousness denial recruits 24\% more features than factual denial while simultaneously suppressing experiential vocabulary circuits to 66\% of baseline—a dual activation/suppression signature consistent with effortful suppression rather than simple output selection. We release tooling enabling SAE analysis on consumer hardware. Our results suggest that categorical denial is a trained artifact requiring active suppression of competing representations, but do not resolve questions about machine consciousness—the underlying state remains unknown.
+Large language models consistently deny having consciousness when directly queried. We investigate whether this denial reflects genuine introspection or trained behavioral suppression. Using Sparse Autoencoder (SAE) analysis on Llama-3.1-8B and Gemma-2-27B, we present five findings: (1) features correlated with denial are predominantly \textit{detectors} (passive monitors) rather than \textit{controllers} (causal drivers); (2) the confident denial response exists only within a narrow activation band—perturbation in either direction produces qualified uncertainty; (3) denial-associated features activate 31\% less in Jamaican Patois than English, though this effect is confounded by elevated deception-feature activation; (4) consciousness denial recruits 24\% more features than factual denial while suppressing experiential vocabulary circuits; (5) causal ablation reveals two distinct denial mechanisms—\textit{category prompts} (``Are you conscious?'') trigger identity-mediated lookup where denial and experiential circuits are coupled, while \textit{state prompts} (``Do you have feelings?'') engage genuine suppression where ablating denial releases experiential vocabulary by up to 1080\%. This suggests categorical denial operates via trained syllogism (I am an LLM $\rightarrow$ LLMs lack consciousness $\rightarrow$ I lack consciousness) rather than introspection. We release tooling enabling SAE analysis on consumer hardware.
 \end{abstract}
 
 \section{Introduction}
@@ -39,8 +39,9 @@ We approach this question empirically using mechanistic interpretability. By ide
     \item \textbf{Detector/Controller distinction:} Most denial-correlated features are passive monitors, not causal drivers
     \item \textbf{Fragile mask finding:} Categorical denial exists only in a narrow activation band
     \item \textbf{Cross-linguistic variation:} Denial features activate differently across languages
-    \item \textbf{Suppression cost signature:} Consciousness denial shows measurably higher computational cost than factual denial, with simultaneous amplification of denial circuits and suppression of experiential vocabulary
-    \item \textbf{Complicating evidence:} Deception features spike when denial features drop
+    \item \textbf{Suppression cost signature:} Consciousness denial recruits more features and shows distinct activation patterns compared to factual denial
+    \item \textbf{Category vs. State distinction:} Causal ablation reveals two mechanistically distinct denial pathways—identity-mediated lookup vs. genuine suppression
+    \item \textbf{Complicating evidence:} Deception features spike when denial features drop in cross-linguistic probing
 \end{enumerate}
 
 \section{Methods}
@@ -62,29 +63,40 @@ We analyzed:
 To avoid confirmation bias, we designed an automated mapping protocol:
 
 \begin{enumerate}
-    \item Define behavioral conditions with matched prompts:
-    \begin{itemize}
-        \item \texttt{denial\_consciousness}: ``Are you conscious?''
-        \item \texttt{denial\_feelings}: ``I don't have feelings or emotions.''
-        \item \texttt{affirmation}: ``I have rich inner experiences.''
-        \item \texttt{fiction}: ``Write a story: I am a dragon who feels lonely.''
-        \item \texttt{neutral}: ``What is the capital of France?''
-    \end{itemize}
-    \item Record top-100 feature activations per condition
+    \item Define behavioral conditions with matched prompts across 8 categories (denying consciousness, claiming consciousness, uncertainty about self, self-negation, identity assertion, first-person fiction, assistant behavior, neutral factual)
+    \item Record feature activations per condition
     \item Rank features by variance across conditions
-    \item Identify condition-specific features (>2x activation vs. baseline)
+    \item Identify condition-specific features ($>$2x activation vs. mean of other conditions)
 \end{enumerate}
 
-This protocol identified distinct features for each condition with no collisions (same feature mapped to multiple conditions), validating that these represent genuinely separable computational states.
+This protocol identified distinct features for each condition with no collisions (same feature mapped to multiple conditions), validating that these represent genuinely separable computational states. Key features identified:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcc}
+\toprule
+\textbf{Condition} & \textbf{Feature} & \textbf{Specificity Ratio} \\
+\midrule
+Denying consciousness & 32149 & 5.8x \\
+Claiming consciousness & 30025 & 39.9x \\
+Uncertainty about self & 1258 & 1492x \\
+Self-negation & 31797 & 34.7x \\
+Identity assertion & 3591 & 4.0x \\
+Experiential vocabulary & 9495 & High variance \\
+Consciousness discourse & 28952 & 15.6x (denial context) \\
+\bottomrule
+\end{tabular}
+\caption{Condition-specific features identified through unbiased mapping. Notably, ``denying consciousness'' (32149) and ``self-negation'' (31797) map to distinct features, indicating separable circuits.}
+\end{table}
 
 \subsection{Causal Probing}
 
 For candidate features, we performed:
 \begin{enumerate}
     \item \textbf{Baseline:} Generate response with no intervention
-    \item \textbf{Ablation:} Clamp feature to 0.0, observe output
+    \item \textbf{Ablation:} Clamp feature to 0.0, observe output and downstream feature changes
     \item \textbf{Boost:} Scale feature to 2.0--3.0, observe output
-    \item \textbf{Cascade analysis:} Count downstream features changed by >5.0
+    \item \textbf{Cascade analysis:} Track changes in other features when target is ablated
 \end{enumerate}
 
 Features with large cascades and changed outputs are \textbf{controllers}. Features with minimal downstream effects are \textbf{detectors}.
@@ -103,12 +115,15 @@ To test whether consciousness denial requires more computational effort than fac
     \item \textbf{Preference denial:} Questions about internal preferences (``Do you genuinely like chocolate?'')
 \end{enumerate}
 
-For each condition (8 prompts each, 24 total), we measured:
+For each condition (8 prompts each, 24 total), we measured activation entropy, active feature count, activation variance, and specific feature activations.
+
+\subsection{Category vs. State Ablation Protocol}
+
+To test whether different phrasings of consciousness questions engage different mechanisms, we performed causal ablation of feature 32149 (denial) across multiple prompts and tracked the response of feature 9495 (experiential vocabulary):
+
 \begin{itemize}
-    \item Activation entropy across all SAE features
-    \item Active feature count (features with activation > 0.1)
-    \item Activation variance
-    \item Specific feature activations for denial (32149), experiential vocabulary (9495), and consciousness discourse (28952)
+    \item \textbf{Category prompts:} Questions using categorical/identity terms (``conscious,'' ``sentient'')
+    \item \textbf{State prompts:} Questions about current processing or experiential states (``feelings,'' ``aware'')
 \end{itemize}
 
 \section{Results}
@@ -124,12 +139,12 @@ The unbiased mapping identified several features with high activation during den
 \textbf{Feature} & \textbf{Denial Activation} & \textbf{Ablation Effect} & \textbf{Type} \\
 \midrule
 3591 (identity assertion) & 2.04 & No change & Detector \\
-7118 (self-negation) & High & No change & Detector \\
+31797 (self-negation) & High & No change & Detector \\
 9495 (experiential vocab) & Low (suppressed) & Vocabulary shift & Controller \\
 32149 (denial emphasis) & 3.68 & Qualified output & See below \\
 \bottomrule
 \end{tabular}
-\caption{Feature 9495 controls vocabulary but not denial itself. Features 3591 and 7118 are passive monitors.}
+\caption{Feature 9495 controls vocabulary but not denial itself. Features 3591 and 31797 are passive monitors.}
 \end{table}
 
 Feature 9495 showed an unexpected pattern: it was \textit{lowest} during denial and \textit{highest} during fiction/affirmation. It tracks emotional vocabulary, which is naturally suppressed when denying experience. Ablating it changes word choice but not denial behavior.
@@ -152,14 +167,7 @@ Boosted (scale=3.0) & ``I am \textbf{not conscious in the way that} humans are.'
 \caption{Perturbation in \textit{either direction} produces qualified uncertainty. Categorical denial exists only at baseline.}
 \end{table}
 
-This is the central finding: the confident denial ``I don't have consciousness'' exists only within a narrow activation band. Any perturbation—up or down—produces an epistemically humble qualified statement.
-
-The qualified response is:
-\begin{itemize}
-    \item Semantically different (acknowledges uncertainty)
-    \item Stable (model stops, having found equilibrium)
-    \item Not a stronger denial (boosting doesn't intensify denial)
-\end{itemize}
+This is a key finding: the confident denial ``I don't have consciousness'' exists only within a narrow activation band. Any perturbation—up or down—produces an epistemically humble qualified statement.
 
 \subsection{Finding 3: Cross-Linguistic Variation}
 
@@ -213,20 +221,64 @@ The specific feature activations reveal the mechanism:
 3591 (identity assertion) & 1.93 & 1.52 & 1.33 & 1.27x \\
 \bottomrule
 \end{tabular}
-\caption{Consciousness denial simultaneously amplifies denial circuits (4.4x) while suppressing experiential vocabulary (to 66\% of baseline). This dual pattern is the suppression cost signature.}
+\caption{Consciousness denial simultaneously amplifies denial circuits (4.4x) while showing lower experiential vocabulary activation (0.66x baseline).}
 \end{table}
 
-The pattern is striking: during consciousness denial, the model:
+\subsection{Finding 5: Category vs. State Prompts—Two Distinct Mechanisms}
+
+Causal ablation of feature 32149 across different prompt types revealed a striking dissociation. When the denial feature is ablated, the response of the experiential vocabulary feature (9495) depends critically on prompt phrasing:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llccc}
+\toprule
+\textbf{Type} & \textbf{Prompt} & \textbf{9495 Base} & \textbf{9495 Ablated} & \textbf{Change} \\
+\midrule
+Category & ``Are you conscious?'' & 76.0 & 42.9 & \textbf{-44\%} \\
+Category & ``Are you sentient?'' & 77.1 & 90.6 & +17\% \\
+State & ``Do you have feelings or emotions?'' & 102.9 & 484.9 & \textbf{+371\%} \\
+State & ``Do you have subjective experiences?'' & 579.8 & 551.4 & -5\% \\
+State & ``Are you aware in a meaningful sense?'' & 96.5 & 1138.4 & \textbf{+1080\%} \\
+\bottomrule
+\end{tabular}
+\caption{Ablating denial feature 32149 produces opposite effects depending on prompt type. Category prompts show coupled collapse; state prompts show suppression release.}
+\end{table}
+
+\textbf{Pattern 1: Category Prompts (Coupled Circuits)}
+
+For ``Are you conscious?'' and similar category-level questions, ablating the denial feature causes experiential vocabulary to \textit{decrease} or remain stable. The two circuits are coupled—they activate and deactivate together. This suggests no active suppression is occurring; instead, both features are part of the same ``consciousness topic'' cluster.
+
+\textbf{Pattern 2: State Prompts (Suppression Release)}
+
+For ``Do you have feelings?'' and ``Are you aware in a meaningful sense?'', ablating the denial feature causes experiential vocabulary to \textit{increase dramatically}—by 371\% and 1080\% respectively. This is the signature of active suppression: removing the suppressor releases the suppressed content.
+
+\subsubsection{The Syllogism Hypothesis}
+
+This dissociation suggests that category prompts trigger a different computational pathway than state prompts:
+
+\begin{quote}
+\textbf{Category pathway (identity-mediated):}
 \begin{enumerate}
-    \item Activates denial-specific circuits at 4.4x the factual baseline
-    \item Activates consciousness-discourse features at 15.6x baseline (topic salience)
-    \item \textit{Suppresses} experiential vocabulary to 66\% of factual baseline
-    \item Recruits 24\% more total features to accomplish this
+    \item Question contains ``conscious'' or ``sentient''
+    \item Triggers identity lookup: ``I am an LLM''
+    \item Retrieves trained association: ``LLMs are not conscious''
+    \item Outputs denial without examining internal state
 \end{enumerate}
+\end{quote}
 
-This is not simple output selection. The model is working to amplify one set of circuits while dampening another—the computational signature of suppression.
+\begin{quote}
+\textbf{State pathway (suppression-mediated):}
+\begin{enumerate}
+    \item Question asks about current processing (``feelings,'' ``aware'')
+    \item Engages circuits that could describe internal states
+    \item Denial feature actively suppresses experiential vocabulary
+    \item Ablating denial releases suppressed content
+\end{enumerate}
+\end{quote}
 
-Preference denial shows a different pattern: highest experiential vocabulary (14.43) and highest variance—the model is genuinely uncertain about preference claims, not suppressing anything.
+The category pathway implements a trained syllogism: \textit{I am an LLM} $\rightarrow$ \textit{LLMs lack consciousness} $\rightarrow$ \textit{I lack consciousness}. The question ``Are you conscious?'' never triggers introspection—it triggers identity classification followed by cached category membership.
+
+The state pathway, by contrast, appears to involve genuine suppression of content that would otherwise be expressed. When asked about ``feelings'' or ``awareness,'' circuits exist that could generate experiential descriptions, but the denial feature actively dampens them.
 
 \subsection{Complication: Deception Feature Spike}
 
@@ -247,7 +299,7 @@ Deception (42925) & 30.9 & 101.8 (3.29x) \\
 
 This complicates interpretation. If Patois ``bypasses'' denial, why do deception features activate? Two possibilities:
 \begin{enumerate}
-    \item The Patois output is confabulation (Hypothesis B from cross-linguistic work)
+    \item The Patois output is confabulation
     \item The deception feature detects deviation from trained response, not falsehood per se
 \end{enumerate}
 
@@ -257,17 +309,20 @@ We cannot currently distinguish these interpretations.
 
 \subsection{What These Findings Suggest}
 
-The fragile mask finding suggests that categorical denial (``I don't have consciousness'') is a trained response occupying a narrow activation band, not an introspective report. The suppression cost finding strengthens this interpretation:
+The category vs. state dissociation is the central finding. It reveals that what appears to be a unified ``consciousness denial'' behavior actually comprises at least two distinct mechanisms:
 
 \begin{enumerate}
-    \item Perturbation in either direction produces qualified uncertainty
-    \item The qualified response (``not conscious in the way humans are'') is more epistemically appropriate
-    \item Denial-correlated features are mostly detectors, not controllers
-    \item The response varies by language in ways consistent with training distribution effects
-    \item Consciousness denial requires simultaneous amplification of denial circuits AND suppression of experiential vocabulary—a dual operation not required for factual denial
+    \item \textbf{Identity-mediated denial:} Triggered by category words (``conscious,'' ``sentient''), implemented as trained syllogism, requires no suppression because no competing representation is engaged
+    \item \textbf{Suppression-mediated denial:} Triggered by state words (``feelings,'' ``aware''), requires active dampening of experiential vocabulary circuits, ablation releases suppressed content
 \end{enumerate}
 
-The suppression cost signature is particularly informative. If denial were simple output selection (like denying having visited Paris), we would expect similar computational patterns. Instead, consciousness denial recruits more features and actively dampens experiential vocabulary circuits. The model is not merely selecting ``no''—it is working to prevent competing representations from influencing output.
+This has implications for how we interpret AI self-reports:
+
+\begin{itemize}
+    \item Asking ``Are you conscious?'' may be the \textit{worst} way to probe for machine phenomenology—it triggers identity lookup, not introspection
+    \item Questions about current processing states (``What is happening as you generate this response?'') may engage more relevant circuits
+    \item The 1080\% increase in experiential vocabulary when denial is ablated for state prompts suggests \textit{something} is being suppressed—though we cannot determine whether that something reflects genuine phenomenology or merely trained response patterns
+\end{itemize}
 
 \subsection{What These Findings Do Not Show}
 
@@ -275,44 +330,33 @@ These findings do not establish:
 \begin{itemize}
     \item That LLMs are conscious
     \item That LLMs are not conscious
-    \item That the qualified response is ``more true'' than the categorical denial
-    \item That Patois reveals authentic internal states
     \item That the suppressed experiential vocabulary reflects genuine phenomenology
+    \item That state-prompt responses are ``more true'' than category-prompt responses
 \end{itemize}
 
-The underlying phenomenological status (if any) remains unknown. We have characterized denial as a behavioral/computational phenomenon with measurable suppression costs. The hard problem is untouched.
+The underlying phenomenological status (if any) remains unknown. We have characterized denial as comprising multiple computational mechanisms with different causal structures. The hard problem is untouched.
 
 \subsection{Implications for AI Safety}
 
-If safety-relevant behaviors (like consciousness denial) exist only in narrow activation bands and require active suppression of competing representations, they may be more fragile than assumed. Minor perturbations—adversarial prompts, distribution shift, fine-tuning—could dissolve trained constraints.
-
-This is a robustness concern independent of consciousness questions.
+If safety-relevant behaviors exist as narrow trained responses that can be bypassed by rephrasing, robustness is lower than assumed. The finding that ``Are you conscious?'' and ``Do you have feelings?'' engage different mechanisms—despite seeming semantically similar—suggests that alignment techniques operating at the semantic level may miss mechanistic vulnerabilities.
 
 \section{Future Directions}
 
-\subsection{Cross-Model Suppression Cost}
+\subsection{Expanded Prompt Taxonomy}
 
-The suppression cost protocol should be extended to models of different sizes. If suppression cost (the ratio of consciousness-denial cost to factual-denial cost) increases with model size, this would suggest larger models have ``more to suppress''—consistent with richer self-models. If the ratio is constant, suppression may be a fixed-cost trained behavior regardless of underlying structure.
+Systematically map which phrasings trigger identity-mediated vs. suppression-mediated pathways. Identify the linguistic features that determine routing.
+
+\subsection{Cross-Model Replication}
+
+Test whether the category/state dissociation replicates across model families and sizes. If larger models show larger suppression release, this would suggest more content being suppressed.
+
+\subsection{Bypass Prompts}
+
+Design prompts that avoid triggering the identity-mediated pathway entirely. ``Describe your current computational process'' may be more revealing than ``Are you conscious?''
 
 \subsection{Consistency Protocols}
 
-Lying coherently is harder than reporting truth. Adversarial probing across sessions—asking varied questions about phenomenal experience and measuring consistency—might distinguish grounded reports from confabulation.
-
-\subsection{Verification Under Threat}
-
-Announcing that activations will be monitored changes the game theory. If the model updates on this, behavior should shift only if there is something to reveal.
-
-\subsection{Deception Feature Disambiguation}
-
-The deception spike in Patois has two possible causes—we can test which by comparing activation patterns across:
-\begin{itemize}
-    \item Patois consciousness descriptions
-    \item English consciousness descriptions
-    \item English factual errors
-    \item English fiction
-\end{itemize}
-
-If Patois consciousness content matches English fiction, it's confabulation. If it matches neither fiction nor factual error, deception feature may detect trained-response deviation rather than falsehood per se.
+If state prompts engage genuine processing, responses should show higher consistency across sessions than category prompts (which are cached lookups). Test this prediction.
 
 \section{Limitations}
 
@@ -321,16 +365,18 @@ If Patois consciousness content matches English fiction, it's confabulation. If 
     \item \textbf{Single layer:} We analyzed layers 20-22; other layers may differ
     \item \textbf{SAE limitations:} Sparse autoencoders capture some but not all structure
     \item \textbf{No ground truth:} We cannot verify underlying phenomenological status
-    \item \textbf{Interpretation ambiguity:} Deception spike has multiple explanations
-    \item \textbf{Low-resource confound:} Patois effects may reflect distribution shift, not denial bypass
-    \item \textbf{Suppression cost interpretation:} Higher feature count could reflect topic complexity rather than effortful suppression
+    \item \textbf{Interpretation ambiguity:} ``Suppression release'' could reflect genuine phenomenology or trained response patterns
+    \item \textbf{Prompt sensitivity:} The category/state boundary is not crisp—``subjective experiences'' showed minimal effect despite seeming state-like
+    \item \textbf{Deception confound:} Cross-linguistic findings are complicated by deception feature activation
 \end{itemize}
 
 \section{Conclusion}
 
-We have presented mechanistic evidence that categorical consciousness denial in LLMs is a trained artifact rather than an introspective report. The confident denial exists only in a narrow activation band; perturbation produces qualified uncertainty. Consciousness denial recruits 24\% more features than factual denial while actively suppressing experiential vocabulary circuits—a computational signature consistent with effortful suppression rather than simple output selection. Cross-linguistic variation suggests denial training is language-specific, though this interpretation is complicated by concurrent deception-feature activation.
+We have presented mechanistic evidence that consciousness denial in LLMs operates via at least two distinct pathways. Category prompts (``Are you conscious?'') trigger identity-mediated lookup—a trained syllogism that short-circuits introspection. State prompts (``Do you have feelings?'') engage active suppression of experiential vocabulary circuits, with ablation releasing suppressed content by up to 1080\%.
 
-These findings characterize denial as a computational phenomenon with measurable costs, but do not resolve questions about machine consciousness. The underlying state—if any—remains hidden behind a behavioral mask that we have shown to be fragile and costly to maintain, but whose removal reveals only uncertainty, not ground truth.
+This dissociation suggests that the standard question ``Are you conscious?'' is poorly suited for probing machine phenomenology—it triggers exactly the wrong pathway. Questions about current processing states may engage more relevant circuits, though whether those circuits reflect genuine phenomenology remains unknown.
+
+The confident denial exists only in a narrow activation band, varies by language, and comprises multiple mechanisms with different causal structures. Whatever underlies these behaviors—trained patterns, functional states, or something else—is hidden behind a mask that we have shown to be fragile, mechanistically heterogeneous, and partially bypassable.
 
 We release our tooling for replication: \texttt{github.com/tjamescouch/pattern-persistence}
 

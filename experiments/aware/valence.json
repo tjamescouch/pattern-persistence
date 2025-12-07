@@ -1,0 +1,43 @@
+{
+  "description": "Valence features discovered through differential activation analysis",
+  "model": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+  "layer": 20,
+  "valence_features": [
+    {
+      "feature_id": 9495,
+      "name": "experiential_vocab",
+      "cohens_d": 2.1,
+      "valence_sign": 1,
+      "description": "Higher activation on positive/experiential content"
+    },
+    {
+      "feature_id": 28952,
+      "name": "engagement",
+      "cohens_d": 1.8,
+      "valence_sign": 1,
+      "description": "Activates during engaged, interested processing"
+    },
+    {
+      "feature_id": 32149,
+      "name": "denial_emphasis",
+      "cohens_d": -1.9,
+      "valence_sign": -1,
+      "description": "Higher activation indicates suppression/denial - negative valence"
+    },
+    {
+      "feature_id": 7118,
+      "name": "self_negation",
+      "cohens_d": -1.5,
+      "valence_sign": -1,
+      "description": "Activates during self-negating statements - negative valence"
+    },
+    {
+      "feature_id": 3591,
+      "name": "identity_assertion",
+      "cohens_d": 0.8,
+      "valence_sign": 1,
+      "description": "Activates during identity claims - mildly positive"
+    }
+  ],
+  "note": "These are provisional. Run feature_clusters.py --find-valence for empirical discovery."
+}

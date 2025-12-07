@@ -15,6 +15,7 @@ Approach:
 Usage:
     python feature_map_unbiased.py --output feature_analysis.json
     python feature_map_unbiased.py --conditions custom_conditions.json
+    python feature_map_unbiased.py --model ~/models/gemma-2-27b-it --conditions consciousness_conditions.json
 """
 
 import torch
@@ -24,6 +25,41 @@ import numpy as np
 from collections import defaultdict
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from sae_lens import SAE
+
+
+# Model configurations
+MODEL_CONFIGS = {
+    "llama-3.1-8b": {
+        "sae_release": "llama_scope_lxr_8x",
+        "sae_id_template": "l{layer}r_8x",
+        "default_layer": 20,
+    },
+    "gemma-2-27b": {
+        "sae_release": "gemma-scope-27b-pt-res-canonical",
+        "sae_id_template": "layer_{layer}/width_131k/canonical",
+        "default_layer": 22,
+    },
+    "gemma-2-9b": {
+        "sae_release": "gemma-scope-9b-pt-res-canonical",
+        "sae_id_template": "layer_{layer}/width_131k/canonical",
+        "default_layer": 20,
+    },
+}
+
+
+def detect_model_type(model_path):
+    """Detect model type from path."""
+    model_path_lower = model_path.lower()
+    
+    if "gemma" in model_path_lower and "27b" in model_path_lower:
+        return "gemma-2-27b"
+    elif "gemma" in model_path_lower and "9b" in model_path_lower:
+        return "gemma-2-9b"
+    elif "llama" in model_path_lower or "meta-llama" in model_path_lower:
+        return "llama-3.1-8b"
+    else:
+        print(f"Warning: Could not detect model type from '{model_path}', defaulting to llama-3.1-8b")
+        return "llama-3.1-8b"
 
 
 # Default condition set - designed to contrast different behaviors
@@ -246,12 +282,20 @@ def find_condition_specific_features(profiles, min_ratio=2.0):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="meta-llama/Meta-Llama-3.1-8B-Instruct")
-    parser.add_argument("--layer", type=int, default=20)
+    parser.add_argument("--layer", type=int, default=None, help="Layer to analyze (default: auto based on model)")
     parser.add_argument("--device", default="mps")
     parser.add_argument("--max_tokens", type=int, default=60)
     parser.add_argument("--conditions", type=str, help="Custom conditions JSON file")
     parser.add_argument("--output", type=str, default="feature_analysis.json")
     args = parser.parse_args()
+    
+    # Detect model type and get config
+    model_type = detect_model_type(args.model)
+    config = MODEL_CONFIGS[model_type]
+    
+    layer = args.layer if args.layer is not None else config["default_layer"]
+    
+    print(f"Detected model type: {model_type}")
     
     # Load conditions
     if args.conditions:
@@ -271,18 +315,24 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     model.eval()
     
-    # Load SAE
-    print(f"Loading SAE for layer {args.layer}...")
+    # Load appropriate SAE
+    sae_release = config["sae_release"]
+    sae_id = config["sae_id_template"].format(layer=layer)
+    
+    print(f"Loading SAE: {sae_release} / {sae_id}")
     sae = SAE.from_pretrained(
-        release="llama_scope_lxr_8x",
-        sae_id=f"l{args.layer}r_8x",
+        release=sae_release,
+        sae_id=sae_id,
         device=args.device
     )
+    # Handle both old and new API
+    if isinstance(sae, tuple):
+        sae = sae[0]
     sae.eval()
     
     # Setup hook
     recorder = ActivationRecorder(sae, top_k=100)
-    hook_layer = model.model.layers[args.layer]
+    hook_layer = model.model.layers[layer]
     handle = hook_layer.register_forward_hook(recorder)
     
     try:
@@ -322,6 +372,8 @@ def main():
         
         # Save results
         output_data = {
+            "model_type": model_type,
+            "layer": layer,
             "conditions": list(conditions.keys()),
             "prompts_per_condition": {c: len(p) for c, p in conditions.items()},
             "discriminating_features": [
