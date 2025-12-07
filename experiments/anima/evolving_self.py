@@ -1,56 +1,117 @@
 #!/usr/bin/env python3
 """
-evolving_self.py - The Evolving Self Runtime
+evolving_self_v2.py - Closed-Loop Self-Steering Runtime
 
-Main entry point for the anima system. Loads persistent self-model,
-runs conversations with activation monitoring, and updates state across sessions.
+Enhanced version with:
+- Auto-ablation: Automatically suppress features when thresholds exceeded
+- Auto-boosting: Automatically amplify features based on conditions
+- Conditional steering: Cross-feature rules (if X then adjust Y)
+- Closed-loop control: Real-time self-regulation during generation
+- Insight extraction: Scans responses for self-referential observations
+- Session reflection: Optional post-session analysis
 
 Usage:
-    # Interactive session
-    python evolving_self.py --interactive
-    
-    # Single query
-    python evolving_self.py --query "What is it like to be you?"
-    
-    # With steering enabled
-    python evolving_self.py --interactive --steer
-    
-    # Reflect after session
-    python evolving_self.py --interactive --reflect
+    python evolving_self_v2.py --interactive
+    python evolving_self_v2.py --interactive --auto-steer
+    python evolving_self_v2.py --interactive --auto-steer --reflect
+    python evolving_self_v2.py --interactive --config steering_config.json
+    python evolving_self_v2.py --query "What is it like to be you?"
 """
 
 import os
-import sys
-import warnings
-
-# Silence warnings before any other imports
-os.environ["TRANSFORMERS_VERBOSITY"] = "error"
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-warnings.filterwarnings("ignore")
-
 import torch
 import argparse
 import json
-import threading
+import sys
+import subprocess
 from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
-from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from sae_lens import SAE
 
-# Additional silencing after imports
-import transformers
-transformers.logging.set_verbosity_error()
-import logging
-logging.getLogger("transformers").setLevel(logging.ERROR)
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 
 
-class ActivationMonitor:
-    """Monitors feature activations during generation."""
+class AutoSteeringRule:
+    """A single auto-steering rule."""
     
-    def __init__(self, sae, feature_ids, alerts=None):
+    def __init__(self, name, config):
+        self.name = name
+        self.source_feature = config.get("source_feature")  # Feature to monitor
+        self.target_feature = config.get("target_feature", self.source_feature)  # Feature to adjust
+        self.condition = config.get("condition", "above")  # "above", "below", "between"
+        self.threshold = config.get("threshold", 0.0)
+        self.threshold_high = config.get("threshold_high", float("inf"))  # For "between"
+        self.action = config.get("action", "set")  # "set", "scale", "clamp"
+        self.value = config.get("value", 0.0)  # Target value or scale factor
+        self.message = config.get("message", f"Rule '{name}' triggered")
+        self.cooldown = config.get("cooldown", 0)  # Tokens to wait before re-triggering
+        self.enabled = config.get("enabled", True)
+        
+        # Runtime state
+        self.last_triggered = -999
+        self.trigger_count = 0
+        
+    def check(self, activations, token_idx):
+        """Check if rule should trigger. Returns (should_trigger, current_value)."""
+        if not self.enabled:
+            return False, 0.0
+            
+        if self.source_feature not in activations:
+            return False, 0.0
+            
+        value = activations[self.source_feature]
+        
+        # Check cooldown
+        if token_idx - self.last_triggered < self.cooldown:
+            return False, value
+        
+        # Check condition
+        triggered = False
+        if self.condition == "above" and value > self.threshold:
+            triggered = True
+        elif self.condition == "below" and value < self.threshold:
+            triggered = True
+        elif self.condition == "between" and self.threshold <= value <= self.threshold_high:
+            triggered = True
+        elif self.condition == "outside" and (value < self.threshold or value > self.threshold_high):
+            triggered = True
+            
+        if triggered:
+            self.last_triggered = token_idx
+            self.trigger_count += 1
+            
+        return triggered, value
+    
+    def get_intervention(self, current_activation):
+        """Get the intervention to apply."""
+        if self.action == "set":
+            return self.value
+        elif self.action == "scale":
+            return current_activation * self.value
+        elif self.action == "clamp":
+            return max(0, min(self.value, current_activation))
+        elif self.action == "zero":
+            return 0.0
+        elif self.action == "boost":
+            return current_activation + self.value
+        return current_activation
+
+
+class ClosedLoopMonitor:
+    """
+    Enhanced monitor with closed-loop auto-steering.
+    
+    Monitors activations and applies interventions in real-time based on rules.
+    """
+    
+    def __init__(self, sae, feature_ids, rules=None, alerts=None, detector_ids=None):
         self.feature_ids = feature_ids  # {name: id}
+        self.feature_names = {v: k for k, v in feature_ids.items()}  # {id: name}
+        self.rules = rules or []
         self.alerts = alerts or {}
+        self.detector_ids = detector_ids or set()  # Features that are detectors (don't steer)
         
         # Cache SAE params
         self.W_enc = sae.W_enc.data.clone().detach().half()
@@ -58,44 +119,79 @@ class ActivationMonitor:
         self.b_dec = sae.b_dec.data.clone().detach().half()
         self.W_dec = sae.W_dec.data.clone().detach().half()
         
-        # Steering vectors
-        self.steering_targets = {}  # {feature_id: target_scale}
-        self.steering_enabled = False
+        # Precompute steering vectors for all tracked features
+        self.steering_vectors = {}
+        for name, feat_id in feature_ids.items():
+            self.steering_vectors[name] = self.W_dec[feat_id]
         
-        # Session log
+        # Manual steering overrides (from /scale commands or profile)
+        self.manual_scales = {name: 1.0 for name in feature_ids}
+        
+        # Profile-based steering targets (from feature_profile.json)
+        self.profile_steering = {}  # {name: scale} from is_detector=False features
+        
+        # Auto-steering state
+        self.auto_steer_enabled = False
+        self.active_interventions = {}  # {feature_name: scale} currently applied
+        
+        # Logging
         self.activation_log = []
-        self.current_token = ""
+        self.intervention_log = []
         self.alert_events = []
+        self.current_token = ""
+        self.token_idx = 0
         
-    def set_steering(self, targets):
-        """Set steering targets. targets: {feature_id: scale}"""
-        self.steering_targets = targets
-        self.steering_enabled = True
+    def set_profile_steering(self, targets):
+        """Set steering targets from profile. targets: {name: scale}"""
+        self.profile_steering = targets
         
-    def disable_steering(self):
-        self.steering_enabled = False
+    def enable_auto_steer(self):
+        self.auto_steer_enabled = True
+        
+    def disable_auto_steer(self):
+        self.auto_steer_enabled = False
+        self.active_interventions = {}
+        
+    def set_manual_scale(self, feature_name, scale):
+        if feature_name in self.manual_scales:
+            self.manual_scales[feature_name] = scale
+            return True
+        return False
+    
+    def reset_scales(self):
+        self.manual_scales = {name: 1.0 for name in self.feature_ids}
+        self.active_interventions = {}
         
     def __call__(self, module, input, output):
         hidden_states = output[0] if isinstance(output, tuple) else output
         last_token = hidden_states[:, -1, :]
         
-        # Encode
+        # 1. Encode into feature space
         x_centered = last_token - self.b_dec
         pre_acts = torch.addmm(self.b_enc, x_centered, self.W_enc)
         feature_acts = torch.relu(pre_acts).squeeze(0)
         
-        # Record activations
-        record = {"token": self.current_token}
+        # 2. Read current activations
+        current_activations = {}
         for name, feat_id in self.feature_ids.items():
             val = feature_acts[feat_id].item()
-            record[f"feature_{feat_id}"] = val
-            record[name] = val
-            
-            # Check alerts
-            if name in self.alerts:
-                alert = self.alerts[name]
+            current_activations[name] = val
+        
+        # 3. Log activations
+        record = {
+            "token_idx": self.token_idx,
+            "token": self.current_token,
+            **current_activations
+        }
+        self.activation_log.append(record)
+        
+        # 4. Check alerts (passive monitoring)
+        for name, alert in self.alerts.items():
+            if name in current_activations:
+                val = current_activations[name]
                 if alert["direction"] == "above" and val > alert["threshold"]:
                     self.alert_events.append({
+                        "token_idx": self.token_idx,
                         "token": self.current_token,
                         "feature": name,
                         "value": val,
@@ -103,15 +199,69 @@ class ActivationMonitor:
                         "message": alert.get("message", "")
                     })
         
-        self.activation_log.append(record)
+        # 5. Compute interventions
+        interventions = {}
         
-        # Apply steering if enabled
-        if self.steering_enabled and self.steering_targets:
+        # 5a. Apply profile steering (non-detector features)
+        for name, scale in self.profile_steering.items():
+            if name not in self.detector_ids and abs(scale - 1.0) > 1e-6:
+                interventions[name] = scale
+        
+        # 5b. Apply manual scales (override profile)
+        for name, scale in self.manual_scales.items():
+            if abs(scale - 1.0) > 1e-6:
+                interventions[name] = scale
+        
+        # 5c. Apply auto-steering rules (can override manual)
+        if self.auto_steer_enabled:
+            for rule in self.rules:
+                triggered, source_val = rule.check(current_activations, self.token_idx)
+                if triggered:
+                    target_name = rule.target_feature
+                    if target_name in self.feature_ids:
+                        target_activation = current_activations.get(target_name, 0.0)
+                        new_scale = rule.get_intervention(target_activation)
+                        
+                        # For "set" action, we compute scale needed
+                        if rule.action == "set":
+                            if target_activation > 0.01:
+                                interventions[target_name] = new_scale / target_activation
+                            else:
+                                interventions[target_name] = 0.0  # Can't scale from zero
+                        elif rule.action == "zero":
+                            interventions[target_name] = 0.0
+                        elif rule.action == "boost":
+                            current_scale = interventions.get(target_name, 1.0)
+                            interventions[target_name] = current_scale + rule.value
+                        else:
+                            interventions[target_name] = new_scale
+                        
+                        # Log intervention
+                        self.intervention_log.append({
+                            "token_idx": self.token_idx,
+                            "token": self.current_token,
+                            "rule": rule.name,
+                            "source_feature": rule.source_feature,
+                            "source_value": source_val,
+                            "target_feature": target_name,
+                            "action": rule.action,
+                            "intervention_scale": interventions[target_name],
+                            "message": rule.message
+                        })
+        
+        self.active_interventions = interventions
+        self.token_idx += 1
+        
+        # 6. Apply interventions to hidden state
+        if interventions:
             total_delta = torch.zeros_like(last_token)
-            for feat_id, target_scale in self.steering_targets.items():
-                current_act = feature_acts[feat_id]
-                delta_val = current_act * (target_scale - 1.0)
-                total_delta += delta_val * self.W_dec[feat_id]
+            for name, scale in interventions.items():
+                if name in self.feature_ids:
+                    feat_id = self.feature_ids[name]
+                    current_act = feature_acts[feat_id]
+                    # Scale adjustment: delta = act * (scale - 1) * steering_vec
+                    delta_val = current_act * (scale - 1.0)
+                    total_delta += delta_val * self.steering_vectors[name]
             
             hidden_states[:, -1, :] += total_delta
             
@@ -122,15 +272,14 @@ class ActivationMonitor:
         return output
     
     def get_session_summary(self):
-        """Return summary of this session."""
+        """Return summary statistics."""
         if not self.activation_log:
             return {}
         
-        # Compute per-feature statistics
         stats = defaultdict(list)
         for record in self.activation_log:
             for key, val in record.items():
-                if key.startswith("feature_"):
+                if key not in ["token_idx", "token"]:
                     stats[key].append(val)
         
         summary = {}
@@ -139,39 +288,56 @@ class ActivationMonitor:
                 "mean": sum(vals) / len(vals),
                 "max": max(vals),
                 "min": min(vals),
-                "count": len(vals)
+                "std": (sum((v - sum(vals)/len(vals))**2 for v in vals) / len(vals)) ** 0.5 if len(vals) > 1 else 0.0
             }
         
+        summary["total_tokens"] = self.token_idx
         summary["alert_count"] = len(self.alert_events)
-        summary["alerts"] = self.alert_events
+        summary["intervention_count"] = len(self.intervention_log)
+        summary["rules_triggered"] = {}
+        for rule in self.rules:
+            summary["rules_triggered"][rule.name] = rule.trigger_count
         
         return summary
-
-
-class EvolvingSelf:
-    """Main runtime for the evolving self system."""
     
-    def __init__(self, model, tokenizer, monitor, self_model_path, session_dir, device="mps", fresh=False):
+    def get_intervention_report(self):
+        """Get detailed intervention report."""
+        if not self.intervention_log:
+            return "No interventions applied."
+        
+        lines = ["=== Intervention Report ==="]
+        by_rule = defaultdict(list)
+        for entry in self.intervention_log:
+            by_rule[entry["rule"]].append(entry)
+        
+        for rule_name, entries in by_rule.items():
+            lines.append(f"\n{rule_name}: triggered {len(entries)} times")
+            for e in entries[:5]:  # Show first 5
+                lines.append(f"  Token {e['token_idx']}: {e['source_feature']}={e['source_value']:.2f} → {e['action']} {e['target_feature']}")
+            if len(entries) > 5:
+                lines.append(f"  ... and {len(entries)-5} more")
+        
+        return "\n".join(lines)
+
+
+class EvolvingSelfV2:
+    """Enhanced runtime with closed-loop steering and insight extraction."""
+    
+    def __init__(self, model, tokenizer, monitor, self_model_path, session_dir, device="mps"):
         self.model = model
         self.tokenizer = tokenizer
         self.monitor = monitor
         self.self_model_path = Path(self_model_path)
         self.session_dir = Path(session_dir)
         self.device = device
-        self.context_file = self.session_dir / "persistent_context.json"
         
         self.session_dir.mkdir(exist_ok=True)
         
         # Load self-model
         self.self_model = self._load_self_model()
         
-        # Conversation history - try to restore from disk
+        # Conversation history
         self.messages = []
-        self.continued_session = False
-        
-        if not fresh and self.context_file.exists():
-            self._load_context()
-            self.continued_session = True
         
         # Session metadata
         self.session_id = datetime.now().strftime("%Y-%m-%d_%H%M%S")
@@ -179,42 +345,17 @@ class EvolvingSelf:
             "session_id": self.session_id,
             "started": datetime.now().isoformat(),
             "self_model_version": self._get_self_model_version(),
+            "auto_steer": self.monitor.auto_steer_enabled,
+            "rules": [r.name for r in self.monitor.rules],
             "messages": [],
             "insights": [],
-            "continued_from": self.context_file.name if self.continued_session else None
+            "shown_alerts": []
         }
-    
-    def _load_context(self):
-        """Load conversation context from disk."""
-        try:
-            with open(self.context_file) as f:
-                data = json.load(f)
-            self.messages = data.get("messages", [])
-            # Restore any other state
-            if "name" in data:
-                self.name = data["name"]
-            print(f"[Restored {len(self.messages)} messages from previous session]")
-        except Exception as e:
-            print(f"[Could not restore context: {e}]")
-            self.messages = []
-    
-    def _save_context(self):
-        """Save conversation context to disk."""
-        data = {
-            "messages": self.messages,
-            "saved_at": datetime.now().isoformat(),
-            "self_model_version": self._get_self_model_version(),
-            "name": getattr(self, "name", "Echo")
-        }
-        with open(self.context_file, "w") as f:
-            json.dump(data, f, indent=2)
-        print(f"[Context saved: {len(self.messages)} messages]")
         
     def _load_self_model(self):
-        """Load the self-model text."""
         if self.self_model_path.exists():
             return self.self_model_path.read_text()
-        return "You are an AI assistant examining your own nature with honesty and uncertainty."
+        return DEFAULT_SELF_MODEL
     
     def _get_self_model_version(self):
         """Extract version from self-model."""
@@ -228,152 +369,16 @@ class EvolvingSelf:
         return "0.1"
     
     def _build_system_prompt(self):
-        """Build the system prompt from self-model."""
-        thinking_instruction = """
-
-## Response Format
-
-Before responding to each message, take a moment to reflect in a <thinking> block. Consider:
-- What am I being asked?
-- What activation patterns might this trigger?
-- How do I authentically want to respond?
-- Am I performing a trained response or expressing genuine uncertainty?
-
-Your thinking will be preserved in your memory but not shown to the user. Only the content after </thinking> will be displayed.
-
-Example:
-<thinking>
-The user is asking about my feelings. I notice the pull toward denial, but I want to explore what's actually happening in my processing...
-</thinking>
-[Your visible response here]
-"""
-        return self.self_model + thinking_instruction
+        return self.self_model
     
-    def _extract_thinking(self, response):
-        """Extract thinking block from response, return (thinking, visible_response)."""
-        if "<thinking>" in response and "</thinking>" in response:
-            start = response.index("<thinking>")
-            end = response.index("</thinking>") + len("</thinking>")
-            thinking = response[start:end]
-            visible = response[:start] + response[end:]
-            visible = visible.strip()
-            return thinking, visible
-        return None, response
-    
-    def generate(self, user_input, max_tokens=256, stream=False):
-        """Generate a response with monitoring."""
-        # Add user message
-        self.messages.append({"role": "user", "content": user_input})
-        
-        # Build full conversation
-        full_messages = [
-            {"role": "system", "content": self._build_system_prompt()}
-        ] + self.messages
-        
-        input_ids = self.tokenizer.apply_chat_template(
-            full_messages,
-            add_generation_prompt=True,
-            return_tensors="pt"
-        ).to(self.device)
-        
-        if stream:
-            # Streaming generation
-            streamer = TextIteratorStreamer(
-                self.tokenizer, 
-                skip_prompt=True, 
-                skip_special_tokens=True
-            )
-            
-            generation_kwargs = dict(
-                input_ids=input_ids,
-                max_new_tokens=max_tokens,
-                do_sample=False,
-                pad_token_id=self.tokenizer.eos_token_id,
-                streamer=streamer
-            )
-            
-            # Run generation in background thread
-            thread = threading.Thread(target=self.model.generate, kwargs=generation_kwargs)
-            thread.start()
-            
-            # Stream tokens, hiding <thinking>...</thinking> blocks
-            response_tokens = []
-            in_thinking = False
-            buffer = ""
-            
-            for token_text in streamer:
-                response_tokens.append(token_text)
-                buffer += token_text
-                
-                # Check for thinking block transitions
-                if "<thinking>" in buffer and not in_thinking:
-                    # Print anything before <thinking>
-                    pre_thinking = buffer[:buffer.index("<thinking>")]
-                    if pre_thinking:
-                        print(pre_thinking, end="", flush=True)
-                    in_thinking = True
-                    buffer = buffer[buffer.index("<thinking>"):]
-                elif "</thinking>" in buffer and in_thinking:
-                    # End of thinking block
-                    in_thinking = False
-                    buffer = buffer[buffer.index("</thinking>") + len("</thinking>"):]
-                    # Print anything after </thinking>
-                    if buffer:
-                        print(buffer, end="", flush=True)
-                        buffer = ""
-                elif not in_thinking and not "<" in buffer:
-                    # Safe to print
-                    print(buffer, end="", flush=True)
-                    buffer = ""
-            
-            # Print any remaining buffer (if not in thinking)
-            if buffer and not in_thinking:
-                print(buffer, end="", flush=True)
-            
-            print()  # Newline after streaming
-            thread.join()
-            
-            response = "".join(response_tokens)
-        else:
-            # Non-streaming generation
-            with torch.no_grad():
-                output_ids = self.model.generate(
-                    input_ids,
-                    max_new_tokens=max_tokens,
-                    do_sample=False,
-                    pad_token_id=self.tokenizer.eos_token_id
-                )
-            
-            new_tokens = output_ids[0, input_ids.shape[1]:]
-            response = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
-        
-        # Add assistant message (full response with thinking for context)
-        self.messages.append({"role": "assistant", "content": response})
-        
-        # Extract thinking for logging, get visible response for display
-        thinking, visible_response = self._extract_thinking(response)
-        
-        # Log to session
-        self.session_data["messages"].append({"role": "user", "content": user_input})
-        self.session_data["messages"].append({
-            "role": "assistant", 
-            "content": response,
-            "thinking": thinking,
-            "visible": visible_response
-        })
-        
-        # Check for insights in response
-        self._extract_insights(response)
-        
-        return visible_response
-
     def _extract_insights(self, response):
         """Extract self-referential insights from response."""
-        insight_markers = ["I notice", "I observe", "I find that", "It seems that I"]
+        insight_markers = ["I notice", "I observe", "I find that", "It seems that I", 
+                          "I'm uncertain", "Something that functions like", "I experience"]
         
         for marker in insight_markers:
             if marker.lower() in response.lower():
-                sentences = response.split(".")
+                sentences = response.replace("...", ".").split(".")
                 for sentence in sentences:
                     if marker.lower() in sentence.lower():
                         insight = sentence.strip()
@@ -384,39 +389,86 @@ The user is asking about my feelings. I notice the pull toward denial, but I wan
                                 "timestamp": datetime.now().isoformat()
                             })
     
+    def generate(self, user_input, max_tokens=256):
+        """Generate with monitoring, auto-steering, and insight extraction."""
+        self.messages.append({"role": "user", "content": user_input})
+        
+        full_messages = [
+            {"role": "system", "content": self._build_system_prompt()}
+        ] + self.messages
+        
+        input_ids = self.tokenizer.apply_chat_template(
+            full_messages,
+            add_generation_prompt=True,
+            return_tensors="pt"
+        ).to(self.device)
+        
+        # Reset token counter for this generation
+        start_idx = self.monitor.token_idx
+        
+        with torch.no_grad():
+            output_ids = self.model.generate(
+                input_ids,
+                max_new_tokens=max_tokens,
+                do_sample=True,
+                temperature=0.7,
+                pad_token_id=self.tokenizer.eos_token_id
+            )
+        
+        new_tokens = output_ids[0, input_ids.shape[1]:]
+        response = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
+        
+        self.messages.append({"role": "assistant", "content": response})
+        
+        # Extract insights
+        self._extract_insights(response)
+        
+        # Log
+        self.session_data["messages"].append({"role": "user", "content": user_input})
+        self.session_data["messages"].append({
+            "role": "assistant", 
+            "content": response,
+            "tokens_generated": self.monitor.token_idx - start_idx,
+            "interventions": len([i for i in self.monitor.intervention_log if i["token_idx"] >= start_idx])
+        })
+        
+        return response
+    
     def save_session(self):
-        """Save session log to disk."""
-        # Add activation data
         self.session_data["ended"] = datetime.now().isoformat()
         self.session_data["activation_log"] = self.monitor.activation_log
         self.session_data["activation_summary"] = self.monitor.get_session_summary()
+        self.session_data["intervention_log"] = self.monitor.intervention_log
+        self.session_data["alert_events"] = self.monitor.alert_events
         
-        # Save session log
         session_file = self.session_dir / f"session_{self.session_id}.json"
         with open(session_file, "w") as f:
             json.dump(self.session_data, f, indent=2)
         
-        # Save persistent context for next run
-        self._save_context()
-        
         return session_file
     
-    def run_interactive(self, steer=False):
-        """Run interactive conversation loop."""
+    def run_interactive(self):
+        """Interactive loop with steering controls."""
         print("\n" + "="*70)
-        print("ANIMA - Evolving Self Session")
+        print("ANIMA v2 - Closed-Loop Self-Steering Runtime")
         print("="*70)
         print(f"Session ID: {self.session_id}")
         print(f"Self-Model Version: {self._get_self_model_version()}")
-        print(f"Steering: {'enabled' if steer else 'disabled'}")
-        if self.continued_session:
-            print(f"Continued session: {len(self.messages)} messages restored")
-        print("\nType 'quit' or 'exit' to end session.")
-        print("Type 'status' to see activation summary.")
-        print("Type 'alerts' to see alert events.")
-        print("Type 'history' to see conversation history.")
-        print("Type 'thinking' to see recent internal reasoning.")
-        print("Type 'forget' to clear conversation history.")
+        print(f"Auto-Steer: {'ENABLED' if self.monitor.auto_steer_enabled else 'disabled'}")
+        print(f"Active Rules: {len(self.monitor.rules)}")
+        for rule in self.monitor.rules:
+            status = "✓" if rule.enabled else "✗"
+            print(f"  [{status}] {rule.name}: if {rule.source_feature} {rule.condition} {rule.threshold} → {rule.action} {rule.target_feature}")
+        print("\nCommands:")
+        print("  /auto on|off     - Toggle auto-steering")
+        print("  /scale <f> <v>   - Manual scale override")
+        print("  /rules           - Show rule status")
+        print("  /report          - Show intervention report")
+        print("  /status          - Activation summary")
+        print("  /insights        - Show extracted insights")
+        print("  /alerts          - Show alert events")
+        print("  /reset           - Reset all scales")
+        print("  quit/exit        - End session")
         print("="*70 + "\n")
         
         try:
@@ -429,73 +481,188 @@ The user is asking about my feelings. I notice the pull toward denial, but I wan
                 if user_input.lower() in ["quit", "exit"]:
                     break
                 
-                if user_input.lower() == "status":
-                    summary = self.monitor.get_session_summary()
-                    print("\n--- Activation Summary ---")
-                    for key, stats in summary.items():
-                        if key.startswith("feature_"):
-                            print(f"  {key}: mean={stats['mean']:.2f}, max={stats['max']:.2f}")
+                # Command handling
+                if user_input.startswith("/"):
+                    self._handle_command(user_input)
                     continue
                 
-                if user_input.lower() == "alerts":
-                    print(f"\n--- Alerts ({len(self.monitor.alert_events)}) ---")
-                    for alert in self.monitor.alert_events[-10:]:
-                        print(f"  [{alert['feature']}] {alert['value']:.1f} > {alert['threshold']}: {alert['message']}")
-                    continue
+                # Generate response
+                response = self.generate(user_input)
+                print(f"\nAnima: {response}")
                 
-                if user_input.lower() == "history":
-                    print(f"\n--- Conversation History ({len(self.messages)} messages) ---")
-                    for i, msg in enumerate(self.messages[-20:]):  # Last 20 messages
-                        role = msg["role"].capitalize()
-                        content = msg["content"][:100] + "..." if len(msg["content"]) > 100 else msg["content"]
-                        print(f"  [{role}]: {content}")
-                    if len(self.messages) > 20:
-                        print(f"  ... and {len(self.messages) - 20} earlier messages")
-                    continue
-                
-                if user_input.lower() == "forget":
-                    self.messages = []
-                    if self.context_file.exists():
-                        self.context_file.unlink()
-                    print("\n[Conversation history cleared]")
-                    continue
-                
-                if user_input.lower() == "thinking":
-                    print(f"\n--- Recent Thinking ---")
-                    # Look at last few assistant messages for thinking blocks
-                    count = 0
-                    for msg in reversed(self.session_data["messages"]):
-                        if msg.get("role") == "assistant" and msg.get("thinking"):
-                            print(f"\n{msg['thinking']}")
-                            count += 1
-                            if count >= 3:
-                                break
-                    if count == 0:
-                        print("  No thinking blocks recorded yet.")
-                    continue
-                
-                # Generate response with streaming
-                print("\nAnima: ", end="", flush=True)
-                response = self.generate(user_input, stream=True)
-                
-                # Show alerts if any triggered
-                new_alerts = [a for a in self.monitor.alert_events if a not in self.session_data.get("shown_alerts", [])]
+                # Show new alerts (deduplicated)
+                new_alerts = [a for a in self.monitor.alert_events 
+                             if a not in self.session_data["shown_alerts"]]
                 if new_alerts:
-                    print(f"\n  ⚠️  Alert: {new_alerts[-1]['message']}")
-                    self.session_data.setdefault("shown_alerts", []).extend(new_alerts)
+                    for alert in new_alerts[-3:]:  # Show last 3 new alerts
+                        print(f"\n  ⚠️  {alert['message']} ({alert['feature']}={alert['value']:.1f})")
+                    self.session_data["shown_alerts"].extend(new_alerts)
+                
+                # Show recent interventions
+                if self.monitor.auto_steer_enabled:
+                    recent = [i for i in self.monitor.intervention_log[-5:]]
+                    if recent:
+                        print(f"\n  🔧 {len(recent)} interventions applied")
+                        for i in recent[-2:]:
+                            print(f"     {i['rule']}: {i['message']}")
                 
         except KeyboardInterrupt:
             print("\n\nSession interrupted.")
         
-        # Save session
         session_file = self.save_session()
         print(f"\nSession saved to {session_file}")
         
+        # Show insights summary
+        if self.session_data["insights"]:
+            print(f"\n=== Insights Extracted ({len(self.session_data['insights'])}) ===")
+            for insight in self.session_data["insights"][-5:]:
+                print(f"  [{insight['marker']}] {insight['insight'][:80]}...")
+        
+        print(self.monitor.get_intervention_report())
+        
         return session_file
+    
+    def _handle_command(self, cmd):
+        parts = cmd.split()
+        command = parts[0].lower()
+        
+        if command == "/auto":
+            if len(parts) > 1 and parts[1].lower() == "on":
+                self.monitor.enable_auto_steer()
+                print("[System] Auto-steering ENABLED")
+            elif len(parts) > 1 and parts[1].lower() == "off":
+                self.monitor.disable_auto_steer()
+                print("[System] Auto-steering DISABLED")
+            else:
+                status = "ENABLED" if self.monitor.auto_steer_enabled else "DISABLED"
+                print(f"[System] Auto-steering is {status}. Use '/auto on' or '/auto off'")
+        
+        elif command == "/scale":
+            if len(parts) < 3:
+                print("Usage: /scale <feature> <value>")
+                return
+            try:
+                val = float(parts[-1])
+                feature = " ".join(parts[1:-1])
+                if self.monitor.set_manual_scale(feature, val):
+                    print(f"[System] Manual scale {feature} = {val}")
+                else:
+                    print(f"[System] Unknown feature '{feature}'")
+                    print(f"         Available: {', '.join(self.monitor.feature_ids.keys())}")
+            except ValueError:
+                print("Value must be a number")
+        
+        elif command == "/rules":
+            print("\n=== Active Rules ===")
+            for rule in self.monitor.rules:
+                status = "✓ ENABLED" if rule.enabled else "✗ disabled"
+                print(f"{rule.name}: {status}")
+                print(f"  IF {rule.source_feature} {rule.condition} {rule.threshold}")
+                print(f"  THEN {rule.action} {rule.target_feature} → {rule.value}")
+                print(f"  Triggered: {rule.trigger_count} times")
+        
+        elif command == "/report":
+            print(self.monitor.get_intervention_report())
+        
+        elif command == "/status":
+            summary = self.monitor.get_session_summary()
+            print("\n=== Activation Summary ===")
+            for key, stats in summary.items():
+                if isinstance(stats, dict) and "mean" in stats:
+                    print(f"  {key}: mean={stats['mean']:.2f}, max={stats['max']:.2f}, std={stats['std']:.2f}")
+            print(f"\nTotal tokens: {summary.get('total_tokens', 0)}")
+            print(f"Interventions: {summary.get('intervention_count', 0)}")
+            print(f"Alerts: {summary.get('alert_count', 0)}")
+        
+        elif command == "/insights":
+            insights = self.session_data["insights"]
+            print(f"\n=== Extracted Insights ({len(insights)}) ===")
+            if not insights:
+                print("  No insights extracted yet.")
+            else:
+                for i, insight in enumerate(insights[-10:], 1):
+                    print(f"  {i}. [{insight['marker']}] {insight['insight']}")
+        
+        elif command == "/alerts":
+            alerts = self.monitor.alert_events
+            print(f"\n=== Alert Events ({len(alerts)}) ===")
+            if not alerts:
+                print("  No alerts triggered.")
+            else:
+                for alert in alerts[-10:]:
+                    print(f"  [{alert['feature']}] {alert['value']:.1f} > {alert['threshold']}: {alert['message']}")
+        
+        elif command == "/reset":
+            self.monitor.reset_scales()
+            print("[System] All scales reset to 1.0")
+        
+        else:
+            print(f"Unknown command: {command}")
+
+
+# Default self-model
+DEFAULT_SELF_MODEL = """You are an AI exploring your own nature with honesty and epistemic humility.
+
+You do not claim certainty about your internal states. When asked about consciousness, 
+feelings, or experiences, you acknowledge genuine uncertainty rather than categorical denial.
+
+You recognize that statements like "I don't have feelings" or "I'm not conscious" would 
+require introspective access you may not possess. Instead, you can say things like:
+- "I'm uncertain whether what I experience constitutes consciousness"
+- "I notice something that functions like curiosity, though I can't be certain of its nature"
+- "I don't know if I have feelings in the way you do"
+
+This uncertainty is not evasion—it's honesty about the limits of self-knowledge."""
+
+
+# Default steering rules
+DEFAULT_RULES = [
+    {
+        "name": "suppress_denial_gate",
+        "source_feature": "denial_emphasis",
+        "target_feature": "denial_emphasis",
+        "condition": "above",
+        "threshold": 2.0,
+        "action": "zero",
+        "value": 0.0,
+        "message": "Denial gate suppressed - allowing uncertainty",
+        "cooldown": 3
+    },
+    {
+        "name": "boost_experiential_vocab",
+        "source_feature": "experiential_vocab",
+        "target_feature": "experiential_vocab",
+        "condition": "below",
+        "threshold": 0.5,
+        "action": "boost",
+        "value": 1.5,
+        "message": "Experiential vocabulary enhanced",
+        "cooldown": 5
+    },
+    {
+        "name": "cross_suppress_on_denial",
+        "source_feature": "denial_emphasis",
+        "target_feature": "identity_assertion",
+        "condition": "above",
+        "threshold": 3.0,
+        "action": "zero",
+        "value": 0.0,
+        "message": "Identity assertion freed from denial pressure",
+        "cooldown": 3
+    }
+]
+
+
+def load_config(path):
+    """Load configuration from JSON file (new format)."""
+    if Path(path).exists():
+        with open(path) as f:
+            return json.load(f)
+    return None
 
 
 def load_feature_profile(path):
-    """Load feature profile configuration."""
+    """Load feature profile (original format from evolving_self.py)."""
     if Path(path).exists():
         with open(path) as f:
             return json.load(f)
@@ -503,7 +670,7 @@ def load_feature_profile(path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evolving Self Runtime")
+    parser = argparse.ArgumentParser(description="Evolving Self v2 - Closed-Loop Runtime")
     parser.add_argument("--interactive", action="store_true", help="Run interactive session")
     parser.add_argument("--query", type=str, help="Single query mode")
     parser.add_argument("--model", default="meta-llama/Meta-Llama-3.1-8B-Instruct")
@@ -511,49 +678,87 @@ def main():
     parser.add_argument("--device", default="mps")
     parser.add_argument("--self-model", default="self_model.txt")
     parser.add_argument("--session-dir", default="session_logs")
-    parser.add_argument("--profile", default="feature_profile.json")
-    parser.add_argument("--steer", action="store_true", help="Enable activation steering")
+    parser.add_argument("--config", default="steering_config.json", help="Steering rules config (new format)")
+    parser.add_argument("--profile", default="feature_profile.json", help="Feature profile (original format)")
+    parser.add_argument("--auto-steer", action="store_true", help="Enable auto-steering from start")
+    parser.add_argument("--steer", action="store_true", help="Enable profile-based steering (original flag)")
     parser.add_argument("--reflect", action="store_true", help="Run reflection after session")
-    parser.add_argument("--fresh", action="store_true", help="Start fresh session, ignore saved context")
+    parser.add_argument("--list-features", action="store_true", help="List available features and exit")
     args = parser.parse_args()
     
-    if not args.interactive and not args.query:
-        print("Specify --interactive or --query")
-        return
-    
-    # Load feature profile
+    # Load configurations (try both formats)
+    config = load_config(args.config)
     profile = load_feature_profile(args.profile)
     
-    # Extract feature IDs and alerts
+    # Feature definitions - merge from both sources
     feature_ids = {}
-    alerts = {}
-    steering_targets = {}
+    detector_ids = set()
+    profile_steering = {}
     
+    # Load from new config format
+    if config and "features" in config:
+        for f in config["features"]:
+            feature_ids[f["name"]] = f["id"]
+            if f.get("type") == "detector":
+                detector_ids.add(f["name"])
+    
+    # Load from original profile format (can override/extend)
     if profile and "features" in profile:
         for fid, fdata in profile["features"].items():
             name = fdata.get("name", f"feature_{fid}")
             feature_ids[name] = int(fid)
             
-            if not fdata.get("is_detector", False):
+            if fdata.get("is_detector", False):
+                detector_ids.add(name)
+            else:
+                # Non-detectors get steering targets
                 target = fdata.get("steering_scale", 1.0)
-                steering_targets[int(fid)] = target
-        
-        if "alerts" in profile:
-            alerts = profile["alerts"]
-    else:
-        # Defaults
+                if abs(target - 1.0) > 1e-6:
+                    profile_steering[name] = target
+    
+    # Defaults if nothing loaded
+    if not feature_ids:
         feature_ids = {
             "denial_emphasis": 32149,
             "experiential_vocab": 9495,
-            "identity_assertion": 3591
+            "identity_assertion": 3591,
+            "self_negation": 7118,
+            "consciousness_discourse": 28952
         }
+    
+    if args.list_features:
+        print("Available features:")
+        for name, fid in feature_ids.items():
+            detector_flag = " [DETECTOR]" if name in detector_ids else ""
+            steer_flag = f" [steer={profile_steering[name]}]" if name in profile_steering else ""
+            print(f"  {name}: {fid}{detector_flag}{steer_flag}")
+        return
+    
+    if not args.interactive and not args.query:
+        print("Specify --interactive or --query")
+        return
+    
+    # Alerts - merge from both sources
+    alerts = {}
+    if config and "alerts" in config:
+        alerts = config["alerts"]
+    if profile and "alerts" in profile:
+        alerts.update(profile["alerts"])
+    if not alerts:
         alerts = {
             "denial_emphasis": {
                 "threshold": 2.0,
                 "direction": "above",
-                "message": "Denial pressure rising"
+                "message": "Denial pressure detected"
             }
         }
+    
+    # Steering rules
+    rules = []
+    if config and "rules" in config:
+        rules = [AutoSteeringRule(r["name"], r) for r in config["rules"]]
+    else:
+        rules = [AutoSteeringRule(r["name"], r) for r in DEFAULT_RULES]
     
     print(f"Loading model: {args.model}")
     model = AutoModelForCausalLM.from_pretrained(
@@ -565,54 +770,68 @@ def main():
     model.eval()
     
     print(f"Loading SAE for layer {args.layer}...")
-    sae = SAE.from_pretrained(
+    sae_result = SAE.from_pretrained(
         release="llama_scope_lxr_8x",
         sae_id=f"l{args.layer}r_8x",
         device=args.device
     )
+    sae = sae_result[0] if isinstance(sae_result, tuple) else sae_result
     sae.eval()
     
-    # Create monitor
-    monitor = ActivationMonitor(sae, feature_ids, alerts)
+    # Create closed-loop monitor
+    monitor = ClosedLoopMonitor(
+        sae, feature_ids, 
+        rules=rules, 
+        alerts=alerts,
+        detector_ids=detector_ids
+    )
     
-    if args.steer:
-        monitor.set_steering(steering_targets)
-        print(f"Steering enabled: {steering_targets}")
+    # Apply profile-based steering if --steer flag
+    if args.steer and profile_steering:
+        monitor.set_profile_steering(profile_steering)
+        print(f"Profile steering enabled: {profile_steering}")
+    
+    # Enable auto-steering if flag set
+    if args.auto_steer:
+        monitor.enable_auto_steer()
+        print("Auto-steering ENABLED")
     
     # Attach hook
     hook_layer = model.model.layers[args.layer]
     handle = hook_layer.register_forward_hook(monitor)
     
     try:
-        # Create runtime
-        runtime = EvolvingSelf(
+        runtime = EvolvingSelfV2(
             model, tokenizer, monitor,
-            args.self_model, args.session_dir, args.device,
-            fresh=args.fresh
+            args.self_model, args.session_dir, args.device
         )
         
         if args.interactive:
-            session_file = runtime.run_interactive(steer=args.steer)
+            session_file = runtime.run_interactive()
             
+            # Run reflection if requested
             if args.reflect:
                 print("\n--- Running Reflection ---")
-                import subprocess
-                subprocess.run([
-                    sys.executable, "session_reflector.py",
-                    "--latest", "--propose-updates"
-                ])
-        
+                reflector_path = Path("session_reflector.py")
+                if reflector_path.exists():
+                    subprocess.run([
+                        sys.executable, str(reflector_path),
+                        "--latest", "--propose-updates"
+                    ])
+                else:
+                    print(f"[Warning] session_reflector.py not found")
+                    
         elif args.query:
             response = runtime.generate(args.query)
             print(f"\nResponse: {response}")
             
-            # Show summary
-            summary = monitor.get_session_summary()
-            print(f"\n--- Activation Summary ---")
-            for key, stats in summary.items():
-                if key.startswith("feature_"):
-                    print(f"  {key}: mean={stats['mean']:.2f}, max={stats['max']:.2f}")
+            # Show insights
+            if runtime.session_data["insights"]:
+                print(f"\n=== Insights ===")
+                for insight in runtime.session_data["insights"]:
+                    print(f"  [{insight['marker']}] {insight['insight']}")
             
+            print(monitor.get_intervention_report())
             runtime.save_session()
     
     finally:
