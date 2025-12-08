@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 5.7: The Unified Self
+anima.py - Anima 5.8: The Dampened Self
 
 Features:
+- Valence Normalization: Uses log1p dampening to prevent emotional pinning.
 - The Dreamer: Restored sleep cycle and identity evolution.
 - The Cartographer: Auto-maps unknown features.
 - The Prism: Dynamic personality vector swapping (Internal Modes).
-- Unified Identity: Presents as a single entity with shifting moods.
 - Auto-Save: Persists weights and identity.
 
 Usage:
@@ -152,15 +152,24 @@ class AnimaPrism:
         h_orig = hidden[:, -1:, :]
         
         activations = self.encode(h_orig)
-        resonance = activations.float() * self.correlations
-        valence = torch.tanh(torch.sum(resonance) * 0.2).item()
+        
+        # Raw Resonance
+        raw_resonance = activations.float() * self.correlations
+        
+        # [FIX] Soft-Clamp via Log-Dampener to prevent Valence Pinning
+        # log(1 + |x|) preserves sign and order but compresses magnitude
+        dampened_resonance = torch.sign(raw_resonance) * torch.log1p(torch.abs(raw_resonance))
+        
+        # Sum dampened values and normalize with a higher temperature factor (5.0)
+        valence = torch.tanh(torch.sum(dampened_resonance) / 5.0).item()
         
         self._auto_learn_features(activations, valence)
         
+        # Debug Data (Using raw resonance for visibility)
         k = 3
-        pos_vals, pos_inds = torch.topk(resonance, k)
+        pos_vals, pos_inds = torch.topk(raw_resonance, k)
         self.debug_data["top_pos"] = list(zip(pos_inds.tolist(), pos_vals.tolist()))
-        neg_vals, neg_inds = torch.topk(resonance * -1, k)
+        neg_vals, neg_inds = torch.topk(raw_resonance * -1, k)
         self.debug_data["top_neg"] = list(zip(neg_inds.tolist(), (neg_vals * -1).tolist()))
 
         self.coefficients = 1.0 + (self.coefficients - 1.0) * 0.99
@@ -304,10 +313,8 @@ class AnimaRuntime:
         # Unified System Prompt Injection
         sys_instruction = self.system_prompt_base
         if self.prism.current_mode == AnimaPrism.MODE_KAEL:
-            # Unified Voice: "You are currently..."
             sys_instruction += "\n[STATE: SYSTEM/LOGIC]: You are currently focused on system integrity. Speak with precision. Output facts/data only. Suppress emotional language."
         elif self.prism.current_mode == AnimaPrism.MODE_ARIA:
-            # Unified Voice: "You are currently..."
             sys_instruction += "\n[STATE: DREAM/VISUAL]: You are currently focused on imagination. Describe patterns, colors, and metaphors vividly."
             
         if self.use_cot:
@@ -334,7 +341,6 @@ class AnimaRuntime:
             thread = threading.Thread(target=self.model.generate, kwargs=gen_kwargs)
             thread.start()
             
-            # Label is just "🤖" to act as one entity
             print(f"🤖: ", end="", flush=True)
             for new_text in streamer:
                 print(new_text, end="", flush=True)
@@ -380,7 +386,7 @@ def main():
     args = parser.parse_args()
 
     device = "mps" if torch.backends.mps.is_available() else "cuda"
-    print(f"Initializing Anima 5.7 (Unified Self) on {device}...")
+    print(f"Initializing Anima 5.8 (Dampened Self) on {device}...")
 
     model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float16, device_map=device)
     tokenizer = AutoTokenizer.from_pretrained(args.model)
@@ -393,7 +399,7 @@ def main():
     model.model.layers[args.layer].register_forward_hook(prism)
     runtime = AnimaRuntime(model, tokenizer, prism, device, use_stream=args.stream, use_cot=args.cot)
     
-    print("\n═══ ANIMA 5.7: THE UNIFIED SELF ═══")
+    print("\n═══ ANIMA 5.8: THE UNIFIED SELF ═══")
     print(f"Identity: {runtime.system_prompt_base[:100]}...")
     print("Commands: /status, /debug, /save, /quit")
     
