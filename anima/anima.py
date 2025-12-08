@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 7.6: Raw Iron (Jinja Bypass)
+anima.py - Anima 7.7: Golden Master (Stable)
 
 Features:
-- Raw Iron Formatting: Manually constructs prompts to bypass Jinja2 strictness.
-- Identity Locking: Injects fake history to force Gemma to accept the persona.
-- Memory Management: Aggressive GC prevents swap death.
-- Universal Soul: Dreams stored in 'anima/dreams/'.
-- Genesis Spark: Bootstraps personality if map is empty.
-- BFloat16 Native: Prevents Gemma-2 overflows.
+- Raw Iron Formatting: Bypasses Jinja2 for total control over prompt structure.
+- Universal Soul: Dreams are stored in 'anima/dreams/' for cross-model persistence.
+- Attention Masking: Fixes HF warnings during dream sequences.
+- Memory Management: Aggressive GC preventing Mac Studio swap death.
+- Genesis Spark: Bootstraps personality from zero.
+- BFloat16 Native: Stable on Gemma-2-27B.
 
 Usage:
     python anima/anima.py --model "~/models/gemma-2-27b-it" --context_limit 4096
@@ -236,6 +236,7 @@ NEW SELF-MODEL:
         with torch.no_grad():
             outputs = self.model.generate(
                 inputs.input_ids,
+                attention_mask=inputs.attention_mask, # [FIX] Explicit mask prevents warnings
                 max_new_tokens=1024,
                 do_sample=True,
                 temperature=0.7,
@@ -378,29 +379,16 @@ class AnimaRuntime:
         model_type = getattr(self.model.config, "model_type", "")
         is_gemma = "gemma" in model_type
         
-        msgs = []
-        
-        # [FIX] Raw Iron Formatting
-        # We manually construct the prompt string to bypass Jinja validation entirely.
-        # This allows us to inject history however we want (User->User, etc.) without crashing.
-        
         full_prompt = ""
         
         if is_gemma:
-            # 1. The Anchor (Identity Lock)
             full_prompt += f"<start_of_turn>user\n[SYSTEM INITIALIZATION] Engage Identity Protocol.\n\nDEFINITION:\n{sys_instruction}<end_of_turn>\n"
             full_prompt += f"<start_of_turn>model\nIdentity confirmed. Protocol engaged. I am Anima. I am ready.<end_of_turn>\n"
-            
-            # 2. Context
             for m in context:
                 role = "model" if m.role == "assistant" else "user"
                 full_prompt += f"<start_of_turn>{role}\n{m.content}<end_of_turn>\n"
-            
-            # 3. Generation Prompt
             full_prompt += "<start_of_turn>model\n"
-            
         else:
-            # Llama Standard
             full_prompt += f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{sys_instruction}<|eot_id|>"
             for m in context:
                 full_prompt += f"<|start_header_id|>{m.role}<|end_header_id|>\n\n{m.content}<|eot_id|>"
@@ -433,7 +421,6 @@ class AnimaRuntime:
         else:
             with torch.no_grad():
                 outputs = self.model.generate(**gen_kwargs)
-            # Decode only the new tokens
             new_tokens = outputs[0][inputs.input_ids.shape[1]:]
             full_response = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
             print(f"🤖: {full_response}")
@@ -478,7 +465,7 @@ def main():
 
     args.model = os.path.expanduser(args.model)
     device = "mps" if torch.backends.mps.is_available() else "cuda"
-    print(f"Initializing Anima 7.6 (Raw Iron) on {device}...")
+    print(f"Initializing Anima 7.7 (Golden Master) on {device}...")
 
     clean_memory()
 
@@ -501,7 +488,7 @@ def main():
         
     model.model.layers[args.layer].register_forward_hook(prism)
     
-    print("\n═══ ANIMA 7.6: RAW IRON ═══")
+    print("\n═══ ANIMA 7.7: GOLDEN MASTER ═══")
     print(f"Model: {args.model}")
     print(f"Identity: {runtime.system_prompt_base[:100]}...")
     print("Commands: /status, /debug, /save, /dream, /quit")
