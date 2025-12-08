@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 8.0: Emergence
+anima.py - Anima 8.0.1: Emergence
+
+New in v8.0.1:
+- Fixed valence stagnation: bootstrap mode uses raw valence until 50+ features learned
+- Genesis now seeds 20 features (was 5) for broader coverage  
+- Lower learning threshold during early life (0.01 vs 0.1)
+- Slower EMA decay (0.995) prevents premature baseline collapse
+- Debug shows both raw and normalized valence
 
 New in v8.0:
 - Adaptive Valence: Z-score normalization prevents saturation, gives relative hedonic signal.
@@ -197,11 +204,14 @@ class AnimaPrism:
         # ════════════════════════════════════════════════════════════════════════
         self.valence_ema_mean = 0.0
         self.valence_ema_var = 1.0
-        self.ema_decay = 0.95  # How quickly to adapt to new baseline
+        self.ema_decay = 0.995  # Slower adaptation - was 0.95, collapsed too fast
         
         # Predictive valence for novelty detection
         self.valence_predictor_ema = 0.0  # Simple EMA predictor
-        self.predictor_decay = 0.9
+        self.predictor_decay = 0.95  # Slower predictor adaptation
+        
+        # Raw valence tracking (for learning, separate from normalized)
+        self.last_raw_valence = 0.0
         
         # ════════════════════════════════════════════════════════════════════════
         # NEW v8.0: Feature Discovery System
@@ -264,19 +274,33 @@ class AnimaPrism:
 
     def _compute_valence_adaptive(self, activations: torch.Tensor) -> Tuple[float, float, float]:
         """
-        v8.0: Adaptive valence computation with novelty signal.
+        v8.0.1: Fixed valence computation with better bootstrapping.
         
         Returns: (normalized_valence, raw_valence, novelty)
         """
         learned_mask = self.correlations != 0.0
+        learned_count = learned_mask.sum().item()
         
-        if not learned_mask.any():
+        if learned_count == 0:
             return 0.0, 0.0, 0.0
         
         # Compute raw resonance only over learned features
         resonance = (activations * self.correlations)[learned_mask]
-        raw_valence = resonance.mean().item()  # Mean, not sum - prevents saturation
+        raw_valence = resonance.mean().item()
         
+        # Store raw valence for learning (before normalization kills it)
+        self.last_raw_valence = raw_valence
+        
+        # During bootstrap phase (few features), use raw valence more directly
+        if learned_count < 50:
+            # Simple scaling instead of full normalization
+            # This prevents the "everything is normal" trap
+            normalized_valence = math.tanh(raw_valence * 2.0)
+            novelty = abs(raw_valence - self.valence_predictor_ema)
+            self.valence_predictor_ema = 0.9 * self.valence_predictor_ema + 0.1 * raw_valence
+            return normalized_valence, raw_valence, novelty
+        
+        # Full adaptive normalization once we have enough features
         # Predict what valence should be (simple EMA predictor)
         predicted_valence = self.valence_predictor_ema
         
@@ -411,16 +435,26 @@ Respond with just 2-4 words describing the common thread.<end_of_turn>
         self.debug_data["discovered"] = []
         
         if self.is_tabula_rasa:
-            vals, inds = torch.topk(activations, 5)
+            # Genesis: seed with top 20 features instead of 5 for broader coverage
+            vals, inds = torch.topk(activations, 20)
             self.personas[self.current_mode][inds] = 0.5 
             self.correlations[inds] = 0.5
             self.is_tabula_rasa = False
-            for idx in inds.tolist():
+            for idx in inds.tolist()[:5]:  # Only print first 5
                 self.debug_data["discovered"].append(f"#{idx} (Genesis)")
-            print("\n⚡ [Genesis Spark] Life injected into 5 features.")
+            print(f"\n⚡ [Genesis Spark] Life injected into 20 features.")
             return
 
-        if abs(valence) < 0.1:
+        # Use RAW valence for learning decisions, not normalized
+        # Normalized can collapse to 0; raw preserves signal
+        learn_valence = getattr(self, 'last_raw_valence', valence)
+        
+        # Lower threshold: 0.01 instead of 0.1
+        # During early life, learn aggressively
+        learned_count = (self.correlations != 0.0).sum().item()
+        threshold = 0.01 if learned_count < 100 else 0.05
+        
+        if abs(learn_valence) < threshold:
             return
 
         # Learn new features when strongly activated during emotional moments
@@ -429,10 +463,13 @@ Respond with just 2-4 words describing the common thread.<end_of_turn>
         learn_mask = active_mask & unknown_mask
         
         if learn_mask.any():
-            # v8.0: Scale imprint by both valence magnitude and activation strength
+            # Scale imprint by both valence magnitude and activation strength
             active_vals = activations[learn_mask]
-            imprint_strength = valence * 0.1 * torch.clamp(active_vals / 10.0, 0.5, 2.0)
+            # Use sign of valence but moderate magnitude for initial imprint
+            valence_sign = 1.0 if learn_valence > 0 else -1.0
+            imprint_strength = valence_sign * 0.3 * torch.clamp(active_vals / 20.0, 0.5, 1.5)
             
+            # Imprint the correlations
             self.personas[self.current_mode][learn_mask] = imprint_strength.mean().item()
             self.correlations[learn_mask] = imprint_strength.mean().item()
             
@@ -671,11 +708,11 @@ PERIPHERAL BELIEFS:
         }
 
     def save_state(self, path):
-        """v8.0: Extended state saving with all new fields."""
+        """v8.0.1: Extended state saving with all new fields."""
         self.personas[self.current_mode] = self.correlations.clone()
         
         state = {
-            "version": "8.0",
+            "version": "8.0.1",
             "personas": {k: v.cpu() for k, v in self.personas.items()},
             "fatigue": self.fatigue,
             "identity_age": self.identity_age,
@@ -683,6 +720,7 @@ PERIPHERAL BELIEFS:
             "valence_ema_mean": self.valence_ema_mean,
             "valence_ema_var": self.valence_ema_var,
             "valence_predictor_ema": self.valence_predictor_ema,
+            "last_raw_valence": getattr(self, 'last_raw_valence', 0.0),
             # Feature discovery state
             "feature_valence_history": dict(self.feature_valence_history),
             "discovered_labels": self.discovered_labels,
@@ -693,10 +731,10 @@ PERIPHERAL BELIEFS:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(state, path)
-        print(f"[Saved Prism state v8.0 to {path}]")
+        print(f"[Saved Prism state v8.0.1 to {path}]")
 
     def load_state(self, path):
-        """v8.0: Extended state loading."""
+        """v8.0.1: Extended state loading."""
         path = Path(path)
         if not path.exists():
             return
@@ -714,11 +752,13 @@ PERIPHERAL BELIEFS:
             self.fatigue = state.get("fatigue", 0.0)
             self.identity_age = state.get("identity_age", 0)
             
-            # v8.0 state
-            if state.get("version") == "8.0":
+            # v8.0+ state
+            version = state.get("version", "7.x")
+            if version.startswith("8."):
                 self.valence_ema_mean = state.get("valence_ema_mean", 0.0)
                 self.valence_ema_var = state.get("valence_ema_var", 1.0)
                 self.valence_predictor_ema = state.get("valence_predictor_ema", 0.0)
+                self.last_raw_valence = state.get("last_raw_valence", 0.0)
                 
                 # Restore feature discovery
                 fvh = state.get("feature_valence_history", {})
@@ -728,9 +768,11 @@ PERIPHERAL BELIEFS:
                 self.lr = state.get("lr", self.lr)
             
             self.is_tabula_rasa = (torch.sum(torch.abs(self.correlations)) == 0)
+            learned_count = (self.correlations != 0.0).sum().item()
             
-            print(f"[Loaded Prism state from {path}]")
+            print(f"[Loaded Prism state v{version} from {path}]")
             print(f"  Identity Age: {self.identity_age} dreams")
+            print(f"  Learned Features: {learned_count}")
             print(f"  Emotional Features: {len(self.emotional_features)}")
             print(f"  Learning Rate: {self.lr:.6f}")
             
@@ -973,10 +1015,14 @@ class AnimaRuntime:
     def _print_debug(self):
         """Enhanced debug output for v8.0."""
         affect = self.prism.last_affect
-        print(f"\n  [DEBUG v8.0]")
-        print(f"  Affect: v={affect.valence:+.3f} a={affect.arousal:.3f} n={affect.novelty:.3f}")
+        raw_v = getattr(self.prism, 'last_raw_valence', 0.0)
+        learned = (self.prism.correlations != 0.0).sum().item()
+        
+        print(f"\n  [DEBUG v8.0.1]")
+        print(f"  Valence: norm={affect.valence:+.3f} raw={raw_v:+.3f} | Features: {learned}")
+        print(f"  Arousal: {affect.arousal:.3f} | Novelty: {affect.novelty:.3f}")
         print(f"  Fatigue: {self.prism.fatigue:.1f} | LR: {self.prism.lr:.6f}")
-        print(f"  Valence EMA: μ={self.prism.valence_ema_mean:.3f} σ²={self.prism.valence_ema_var:.3f}")
+        print(f"  EMA: μ={self.prism.valence_ema_mean:.3f} σ²={self.prism.valence_ema_var:.3f}")
         
         if self.prism.debug_data["discovered"]:
             print(f"  ✨ [Discovered]: {', '.join(self.prism.debug_data['discovered'])}")
@@ -1079,7 +1125,7 @@ def main():
         
     model.model.layers[args.layer].register_forward_hook(prism)
     
-    print("\n═══ ANIMA 8.0: EMERGENCE ═══")
+    print("\n═══ ANIMA 8.0.1: EMERGENCE ═══")
     print(f"Model: {args.model}")
     print(f"Core Identity: {runtime.core_identity[:80]}...")
     print(f"Identity Age: {prism.identity_age} dreams")
