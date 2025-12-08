@@ -14,12 +14,14 @@ Usage:
 """
 
 import os
+import sys
 import math
 import json
 import torch
 import argparse
 import threading
 import gc
+import select
 import numpy as np
 from pathlib import Path
 from collections import defaultdict
@@ -30,6 +32,71 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStream
 from sae_lens import SAE
 
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CLI INPUT HANDLING
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Enable readline for history and line editing if available
+try:
+    import readline
+    # Set up history file
+    _history_file = Path.home() / ".anima_history"
+    try:
+        readline.read_history_file(_history_file)
+    except FileNotFoundError:
+        pass
+    readline.set_history_length(1000)
+    import atexit
+    atexit.register(readline.write_history_file, _history_file)
+except ImportError:
+    pass  # readline not available (Windows without pyreadline)
+
+
+def get_input(prompt_str: str = "🧑: ") -> str:
+    """
+    Read input with proper multi-line paste support.
+    
+    On Unix: uses select() to detect rapid input (paste) and buffers it.
+    On Windows: falls back to simple input with paste delimiter support.
+    """
+    print(prompt_str, end="", flush=True)
+    
+    lines = []
+    
+    # Check if we're on a Unix-like system with select support on stdin
+    if hasattr(select, 'select') and sys.stdin.isatty():
+        try:
+            # Read first line (blocking)
+            first_line = sys.stdin.readline()
+            if not first_line:  # EOF
+                return "/quit"
+            lines.append(first_line.rstrip('\n\r'))
+            
+            # Check for more lines (pasted content) with short timeout
+            while True:
+                ready, _, _ = select.select([sys.stdin], [], [], 0.05)
+                if ready:
+                    line = sys.stdin.readline()
+                    if line:
+                        lines.append(line.rstrip('\n\r'))
+                    else:
+                        break
+                else:
+                    break
+            
+            return '\n'.join(lines)
+        
+        except (OSError, TypeError):
+            # Fall back to simple input
+            pass
+    
+    # Fallback: simple input (works everywhere)
+    try:
+        return input()
+    except EOFError:
+        return "/quit"
 
 def clean_memory():
     gc.collect()
@@ -1032,7 +1099,7 @@ def main():
                 runtime.trigger_dream()
                 print("✨ Anima woke up refreshed.")
 
-            u = input("\n🧑: ").strip()
+            u = get_input("\n🧑: ").strip()
             if not u: 
                 continue
                 
