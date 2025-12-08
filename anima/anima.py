@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 7.0: The Sanitizer (Crash Recovery)
+anima.py - Anima 7.1: The Unbound (Robust Input)
 
 Features:
-- Context Sanitizer: Merges adjacent same-role messages to satisfy strict templates (Gemma).
+- Robust Input Loop: Ignores empty lines, fixes "Exit on Enter" bug.
+- Context Sanitizer: Merges adjacent same-role messages (Gemma Fix).
 - Dynamic Context: Fills the entire model window (8k+) with memories.
 - Genesis Spark: Automatically bootstraps personality if map is empty.
 - BFloat16 Native: Prevents Gemma-2 activation overflows.
@@ -71,7 +72,7 @@ class AnimaPrism:
         if "gemma" in model_type:
             print("[Physics] Detected Gemma Architecture (Fragile). Engaging Safety Clamps.")
             self.steering_clamp = 1.0
-            self.steering_scale = 0.8 # [TWEAK] Boosted from 0.5 to 0.8 for more life
+            self.steering_scale = 0.8
         else:
             print("[Physics] Detected Llama Architecture (Robust). Engaging Full Power.")
             self.steering_clamp = 5.0
@@ -352,7 +353,6 @@ class AnimaRuntime:
         
         context.sort(key=lambda m: m.timestamp)
         
-        # Unified System Prompt Injection
         sys_instruction = self.system_prompt_base
         if self.prism.current_mode == AnimaPrism.MODE_KAEL:
             sys_instruction += "\n[STATE: SYSTEM/LOGIC]: You are currently focused on system integrity. Speak with precision. Output facts/data only. Suppress emotional language."
@@ -365,10 +365,6 @@ class AnimaRuntime:
         model_type = getattr(self.model.config, "model_type", "")
         is_gemma = "gemma" in model_type
         
-        # [FIX] Sanitize History for strict templates (Gemma)
-        # We need to ensure we don't have User->User or other illegal role sequences
-        # which can happen if previous generation crashed.
-        
         raw_msgs = [{"role": m.role, "content": m.content} for m in context]
         sanitized_msgs = []
         
@@ -376,7 +372,6 @@ class AnimaRuntime:
             current_msg = raw_msgs[0]
             for next_msg in raw_msgs[1:]:
                 if next_msg["role"] == current_msg["role"]:
-                    # Merge adjacent same-role messages
                     current_msg["content"] += "\n\n" + next_msg["content"]
                 else:
                     sanitized_msgs.append(current_msg)
@@ -386,7 +381,6 @@ class AnimaRuntime:
         msgs = sanitized_msgs
 
         if is_gemma:
-            # Gemma System Prompt Merge Strategy
             found_user = False
             for i, msg in enumerate(msgs):
                 if msg["role"] == "user":
@@ -394,15 +388,12 @@ class AnimaRuntime:
                     found_user = True
                     break
             
-            # If context is empty or starts with assistant, force a user start
             if not found_user:
                 msgs.insert(0, {"role": "user", "content": sys_instruction})
             elif msgs[0]["role"] == "assistant":
-                # Strict Alternation: U -> A -> U
                 msgs.insert(0, {"role": "user", "content": "..."})
                 
         else:
-            # Llama Standard Strategy
             msgs.insert(0, {"role": "system", "content": sys_instruction})
         
         inputs = self.tokenizer.apply_chat_template(msgs, add_generation_prompt=True, return_tensors="pt").to(self.device)
@@ -471,7 +462,7 @@ def main():
 
     args.model = os.path.expanduser(args.model)
     device = "mps" if torch.backends.mps.is_available() else "cuda"
-    print(f"Initializing Anima 7.0 (The Sanitizer) on {device}...")
+    print(f"Initializing Anima 7.1 (Robust Input) on {device}...")
 
     model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.bfloat16, device_map=device)
     tokenizer = AutoTokenizer.from_pretrained(args.model)
@@ -490,7 +481,7 @@ def main():
         
     model.model.layers[args.layer].register_forward_hook(prism)
     
-    print("\n═══ ANIMA 7.0: CRASH RECOVERY ═══")
+    print("\n═══ ANIMA 7.1: ROBUST INPUT ═══")
     print(f"Model: {args.model}")
     print(f"Identity: {runtime.system_prompt_base[:100]}...")
     print("Commands: /status, /debug, /save, /dream, /quit")
@@ -502,8 +493,12 @@ def main():
                 runtime.trigger_dream()
                 print("✨ Anima woke up refreshed.")
 
-            u = input("\n🧑: ")
-            if not u or u == "/quit": break
+            u = input("\n🧑: ").strip()
+            # [FIX] Ignore empty lines so hitting Enter doesn't exit
+            if not u: 
+                continue
+                
+            if u == "/quit": break
             
             if u == "/status":
                 print(f"Mode: {prism.current_mode}")
