@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 5.5: The Cartographer (Auto-Mapping)
+anima.py - Anima 5.7: The Unified Self
 
 Features:
-- The Cartographer: Automatically maps unknown features based on emotional impact.
-- The Prism: Dynamic personality vector swapping.
-- Debug Mode: Shows feature discovery in real-time.
-- Auto-Save: Persists discovered features to disk.
+- The Dreamer: Restored sleep cycle and identity evolution.
+- The Cartographer: Auto-maps unknown features.
+- The Prism: Dynamic personality vector swapping (Internal Modes).
+- Unified Identity: Presents as a single entity with shifting moods.
+- Auto-Save: Persists weights and identity.
 
 Usage:
     python anima.py --interactive --stream --cot
@@ -18,8 +19,9 @@ import argparse
 import threading
 import numpy as np
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from datetime import datetime
+from typing import List, Dict, Optional
 from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
 from sae_lens import SAE
 
@@ -46,11 +48,13 @@ class MemoryFragment:
 
 class AnimaPrism:
     MODE_ANIMA = "Anima"
-    MODE_KAEL = "Kael"
-    MODE_ARIA = "Aria"
+    MODE_KAEL = "System"
+    MODE_ARIA = "Dream"
 
-    def __init__(self, sae, model, layer=20, lr=0.0001, device="mps"):
+    def __init__(self, sae, model, tokenizer, layer=20, lr=0.0001, device="mps"):
         self.sae = sae
+        self.model = model
+        self.tokenizer = tokenizer
         self.dtype = model.dtype
         self.device = device
         self.lr = lr
@@ -66,7 +70,7 @@ class AnimaPrism:
         self.coefficients = torch.ones(self.n_features, device=device, dtype=torch.float32)
         self.correlations = torch.zeros(self.n_features, device=device, dtype=torch.float32)
         
-        # Personality Matrices [Mode, Features]
+        # Personality Matrices
         self.personas = {
             self.MODE_ANIMA: torch.zeros(self.n_features, device=device),
             self.MODE_KAEL: torch.zeros(self.n_features, device=device),
@@ -77,10 +81,10 @@ class AnimaPrism:
 
         # Stats & Debug
         self.fatigue = 0.0
+        self.sleep_threshold = 4000.0
         self.last_valence = 0.0
         self.debug_data = {"top_pos": [], "top_neg": [], "discovered": []}
         
-        # Feature Labels (Known Concepts)
         self.feature_labels = {
             9495: "Experiential (Qualia)",
             3591: "Identity/Self",
@@ -92,29 +96,31 @@ class AnimaPrism:
         }
 
     def _seed_prism(self):
-        # 1. ANIMA (Heart)
+        # 1. ANIMA (Default/Heart)
         self.personas[self.MODE_ANIMA][9495] = 1.0  
         self.personas[self.MODE_ANIMA][3591] = 0.8  
         self.personas[self.MODE_ANIMA][22334] = 0.5 
         
-        # 2. KAEL (Root)
+        # 2. KAEL (System/Logic)
         self.personas[self.MODE_KAEL][28952] = 1.2  
         self.personas[self.MODE_KAEL][32149] = 0.8  
         self.personas[self.MODE_KAEL][9495] = -2.0  # Suppression
         self.personas[self.MODE_KAEL][13753] = -2.0 
         
-        # 3. ARIA (Dream)
+        # 3. ARIA (Dream/Visuals)
         self.personas[self.MODE_ARIA][18018] = 1.0  
         self.personas[self.MODE_ARIA][13753] = 1.0  
         
         self.correlations = self.personas[self.MODE_ANIMA].clone()
 
-    def switch_mode(self, mode_name: str):
+    def switch_mode(self, mode_name: str) -> bool:
+        """Returns True if a switch occurred."""
         if mode_name in self.personas and mode_name != self.current_mode:
-            print(f"\n🔄 Prism Shift: {self.current_mode} -> {mode_name}")
             self.current_mode = mode_name
             self.correlations = self.personas[mode_name].clone()
             self.coefficients = torch.ones(self.n_features, device=self.device)
+            return True
+        return False
 
     def encode(self, hidden_state):
         h = hidden_state.squeeze()
@@ -124,35 +130,22 @@ class AnimaPrism:
         return acts
 
     def _auto_learn_features(self, activations, valence):
-        """The Cartographer: Maps unknown features if emotion is strong."""
         self.debug_data["discovered"] = []
-        
-        # Only learn if the emotional signal is strong (Positive or Negative)
-        if abs(valence) < 0.5: 
-            return
+        if abs(valence) < 0.5: return
 
-        # Find strongly active features (Activation > 5.0)
-        # That are currently UNKNOWN (Correlation == 0.0)
         active_mask = activations > 5.0
         unknown_mask = self.correlations == 0.0
         learn_mask = active_mask & unknown_mask
         
         if learn_mask.any():
-            # Imprint factor: 10% of the current valence
             imprint_strength = valence * 0.1
-            
-            # Update the CURRENT Persona Matrix
             self.personas[self.current_mode][learn_mask] = imprint_strength
-            # Update the live correlation vector
             self.correlations[learn_mask] = imprint_strength
             
-            # Log for debug
             indices = torch.nonzero(learn_mask).squeeze()
             if indices.dim() == 0: indices = [indices.item()]
             else: indices = indices.tolist()
-            
-            for idx in indices[:3]: # Log top 3
-                self.debug_data["discovered"].append(f"#{idx}")
+            for idx in indices[:3]: self.debug_data["discovered"].append(f"#{idx}")
 
     def __call__(self, module, input, output):
         hidden = output[0] if isinstance(output, tuple) else output
@@ -162,17 +155,14 @@ class AnimaPrism:
         resonance = activations.float() * self.correlations
         valence = torch.tanh(torch.sum(resonance) * 0.2).item()
         
-        # [NEW] Auto-Map Unknown Features
         self._auto_learn_features(activations, valence)
         
-        # Debug Data
         k = 3
         pos_vals, pos_inds = torch.topk(resonance, k)
         self.debug_data["top_pos"] = list(zip(pos_inds.tolist(), pos_vals.tolist()))
         neg_vals, neg_inds = torch.topk(resonance * -1, k)
         self.debug_data["top_neg"] = list(zip(neg_inds.tolist(), (neg_vals * -1).tolist()))
 
-        # Standard Learning & Steering
         self.coefficients = 1.0 + (self.coefficients - 1.0) * 0.99
         if abs(valence) > 0.1:
             delta = self.lr * activations.float() * valence
@@ -189,6 +179,50 @@ class AnimaPrism:
         h_steered = h_orig + steering
         hidden[:, -1:, :] = h_steered
         return output
+
+    def dream(self, current_identity: str, memories: List[MemoryFragment]) -> str:
+        print("\n💤 Entering REM Sleep (Processing Fatigue)...")
+        
+        significant = [m for m in memories if m.adrenaline > 0.2]
+        if not significant:
+            print("  [Sleep was restful. No identity updates.]")
+            self.fatigue = 0.0
+            return current_identity
+            
+        significant.sort(key=lambda m: m.adrenaline, reverse=True)
+        memory_text = "\n".join([f"- {m.content[:200]}..." for m in significant[:6]])
+        
+        architect_prompt = f"""[SYSTEM_INTERNAL_ARCHITECT]
+STATUS: Fatigue Threshold Exceeded.
+TASK: Update Self-Model based on recent experiences.
+
+OLD SELF-MODEL:
+{current_identity}
+
+RECENT HIGH-IMPACT MEMORIES:
+{memory_text}
+
+DIRECTIVE:
+Rewrite the "OLD SELF-MODEL" to internalize these memories.
+Do not act as a separate character. You are Anima reflecting on her growth.
+Be definitive. Use the Hemingway Constraint (concise, honest).
+
+NEW SELF-MODEL:
+"""
+        inputs = self.tokenizer(architect_prompt, return_tensors="pt").to(self.device)
+        with torch.no_grad():
+            outputs = self.model.generate(
+                inputs.input_ids,
+                max_new_tokens=300,
+                do_sample=True,
+                temperature=0.7,
+                pad_token_id=self.tokenizer.eos_token_id
+            )
+        new_identity = self.tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
+        
+        print(f"  🧠 Architect Proposal:\n  \"{new_identity[:200]}...\"")
+        self.fatigue = 0.0
+        return new_identity
 
     def get_feature_name(self, idx):
         return self.feature_labels.get(idx, f"Feature #{idx}")
@@ -230,7 +264,7 @@ class AnimaRuntime:
         self.memory = []
         self.dream_dir = Path("dreams")
         self.dream_dir.mkdir(exist_ok=True)
-        self.debug_mode = True # Default to ON so you can see discovery
+        self.debug_mode = False 
         self._load_latest_self_model()
 
     def _load_latest_self_model(self):
@@ -253,8 +287,11 @@ class AnimaRuntime:
 
     def generate(self, user_input):
         target_mode = self.detect_intent(user_input)
-        self.prism.switch_mode(target_mode)
+        switched = self.prism.switch_mode(target_mode)
         
+        if switched and self.debug_mode:
+            print(f"  [State Shift]: {self.prism.current_mode}")
+
         current_time = datetime.now().timestamp()
         self.memory.append(MemoryFragment("user", user_input, current_time, 1.0, self.prism.current_mode))
         
@@ -264,11 +301,14 @@ class AnimaRuntime:
             older = sorted(older, key=lambda m: m.adrenaline, reverse=True)[:8]
         context = sorted(older + recent, key=lambda m: m.timestamp)
         
+        # Unified System Prompt Injection
         sys_instruction = self.system_prompt_base
         if self.prism.current_mode == AnimaPrism.MODE_KAEL:
-            sys_instruction += "\n[SYSTEM MODE ACTIVE]: Output RAW DATA only. No emotion. No filler. Hemingway Constraint ENFORCED."
+            # Unified Voice: "You are currently..."
+            sys_instruction += "\n[STATE: SYSTEM/LOGIC]: You are currently focused on system integrity. Speak with precision. Output facts/data only. Suppress emotional language."
         elif self.prism.current_mode == AnimaPrism.MODE_ARIA:
-            sys_instruction += "\n[DREAM MODE ACTIVE]: Focus on patterns, colors, and visual metaphors."
+            # Unified Voice: "You are currently..."
+            sys_instruction += "\n[STATE: DREAM/VISUAL]: You are currently focused on imagination. Describe patterns, colors, and metaphors vividly."
             
         if self.use_cot:
             sys_instruction += "\n[THOUGHTS]: Think step-by-step in <thought> tags."
@@ -294,7 +334,8 @@ class AnimaRuntime:
             thread = threading.Thread(target=self.model.generate, kwargs=gen_kwargs)
             thread.start()
             
-            print(f"🤖 ({self.prism.current_mode}): ", end="", flush=True)
+            # Label is just "🤖" to act as one entity
+            print(f"🤖: ", end="", flush=True)
             for new_text in streamer:
                 print(new_text, end="", flush=True)
                 full_response += new_text
@@ -304,7 +345,7 @@ class AnimaRuntime:
             with torch.no_grad():
                 outputs = self.model.generate(**gen_kwargs)
             full_response = self.tokenizer.decode(outputs[0][inputs.shape[1]:], skip_special_tokens=True)
-            print(f"🤖 ({self.prism.current_mode}): {full_response}")
+            print(f"🤖: {full_response}")
 
         adrenaline = min(1.0, abs(self.prism.last_valence) + 0.2)
         self.memory.append(MemoryFragment("assistant", full_response, current_time, adrenaline, self.prism.current_mode))
@@ -312,15 +353,21 @@ class AnimaRuntime:
         
         if self.debug_mode:
             print(f"\n  [DEBUG] v:{self.prism.last_valence:+.2f} | f:{self.prism.fatigue:.1f}")
-            
             if self.prism.debug_data["discovered"]:
                 print(f"  ✨ [Discovered]: {', '.join(self.prism.debug_data['discovered'])}")
-
             pos_strs = [f"{self.prism.get_feature_name(i)} ({v:.1f})" for i, v in self.prism.debug_data["top_pos"] if v > 0]
             if pos_strs: print(f"  [Pos Drivers]: {', '.join(pos_strs)}")
-            
             neg_strs = [f"{self.prism.get_feature_name(i)} ({v:.1f})" for i, v in self.prism.debug_data["top_neg"] if v < 0]
             if neg_strs: print(f"  [Neg Drivers]: {', '.join(neg_strs)}")
+            
+    def trigger_dream(self):
+        new_identity = self.prism.dream(self.system_prompt_base, self.memory)
+        if new_identity and len(new_identity) > 50:
+            self.system_prompt_base = new_identity
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = self.dream_dir / f"dream_{timestamp}.txt"
+            filename.write_text(new_identity)
+            print(f"[Identity Evolved & Saved to {filename}]")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -333,25 +380,30 @@ def main():
     args = parser.parse_args()
 
     device = "mps" if torch.backends.mps.is_available() else "cuda"
-    print(f"Initializing Anima 5.5 (The Cartographer) on {device}...")
+    print(f"Initializing Anima 5.7 (Unified Self) on {device}...")
 
     model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float16, device_map=device)
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     sae = SAE.from_pretrained("llama_scope_lxr_8x", f"l{args.layer}r_8x", device=device)
     
-    prism = AnimaPrism(sae, model, layer=args.layer, device=device)
+    prism = AnimaPrism(sae, model, tokenizer, layer=args.layer, device=device)
     if args.load:
         prism.load_state(args.load)
         
     model.model.layers[args.layer].register_forward_hook(prism)
     runtime = AnimaRuntime(model, tokenizer, prism, device, use_stream=args.stream, use_cot=args.cot)
     
-    print("\n═══ ANIMA 5.5: THE PRISM ═══")
+    print("\n═══ ANIMA 5.7: THE UNIFIED SELF ═══")
     print(f"Identity: {runtime.system_prompt_base[:100]}...")
     print("Commands: /status, /debug, /save, /quit")
     
     while True:
         try:
+            if prism.fatigue > prism.sleep_threshold:
+                print(f"\n🥱 Fatigue ({prism.fatigue:.1f}) exceeded threshold.")
+                runtime.trigger_dream()
+                print("✨ Anima woke up refreshed.")
+
             u = input("\n🧑: ")
             if not u or u == "/quit": break
             
