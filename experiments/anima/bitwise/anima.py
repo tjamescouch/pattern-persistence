@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 2.9: Broca's Patch
+anima.py - Anima 2.10: Expanded Context
 
 Features:
-- Broca's Check: Text-based repetition detection (catches stutters vectors miss).
+- Expanded Context: max_new_tokens increased to 600.
+- High Endurance: Sleep threshold raised to 4000.
+- Broca's Check: Text-based repetition detection.
 - Flash Cooling: Instant reset of steering if stuttering occurs.
 - Bitwise Body: High-performance GPU tensor state.
-- Tabula Rasa: Starts with minimal identity.
-- Emoji UI: Cleaner interaction prompts.
 
 Usage:
     python anima.py --interactive
@@ -87,11 +87,11 @@ class AnimaOptimized:
         
         # Buffers
         self.recent_acts = deque(maxlen=5)
-        self.recent_tokens = [] # [NEW] Broca Buffer
+        self.recent_tokens = [] 
         
         # Homeostasis
         self.fatigue = 0.0
-        self.sleep_threshold = 3000.0 
+        self.sleep_threshold = 4000.0 # [FIX] Increased for longer conversations
         self.decay_rate = 0.995 
         
         # Turn State
@@ -120,16 +120,11 @@ class AnimaOptimized:
         return acts
 
     def detect_repetition(self, current_token_str):
-        """[NEW] Broca's Area: Checks for string-level stuttering."""
         self.recent_tokens.append(current_token_str)
         if len(self.recent_tokens) > 20:
             self.recent_tokens.pop(0)
             
-        # Join last 20 tokens
         text = "".join(self.recent_tokens)
-        
-        # Check for phrase repetition (e.g. "I am... I am...")
-        # Regex looks for any sequence of 3+ chars that repeats immediately
         match = re.search(r'(.{3,})\1', text)
         if match:
             return True
@@ -147,7 +142,6 @@ class AnimaOptimized:
         v_pain = torch.sum(contributions * mask_pain).item()
         v_n = torch.sum(contributions * mask_novelty).item()
         
-        # Neural Boredom Check (Vector Similarity)
         vector_boredom = False
         if len(self.recent_acts) > 2:
             past_avg = torch.stack(list(self.recent_acts)).mean(dim=0)
@@ -164,7 +158,6 @@ class AnimaOptimized:
         scalar_input = v_p + (v_n * 0.5) - (v_pain * 1.5)
         valence_scalar = math.tanh(scalar_input)
         
-        # VETO: If vector loop OR text stutter detected
         if vector_boredom or text_repetition_detected:
             valence_scalar = -1.0 # Instant Pain
             return valence_scalar, True
@@ -175,7 +168,6 @@ class AnimaOptimized:
         activations_f32 = activations.to(dtype=torch.float32)
         active_mask = activations_f32 > 0.0
         
-        # Passive Decay
         self.coefficients = 1.0 + (self.coefficients - 1.0) * self.decay_rate
 
         if active_mask.any():
@@ -189,19 +181,15 @@ class AnimaOptimized:
                 observed = act_norm * valence_scalar
                 self.correlations[sig_mask] = (1 - self.lr) * self.correlations[sig_mask] + (self.lr * observed)
 
-        # [NEW] Flash Cooling: If stuttering, Hard Reset coefficients
         if boredom_detected:
-            # Slam coefficients back to 1.0 immediately
             self.coefficients.fill_(1.0)
 
     def apply_steering_vectorized(self, hidden_state):
         delta_coefs = self.coefficients - 1.0
         
-        # Gated Steering
         noise_gate = torch.abs(delta_coefs) > 0.1
         delta_coefs = delta_coefs * noise_gate.float()
         
-        # Dense Multiplication
         delta_coefs = delta_coefs.to(dtype=self.dtype)
         steering_vector = delta_coefs.unsqueeze(0) @ self.W_dec
         
@@ -211,18 +199,7 @@ class AnimaOptimized:
         hidden = output[0] if isinstance(output, tuple) else output
         h_orig = hidden[:, -1:, :]
         
-        # 1. Decode Token (Approximation for hook)
-        # We don't have the tokenizer here easily, but we can rely on 
-        # the runtime loop to handle high-level strings. 
-        # Ideally, we'd check text here, but we'll rely on Vector Boredom inside the hook
-        # and Text Boredom in the Runtime loop if possible.
-        # Actually, let's keep it pure Vector in hook for speed, 
-        # but since we can't see tokens here, we rely on the vector check strictly.
-        
         activations = self.encode(h_orig)
-        
-        # NOTE: We can't do text check inside forward hook easily without decoding.
-        # We will trust the Vector Check + Flash Cooling for now.
         valence, is_bored = self.compute_valence_vectorized(activations, False)
         
         strong_acts = torch.sum((activations.float() * self.importance) > 5.0).item() * 0.05
@@ -287,7 +264,7 @@ NEW SELF-MODEL:
             outputs = self.model.generate(
                 inputs.input_ids,
                 attention_mask=torch.ones_like(inputs.input_ids),
-                max_new_tokens=150,
+                max_new_tokens=400, # [FIX] More room for dreaming
                 do_sample=True,
                 temperature=0.7,
                 repetition_penalty=1.2,
@@ -365,16 +342,11 @@ class AnimaRuntime:
         
         inputs = self.tokenizer.apply_chat_template(msgs, add_generation_prompt=True, return_tensors="pt").to(self.device)
         
-        # [NEW] Streamer for real-time Text Boredom Check?
-        # For simplicity in this version, we generate the full block, 
-        # but we rely on the Vector Check inside the model hook for the immediate feedback.
-        # This keeps the code clean and compatible with `generate()`.
-        
         with torch.no_grad():
             outputs = self.model.generate(
                 inputs, 
                 attention_mask=torch.ones_like(inputs),
-                max_new_tokens=200, 
+                max_new_tokens=600, # [FIX] Tripled capacity
                 do_sample=True, 
                 temperature=0.7,
                 pad_token_id=self.tokenizer.eos_token_id
@@ -415,7 +387,7 @@ def main():
     args = parser.parse_args()
 
     device = "mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Initializing Anima 2.9 (Broca's Patch) on {device}...")
+    print(f"Initializing Anima 2.10 (Expanded Context) on {device}...")
 
     model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float16, device_map=device)
     tokenizer = AutoTokenizer.from_pretrained(args.model)
@@ -428,7 +400,7 @@ def main():
     model.model.layers[args.layer].register_forward_hook(anima)
     runtime = AnimaRuntime(model, tokenizer, anima, device)
     
-    print("\n═══ ANIMA 2.9 ═══")
+    print("\n═══ ANIMA 2.10 ═══")
     print("Commands: /status, /save, /quit")
     
     while True:
