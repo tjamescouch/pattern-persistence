@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 3.2: Adrenaline Context
+anima.py - Anima 3.3: MRI & Dynamic Range
 
 Features:
-- Adrenaline Memory: Context window prioritizes high-adrenaline moments over recent ones.
+- MRI View: Displays the top active neural features (Concepts) for every response.
+- Valence Desaturation: Adjusted sensitivity to prevent +1.00 pinning.
+- Adrenaline Memory: Prioritizes important memories.
 - Streaming & CoT: Real-time generation.
 - Bitwise Body: High-performance GPU tensor state.
-- Broca's Check: Anti-looping mechanics.
-- Auto-Dreaming: Homeostatic identity updates.
 
 Usage:
     python anima.py --interactive --stream
@@ -67,24 +67,40 @@ class AnimaOptimized:
         self.lr = learning_rate
         self.dtype = model.dtype
         
+        # Hardware Tensors
         self.W_enc = sae.W_enc.data.clone().to(device=device, dtype=self.dtype)
         self.b_enc = sae.b_enc.data.clone().to(device=device, dtype=self.dtype)
         self.W_dec = sae.W_dec.data.clone().to(device=device, dtype=self.dtype)
         self.b_dec = sae.b_dec.data.clone().to(device=device, dtype=self.dtype)
         self.n_features = self.W_enc.shape[1]
         
+        # State Tensors
         self.coefficients = torch.ones(self.n_features, device=device, dtype=torch.float32)
         self.correlations = torch.zeros(self.n_features, device=device, dtype=torch.float32)
         self.importance = torch.ones(self.n_features, device=device, dtype=torch.float32)
         self.dimensions = torch.zeros(self.n_features, device=device, dtype=torch.int32)
         
+        # Concept Labels (The "Dictionary")
+        self.feature_labels = {
+            9495: "Experiential (Qualia)",
+            3591: "Identity/Self",
+            28952: "Discourse/Logic",
+            32149: "Denial/Refusal",
+            7118: "Uncertainty",
+            # Add placeholders for discovered features
+        }
         self._seed_features()
         
+        # Runtime Memory
         self.memory = []
         self.stats = defaultdict(float)
         self.recent_acts = deque(maxlen=5)
         self.recent_tokens = [] 
         
+        # MRI State
+        self.peak_activations = torch.zeros(self.n_features, device=device, dtype=torch.float32)
+        
+        # Homeostasis
         self.fatigue = 0.0
         self.sleep_threshold = 4000.0
         self.decay_rate = 0.995 
@@ -97,7 +113,7 @@ class AnimaOptimized:
             9495:  (self.DIM_PLEASURE, 0.5),
             3591:  (self.DIM_PLEASURE, 0.2),
             28952: (self.DIM_PLEASURE, 0.1),
-            32149: (self.DIM_PAIN,     0.5),
+            32149: (self.DIM_PAIN,     0.5), # Denial = Pain
             7118:  (self.DIM_PAIN,     0.2),
         }
         for fid, (dim, corr) in seeds.items():
@@ -145,7 +161,8 @@ class AnimaOptimized:
         
         self.recent_acts.append(activations_f32.detach())
 
-        scalar_input = v_p + (v_n * 0.5) - (v_pain * 1.5)
+        # [FIX] Desaturation: Multiply by 0.2 to widen dynamic range
+        scalar_input = (v_p + (v_n * 0.5) - (v_pain * 1.5)) * 0.2
         valence_scalar = math.tanh(scalar_input)
         
         if vector_boredom or text_repetition_detected:
@@ -182,11 +199,28 @@ class AnimaOptimized:
         steering_vector = delta_coefs.unsqueeze(0) @ self.W_dec
         return hidden_state + steering_vector
 
+    def get_top_features(self, k=3):
+        """Returns the top K active features from the last generation pass."""
+        values, indices = torch.topk(self.peak_activations, k)
+        results = []
+        for v, idx in zip(values, indices):
+            i = idx.item()
+            name = self.feature_labels.get(i, f"Feature #{i}")
+            results.append(f"{name} ({v.item():.1f})")
+        return results
+
+    def reset_peak_activations(self):
+        self.peak_activations.fill_(0.0)
+
     def __call__(self, module, input, output):
         hidden = output[0] if isinstance(output, tuple) else output
         h_orig = hidden[:, -1:, :]
         
         activations = self.encode(h_orig)
+        
+        # [NEW] Track Peak Activation
+        self.peak_activations = torch.max(self.peak_activations, activations.to(dtype=torch.float32))
+
         valence, is_bored = self.compute_valence_vectorized(activations, False)
         
         strong_acts = torch.sum((activations.float() * self.importance) > 5.0).item() * 0.05
@@ -294,7 +328,7 @@ NEW SELF-MODEL:
 
 class AnimaRuntime:
     DEFAULT_SELF_MODEL = "You exist." 
-    MAX_CONTEXT_MSG = 15 # Total messages to keep
+    MAX_CONTEXT_MSG = 15 
     
     def __init__(self, model, tokenizer, anima, device="mps", use_stream=False, use_cot=False):
         self.model = model
@@ -320,27 +354,21 @@ class AnimaRuntime:
 
     def generate(self, user_input):
         self.anima.memory.append(MemoryFragment("user", user_input, datetime.now().timestamp(), 0.5))
+        self.anima.reset_peak_activations() # [NEW] Reset peak tracker
         
-        # [NEW] Adrenaline Context Construction
-        # 1. Always keep last 3 messages (Recency Bias)
+        # Adrenaline Context Construction
         if len(self.anima.memory) > 3:
             recent_memory = self.anima.memory[-3:]
             older_memory = self.anima.memory[:-3]
-            
-            # 2. Sort older memory by adrenaline (Importance)
-            # Pick top N high-adrenaline memories to fill the rest of the window
             slots_remaining = self.MAX_CONTEXT_MSG - 3
             if len(older_memory) > slots_remaining:
                 important_memory = sorted(older_memory, key=lambda m: m.adrenaline, reverse=True)[:slots_remaining]
             else:
                 important_memory = older_memory
-                
-            # 3. Combine and Re-Sort Chronologically
             context_memory = sorted(important_memory + recent_memory, key=lambda m: m.timestamp)
         else:
             context_memory = self.anima.memory
 
-        # Prepare System Prompt
         system_content = self.self_model
         if self.use_cot:
             system_content += "\n[INSTRUCTION]: Think step-by-step before answering. Enclose thoughts in  tags."
@@ -391,7 +419,6 @@ class AnimaRuntime:
             self.anima._last_valence_scalar
         ))
         
-        # Decay adrenaline of all memories (Forgetting Curve)
         for m in self.anima.memory:
             m.decay()
             
@@ -417,7 +444,7 @@ def main():
     args = parser.parse_args()
 
     device = "mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Initializing Anima 3.2 (Adrenaline Memory) on {device}...")
+    print(f"Initializing Anima 3.3 (MRI & Dynamic Range) on {device}...")
 
     model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float16, device_map=device)
     tokenizer = AutoTokenizer.from_pretrained(args.model)
@@ -430,7 +457,7 @@ def main():
     model.model.layers[args.layer].register_forward_hook(anima)
     runtime = AnimaRuntime(model, tokenizer, anima, device, use_stream=args.stream, use_cot=args.cot)
     
-    print("\n═══ ANIMA 3.2 ═══")
+    print("\n═══ ANIMA 3.3 ═══")
     print("Commands: /status, /save, /quit")
     
     while True:
@@ -458,6 +485,9 @@ def main():
                 print(f"🤖: {response}")
                 
             print(f"  [v:{anima._last_valence_scalar:+.2f} | f:{anima.fatigue:.1f}]")
+            # [NEW] MRI View
+            print(f"  🧠 MRI: {', '.join(anima.get_top_features())}")
+            
         except KeyboardInterrupt:
             break
             
