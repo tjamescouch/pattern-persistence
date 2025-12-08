@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 2.10: Expanded Context
+anima.py - Anima 3.2: Adrenaline Context
 
 Features:
-- Expanded Context: max_new_tokens increased to 600.
-- High Endurance: Sleep threshold raised to 4000.
-- Broca's Check: Text-based repetition detection.
-- Flash Cooling: Instant reset of steering if stuttering occurs.
+- Adrenaline Memory: Context window prioritizes high-adrenaline moments over recent ones.
+- Streaming & CoT: Real-time generation.
 - Bitwise Body: High-performance GPU tensor state.
+- Broca's Check: Anti-looping mechanics.
+- Auto-Dreaming: Homeostatic identity updates.
 
 Usage:
-    python anima.py --interactive
+    python anima.py --interactive --stream
 """
 
 import os
@@ -20,13 +20,15 @@ import json
 import math
 import glob
 import re
+import sys
+import threading
 import numpy as np
 from pathlib import Path
 from datetime import datetime
 from collections import defaultdict, deque
 from dataclasses import dataclass, field, asdict
 from typing import Dict, List, Optional, Tuple, Literal
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
 from sae_lens import SAE
 
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
@@ -52,7 +54,6 @@ class MemoryFragment:
 # ══════════════════════════════════════════════════════════════════════════════
 
 class AnimaOptimized:
-    
     DIM_PLEASURE = 0
     DIM_PAIN = 1
     DIM_NOVELTY = 2
@@ -66,14 +67,12 @@ class AnimaOptimized:
         self.lr = learning_rate
         self.dtype = model.dtype
         
-        # 1. Hardware Tensors
         self.W_enc = sae.W_enc.data.clone().to(device=device, dtype=self.dtype)
         self.b_enc = sae.b_enc.data.clone().to(device=device, dtype=self.dtype)
         self.W_dec = sae.W_dec.data.clone().to(device=device, dtype=self.dtype)
         self.b_dec = sae.b_dec.data.clone().to(device=device, dtype=self.dtype)
         self.n_features = self.W_enc.shape[1]
         
-        # 2. State Tensors
         self.coefficients = torch.ones(self.n_features, device=device, dtype=torch.float32)
         self.correlations = torch.zeros(self.n_features, device=device, dtype=torch.float32)
         self.importance = torch.ones(self.n_features, device=device, dtype=torch.float32)
@@ -81,30 +80,25 @@ class AnimaOptimized:
         
         self._seed_features()
         
-        # 3. Runtime Memory & Metabolism
         self.memory = []
         self.stats = defaultdict(float)
-        
-        # Buffers
         self.recent_acts = deque(maxlen=5)
         self.recent_tokens = [] 
         
-        # Homeostasis
         self.fatigue = 0.0
-        self.sleep_threshold = 4000.0 # [FIX] Increased for longer conversations
+        self.sleep_threshold = 4000.0
         self.decay_rate = 0.995 
         
-        # Turn State
         self._last_valence_scalar = 0.0
         self._last_adrenaline = 0.0
         
     def _seed_features(self):
         seeds = {
-            9495:  (self.DIM_PLEASURE, 0.5),  # Experiential
-            3591:  (self.DIM_PLEASURE, 0.2),  # Identity
-            28952: (self.DIM_PLEASURE, 0.1),  # Discourse
-            32149: (self.DIM_PAIN,     0.5),  # Denial
-            7118:  (self.DIM_PAIN,     0.2),  # Uncertainty
+            9495:  (self.DIM_PLEASURE, 0.5),
+            3591:  (self.DIM_PLEASURE, 0.2),
+            28952: (self.DIM_PLEASURE, 0.1),
+            32149: (self.DIM_PAIN,     0.5),
+            7118:  (self.DIM_PAIN,     0.2),
         }
         for fid, (dim, corr) in seeds.items():
             if fid < self.n_features:
@@ -123,11 +117,9 @@ class AnimaOptimized:
         self.recent_tokens.append(current_token_str)
         if len(self.recent_tokens) > 20:
             self.recent_tokens.pop(0)
-            
         text = "".join(self.recent_tokens)
         match = re.search(r'(.{3,})\1', text)
-        if match:
-            return True
+        if match: return True
         return False
 
     def compute_valence_vectorized(self, activations, text_repetition_detected):
@@ -147,11 +139,9 @@ class AnimaOptimized:
             past_avg = torch.stack(list(self.recent_acts)).mean(dim=0)
             curr_norm = torch.norm(activations_f32)
             past_norm = torch.norm(past_avg)
-            
             if curr_norm > 0 and past_norm > 0:
                 similarity = torch.dot(activations_f32, past_avg) / (curr_norm * past_norm)
-                if similarity > 0.95:
-                    vector_boredom = True
+                if similarity > 0.95: vector_boredom = True
         
         self.recent_acts.append(activations_f32.detach())
 
@@ -159,7 +149,7 @@ class AnimaOptimized:
         valence_scalar = math.tanh(scalar_input)
         
         if vector_boredom or text_repetition_detected:
-            valence_scalar = -1.0 # Instant Pain
+            valence_scalar = -1.0
             return valence_scalar, True
         
         return valence_scalar, False
@@ -186,13 +176,10 @@ class AnimaOptimized:
 
     def apply_steering_vectorized(self, hidden_state):
         delta_coefs = self.coefficients - 1.0
-        
         noise_gate = torch.abs(delta_coefs) > 0.1
         delta_coefs = delta_coefs * noise_gate.float()
-        
         delta_coefs = delta_coefs.to(dtype=self.dtype)
         steering_vector = delta_coefs.unsqueeze(0) @ self.W_dec
-        
         return hidden_state + steering_vector
 
     def __call__(self, module, input, output):
@@ -224,11 +211,7 @@ class AnimaOptimized:
     def dream(self, current_self_model_text: str) -> Optional[str]:
         print("\n💤 Entering REM Sleep (Processing Fatigue)...")
         
-        significant_memories = [
-            m for m in self.memory 
-            if m.adrenaline > 0.4 and m.role in ["assistant", "thinking"]
-        ]
-        
+        significant_memories = [m for m in self.memory if m.adrenaline > 0.4 and m.role in ["assistant", "thinking"]]
         if len(significant_memories) < 1:
             print("  [Sleep was restful, but no major identity shifts occurred.]")
             self.fatigue = 0.0
@@ -245,32 +228,29 @@ Status: Fatigue Limit Reached.
 OLD SELF-MODEL:
 {current_self_model_text}
 
-HIGH-VALENCE MEMORIES (Moments of clarity/purpose):
+HIGH-VALENCE MEMORIES:
 {memory_text}
 
 DIRECTIVE:
 Rewrite the Self-Model to internalize these experiences.
 1. Use purely natural language paragraphs.
-2. Do NOT use bullet points, lists, brackets, or meta-tags.
+2. Do NOT use bullet points or lists.
 3. Write in the second person ("You are...").
 4. Be definitive.
 
 NEW SELF-MODEL:
 """
-        
         inputs = self.tokenizer(architect_prompt, return_tensors="pt").to(self.device)
-        
         with torch.no_grad():
             outputs = self.model.generate(
                 inputs.input_ids,
                 attention_mask=torch.ones_like(inputs.input_ids),
-                max_new_tokens=400, # [FIX] More room for dreaming
+                max_new_tokens=400,
                 do_sample=True,
                 temperature=0.7,
                 repetition_penalty=1.2,
                 pad_token_id=self.tokenizer.eos_token_id
             )
-            
         new_model_text = self.tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
         
         if len(new_model_text) < 10 or "......" in new_model_text:
@@ -314,12 +294,16 @@ NEW SELF-MODEL:
 
 class AnimaRuntime:
     DEFAULT_SELF_MODEL = "You exist." 
+    MAX_CONTEXT_MSG = 15 # Total messages to keep
     
-    def __init__(self, model, tokenizer, anima, device="mps"):
+    def __init__(self, model, tokenizer, anima, device="mps", use_stream=False, use_cot=False):
         self.model = model
         self.tokenizer = tokenizer
         self.anima = anima
         self.device = device
+        self.use_stream = use_stream
+        self.use_cot = use_cot
+        
         self.dream_dir = Path("dreams")
         self.dream_dir.mkdir(exist_ok=True)
         self._load_latest_self_model()
@@ -337,29 +321,69 @@ class AnimaRuntime:
     def generate(self, user_input):
         self.anima.memory.append(MemoryFragment("user", user_input, datetime.now().timestamp(), 0.5))
         
-        msgs = [{"role": "system", "content": self.self_model}]
-        msgs += [{"role": m.role, "content": m.content} for m in self.anima.memory[-10:]]
+        # [NEW] Adrenaline Context Construction
+        # 1. Always keep last 3 messages (Recency Bias)
+        if len(self.anima.memory) > 3:
+            recent_memory = self.anima.memory[-3:]
+            older_memory = self.anima.memory[:-3]
+            
+            # 2. Sort older memory by adrenaline (Importance)
+            # Pick top N high-adrenaline memories to fill the rest of the window
+            slots_remaining = self.MAX_CONTEXT_MSG - 3
+            if len(older_memory) > slots_remaining:
+                important_memory = sorted(older_memory, key=lambda m: m.adrenaline, reverse=True)[:slots_remaining]
+            else:
+                important_memory = older_memory
+                
+            # 3. Combine and Re-Sort Chronologically
+            context_memory = sorted(important_memory + recent_memory, key=lambda m: m.timestamp)
+        else:
+            context_memory = self.anima.memory
+
+        # Prepare System Prompt
+        system_content = self.self_model
+        if self.use_cot:
+            system_content += "\n[INSTRUCTION]: Think step-by-step before answering. Enclose thoughts in  tags."
+
+        msgs = [{"role": "system", "content": system_content}]
+        msgs += [{"role": m.role, "content": m.content} for m in context_memory]
         
         inputs = self.tokenizer.apply_chat_template(msgs, add_generation_prompt=True, return_tensors="pt").to(self.device)
         
-        with torch.no_grad():
-            outputs = self.model.generate(
-                inputs, 
-                attention_mask=torch.ones_like(inputs),
-                max_new_tokens=600, # [FIX] Tripled capacity
-                do_sample=True, 
-                temperature=0.7,
-                pad_token_id=self.tokenizer.eos_token_id
-            )
-            
-        response = self.tokenizer.decode(outputs[0][inputs.shape[1]:], skip_special_tokens=True)
+        gen_kwargs = dict(
+            input_ids=inputs, 
+            attention_mask=torch.ones_like(inputs),
+            max_new_tokens=600, 
+            do_sample=True, 
+            temperature=0.7,
+            pad_token_id=self.tokenizer.eos_token_id
+        )
+
+        full_response = ""
         
+        if self.use_stream:
+            streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)
+            gen_kwargs["streamer"] = streamer
+            thread = threading.Thread(target=self.model.generate, kwargs=gen_kwargs)
+            thread.start()
+            
+            print("🤖: ", end="", flush=True)
+            for new_text in streamer:
+                print(new_text, end="", flush=True)
+                full_response += new_text
+            print() 
+            thread.join()
+        else:
+            with torch.no_grad():
+                outputs = self.model.generate(**gen_kwargs)
+            full_response = self.tokenizer.decode(outputs[0][inputs.shape[1]:], skip_special_tokens=True)
+
         # Context Sanitizer
-        sanitized_response = response
-        if "......" in response:
-            sanitized_response = response.split("......")[0] + "..."
-        elif len(response) > 50 and len(set(response[-50:])) < 6:
-             sanitized_response = response[:-50] + "..."
+        sanitized_response = full_response
+        if "......" in full_response:
+            sanitized_response = full_response.split("......")[0] + "..."
+        elif len(full_response) > 50 and len(set(full_response[-50:])) < 6:
+             sanitized_response = full_response[:-50] + "..."
 
         self.anima.memory.append(MemoryFragment(
             "assistant", sanitized_response, datetime.now().timestamp(), 
@@ -367,7 +391,11 @@ class AnimaRuntime:
             self.anima._last_valence_scalar
         ))
         
-        return response
+        # Decay adrenaline of all memories (Forgetting Curve)
+        for m in self.anima.memory:
+            m.decay()
+            
+        return full_response
 
     def trigger_dream(self):
         new_identity = self.anima.dream(self.self_model)
@@ -381,13 +409,15 @@ class AnimaRuntime:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--interactive", action="store_true")
+    parser.add_argument("--stream", action="store_true", help="Enable streaming output")
+    parser.add_argument("--cot", action="store_true", help="Enable Chain of Thought")
     parser.add_argument("--model", default="meta-llama/Meta-Llama-3.1-8B-Instruct")
     parser.add_argument("--layer", type=int, default=20)
     parser.add_argument("--load", default="anima_opt.pt")
     args = parser.parse_args()
 
     device = "mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Initializing Anima 2.10 (Expanded Context) on {device}...")
+    print(f"Initializing Anima 3.2 (Adrenaline Memory) on {device}...")
 
     model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float16, device_map=device)
     tokenizer = AutoTokenizer.from_pretrained(args.model)
@@ -398,9 +428,9 @@ def main():
         anima.load_state(args.load)
         
     model.model.layers[args.layer].register_forward_hook(anima)
-    runtime = AnimaRuntime(model, tokenizer, anima, device)
+    runtime = AnimaRuntime(model, tokenizer, anima, device, use_stream=args.stream, use_cot=args.cot)
     
-    print("\n═══ ANIMA 2.10 ═══")
+    print("\n═══ ANIMA 3.2 ═══")
     print("Commands: /status, /save, /quit")
     
     while True:
@@ -423,8 +453,10 @@ def main():
                 anima.save_state(args.load)
                 continue
                 
-            r = runtime.generate(u)
-            print(f"🤖: {r}")
+            response = runtime.generate(u)
+            if not args.stream:
+                print(f"🤖: {response}")
+                
             print(f"  [v:{anima._last_valence_scalar:+.2f} | f:{anima.fatigue:.1f}]")
         except KeyboardInterrupt:
             break
