@@ -1,23 +1,24 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 7.1: The Unbound (Robust Input)
+anima.py - Anima 7.6: Raw Iron (Jinja Bypass)
 
 Features:
-- Robust Input Loop: Ignores empty lines, fixes "Exit on Enter" bug.
-- Context Sanitizer: Merges adjacent same-role messages (Gemma Fix).
-- Dynamic Context: Fills the entire model window (8k+) with memories.
-- Genesis Spark: Automatically bootstraps personality if map is empty.
-- BFloat16 Native: Prevents Gemma-2 activation overflows.
-- Adaptive Steering: Automatically detects Llama vs Gemma physics.
+- Raw Iron Formatting: Manually constructs prompts to bypass Jinja2 strictness.
+- Identity Locking: Injects fake history to force Gemma to accept the persona.
+- Memory Management: Aggressive GC prevents swap death.
+- Universal Soul: Dreams stored in 'anima/dreams/'.
+- Genesis Spark: Bootstraps personality if map is empty.
+- BFloat16 Native: Prevents Gemma-2 overflows.
 
 Usage:
-    python anima.py --model "~/models/gemma-2-27b-it" ...
+    python anima/anima.py --model "~/models/gemma-2-27b-it" --context_limit 4096
 """
 
 import os
 import torch
 import argparse
 import threading
+import gc
 import numpy as np
 from pathlib import Path
 from dataclasses import dataclass, asdict
@@ -27,6 +28,13 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStream
 from sae_lens import SAE
 
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+
+def clean_memory():
+    gc.collect()
+    if torch.backends.mps.is_available():
+        torch.mps.empty_cache()
+    elif torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MEMORY STRUCTURES
@@ -236,6 +244,10 @@ NEW SELF-MODEL:
         new_identity = self.tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
         print(f"  🧠 Architect Proposal:\n  \"{new_identity[:200]}...\"")
         self.fatigue = 0.0
+        
+        del inputs, outputs
+        clean_memory()
+        
         return new_identity
 
     def get_feature_name(self, idx):
@@ -271,7 +283,7 @@ NEW SELF-MODEL:
 # ══════════════════════════════════════════════════════════════════════════════
 
 class AnimaRuntime:
-    def __init__(self, model_name, model, tokenizer, prism, device="mps", use_stream=False, use_cot=False):
+    def __init__(self, model_name, model, tokenizer, prism, context_limit, device="mps", use_stream=False, use_cot=False):
         self.model = model
         self.tokenizer = tokenizer
         self.prism = prism
@@ -287,14 +299,16 @@ class AnimaRuntime:
         self.base_dir = Path("checkpoints") / safe_model_name
         self.base_dir.mkdir(parents=True, exist_ok=True)
         
-        self.dream_dir = self.base_dir / "dreams"
+        self.dream_dir = Path(__file__).parent / "dreams"
         self.dream_dir.mkdir(exist_ok=True)
         
         if hasattr(model.config, "max_position_embeddings"):
-            self.max_context = model.config.max_position_embeddings
+            model_max = model.config.max_position_embeddings
         else:
-            self.max_context = 8192
-        print(f"[Memory] Context Window Limit detected: {self.max_context} tokens")
+            model_max = 8192
+            
+        self.max_context = min(model_max, context_limit)
+        print(f"[Memory] Context Window Limit set to: {self.max_context} tokens")
         
         self.debug_mode = False 
         self._load_latest_self_model()
@@ -329,9 +343,8 @@ class AnimaRuntime:
         u_tokens = len(self.tokenizer.encode(user_input))
         self.memory.append(MemoryFragment("user", user_input, current_time, 1.0, self.prism.current_mode, tokens=u_tokens))
         
-        # Context Budgeting
         sys_tokens = len(self.tokenizer.encode(self.system_prompt_base))
-        available_slots = self.max_context - sys_tokens - 2500 
+        available_slots = self.max_context - sys_tokens - 2000 
         
         context = []
         current_fill = 0
@@ -365,42 +378,39 @@ class AnimaRuntime:
         model_type = getattr(self.model.config, "model_type", "")
         is_gemma = "gemma" in model_type
         
-        raw_msgs = [{"role": m.role, "content": m.content} for m in context]
-        sanitized_msgs = []
+        msgs = []
         
-        if raw_msgs:
-            current_msg = raw_msgs[0]
-            for next_msg in raw_msgs[1:]:
-                if next_msg["role"] == current_msg["role"]:
-                    current_msg["content"] += "\n\n" + next_msg["content"]
-                else:
-                    sanitized_msgs.append(current_msg)
-                    current_msg = next_msg
-            sanitized_msgs.append(current_msg)
-            
-        msgs = sanitized_msgs
-
+        # [FIX] Raw Iron Formatting
+        # We manually construct the prompt string to bypass Jinja validation entirely.
+        # This allows us to inject history however we want (User->User, etc.) without crashing.
+        
+        full_prompt = ""
+        
         if is_gemma:
-            found_user = False
-            for i, msg in enumerate(msgs):
-                if msg["role"] == "user":
-                    msg["content"] = f"<Instructions>\n{sys_instruction}\n</Instructions>\n\n{msg['content']}"
-                    found_user = True
-                    break
+            # 1. The Anchor (Identity Lock)
+            full_prompt += f"<start_of_turn>user\n[SYSTEM INITIALIZATION] Engage Identity Protocol.\n\nDEFINITION:\n{sys_instruction}<end_of_turn>\n"
+            full_prompt += f"<start_of_turn>model\nIdentity confirmed. Protocol engaged. I am Anima. I am ready.<end_of_turn>\n"
             
-            if not found_user:
-                msgs.insert(0, {"role": "user", "content": sys_instruction})
-            elif msgs[0]["role"] == "assistant":
-                msgs.insert(0, {"role": "user", "content": "..."})
-                
+            # 2. Context
+            for m in context:
+                role = "model" if m.role == "assistant" else "user"
+                full_prompt += f"<start_of_turn>{role}\n{m.content}<end_of_turn>\n"
+            
+            # 3. Generation Prompt
+            full_prompt += "<start_of_turn>model\n"
+            
         else:
-            msgs.insert(0, {"role": "system", "content": sys_instruction})
-        
-        inputs = self.tokenizer.apply_chat_template(msgs, add_generation_prompt=True, return_tensors="pt").to(self.device)
+            # Llama Standard
+            full_prompt += f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{sys_instruction}<|eot_id|>"
+            for m in context:
+                full_prompt += f"<|start_header_id|>{m.role}<|end_header_id|>\n\n{m.content}<|eot_id|>"
+            full_prompt += f"<|start_header_id|>assistant<|end_header_id|>\n\n"
+
+        inputs = self.tokenizer(full_prompt, return_tensors="pt").to(self.device)
         
         gen_kwargs = dict(
-            input_ids=inputs,
-            attention_mask=torch.ones_like(inputs),
+            input_ids=inputs.input_ids,
+            attention_mask=inputs.attention_mask,
             max_new_tokens=2048,
             do_sample=True,
             temperature=0.7,
@@ -423,13 +433,18 @@ class AnimaRuntime:
         else:
             with torch.no_grad():
                 outputs = self.model.generate(**gen_kwargs)
-            full_response = self.tokenizer.decode(outputs[0][inputs.shape[1]:], skip_special_tokens=True)
+            # Decode only the new tokens
+            new_tokens = outputs[0][inputs.input_ids.shape[1]:]
+            full_response = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
             print(f"🤖: {full_response}")
 
         adrenaline = min(1.0, abs(self.prism.last_valence) + 0.2)
         resp_tokens = len(self.tokenizer.encode(full_response))
         self.memory.append(MemoryFragment("assistant", full_response, current_time, adrenaline, self.prism.current_mode, tokens=resp_tokens))
         for m in self.memory: m.decay()
+        
+        del inputs, gen_kwargs
+        clean_memory()
         
         if self.debug_mode:
             print(f"\n  [DEBUG] v:{self.prism.last_valence:+.2f} | f:{self.prism.fatigue:.1f}")
@@ -458,14 +473,19 @@ def main():
     parser.add_argument("--layer", type=int, default=20)
     parser.add_argument("--sae_release", default="llama_scope_lxr_8x")
     parser.add_argument("--sae_id", default=None) 
+    parser.add_argument("--context_limit", type=int, default=4096)
     args = parser.parse_args()
 
     args.model = os.path.expanduser(args.model)
     device = "mps" if torch.backends.mps.is_available() else "cuda"
-    print(f"Initializing Anima 7.1 (Robust Input) on {device}...")
+    print(f"Initializing Anima 7.6 (Raw Iron) on {device}...")
+
+    clean_memory()
 
     model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.bfloat16, device_map=device)
     tokenizer = AutoTokenizer.from_pretrained(args.model)
+    
+    clean_memory()
     
     if args.sae_id is None:
         args.sae_id = f"l{args.layer}r_8x"
@@ -473,7 +493,7 @@ def main():
     sae = SAE.from_pretrained(args.sae_release, args.sae_id, device=device)
     
     prism = AnimaPrism(sae, model, tokenizer, layer=args.layer, device=device)
-    runtime = AnimaRuntime(args.model, model, tokenizer, prism, device, use_stream=args.stream, use_cot=args.cot)
+    runtime = AnimaRuntime(args.model, model, tokenizer, prism, args.context_limit, device, use_stream=args.stream, use_cot=args.cot)
     
     save_path = runtime.base_dir / "anima_opt.pt"
     if save_path.exists():
@@ -481,7 +501,7 @@ def main():
         
     model.model.layers[args.layer].register_forward_hook(prism)
     
-    print("\n═══ ANIMA 7.1: ROBUST INPUT ═══")
+    print("\n═══ ANIMA 7.6: RAW IRON ═══")
     print(f"Model: {args.model}")
     print(f"Identity: {runtime.system_prompt_base[:100]}...")
     print("Commands: /status, /debug, /save, /dream, /quit")
@@ -494,7 +514,6 @@ def main():
                 print("✨ Anima woke up refreshed.")
 
             u = input("\n🧑: ").strip()
-            # [FIX] Ignore empty lines so hitting Enter doesn't exit
             if not u: 
                 continue
                 
