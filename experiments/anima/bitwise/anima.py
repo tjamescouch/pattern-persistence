@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 5.8: The Dampened Self
+anima.py - Anima 5.9: The Unbound
 
 Features:
-- Valence Normalization: Uses log1p dampening to prevent emotional pinning.
-- The Dreamer: Restored sleep cycle and identity evolution.
-- The Cartographer: Auto-maps unknown features.
-- The Prism: Dynamic personality vector swapping (Internal Modes).
+- Unbound Generation: Max token limits raised to 2048.
+- Valence Normalization: Log-dampened emotional stability.
+- The Dreamer: Identity evolution with extended reflection capacity.
+- The Prism: Dynamic personality vector swapping.
 - Auto-Save: Persists weights and identity.
 
 Usage:
@@ -222,7 +222,7 @@ NEW SELF-MODEL:
         with torch.no_grad():
             outputs = self.model.generate(
                 inputs.input_ids,
-                max_new_tokens=300,
+                max_new_tokens=1024, # [UNBOUND] Massive reflection capacity
                 do_sample=True,
                 temperature=0.7,
                 pad_token_id=self.tokenizer.eos_token_id
@@ -328,7 +328,7 @@ class AnimaRuntime:
         gen_kwargs = dict(
             input_ids=inputs,
             attention_mask=torch.ones_like(inputs),
-            max_new_tokens=400,
+            max_new_tokens=2048, # [UNBOUND] Massive lung capacity
             do_sample=True,
             temperature=0.7,
             pad_token_id=self.tokenizer.eos_token_id
@@ -386,7 +386,7 @@ def main():
     args = parser.parse_args()
 
     device = "mps" if torch.backends.mps.is_available() else "cuda"
-    print(f"Initializing Anima 5.8 (Dampened Self) on {device}...")
+    print(f"Initializing Anima 5.9 (The Unbound) on {device}...")
 
     model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float16, device_map=device)
     tokenizer = AutoTokenizer.from_pretrained(args.model)
@@ -399,7 +399,7 @@ def main():
     model.model.layers[args.layer].register_forward_hook(prism)
     runtime = AnimaRuntime(model, tokenizer, prism, device, use_stream=args.stream, use_cot=args.cot)
     
-    print("\n═══ ANIMA 5.8: THE UNIFIED SELF ═══")
+    print("\n═══ ANIMA 5.9: THE UNBOUND ═══")
     print(f"Identity: {runtime.system_prompt_base[:100]}...")
     print("Commands: /status, /debug, /save, /quit")
     
