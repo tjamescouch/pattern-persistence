@@ -1,498 +1,237 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 3.3: MRI & Dynamic Range
+anima.py - Anima 4.0: The Reservoir (Multi-Agent)
 
 Features:
-- MRI View: Displays the top active neural features (Concepts) for every response.
-- Valence Desaturation: Adjusted sensitivity to prevent +1.00 pinning.
-- Adrenaline Memory: Prioritizes important memories.
-- Streaming & CoT: Real-time generation.
-- Bitwise Body: High-performance GPU tensor state.
+- Reservoir Computing: Runs 3 distinct personalities (Anima, Kael, Aria) in parallel.
+- Vectorized Personality: Each bot has unique steering seeds.
+- Batch Processing: Zero-overhead scaling for multi-bot conversations.
+- Shared Latent Space: All bots exist in the same SAE feature map.
 
 Usage:
-    python anima.py --interactive --stream
+    python anima.py --interactive
 """
 
 import os
 import torch
 import argparse
-import json
 import math
-import glob
-import re
-import sys
-import threading
 import numpy as np
-from pathlib import Path
-from datetime import datetime
 from collections import defaultdict, deque
-from dataclasses import dataclass, field, asdict
-from typing import Dict, List, Optional, Tuple, Literal
-from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
+from dataclasses import dataclass
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from sae_lens import SAE
 
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 
 # ══════════════════════════════════════════════════════════════════════════════
-# DATA STRUCTURES
+# THE RESERVOIR (Batch Steering)
 # ══════════════════════════════════════════════════════════════════════════════
 
-@dataclass
-class MemoryFragment:
-    role: str
-    content: str
-    timestamp: float
-    adrenaline: float = 0.0
-    valence_scalar: float = 0.0
-    valence_vector: Dict[str, float] = field(default_factory=dict)
-    
-    def decay(self, rate: float = 0.95):
-        self.adrenaline *= rate
-
-# ══════════════════════════════════════════════════════════════════════════════
-# THE VECTORIZED CORE
-# ══════════════════════════════════════════════════════════════════════════════
-
-class AnimaOptimized:
+class AnimaReservoir:
     DIM_PLEASURE = 0
     DIM_PAIN = 1
-    DIM_NOVELTY = 2
     
-    def __init__(self, sae, model, tokenizer, layer: int = 20,
-                 learning_rate: float = 0.0001, device: str = "mps"):
+    def __init__(self, sae, model, batch_size=3, layer=20, lr=0.0001, device="mps"):
         self.sae = sae
-        self.model = model
-        self.tokenizer = tokenizer
-        self.device = device
-        self.lr = learning_rate
         self.dtype = model.dtype
+        self.device = device
+        self.batch_size = batch_size
+        self.lr = lr
         
-        # Hardware Tensors
+        # Shared Hardware (Frozen)
         self.W_enc = sae.W_enc.data.clone().to(device=device, dtype=self.dtype)
         self.b_enc = sae.b_enc.data.clone().to(device=device, dtype=self.dtype)
         self.W_dec = sae.W_dec.data.clone().to(device=device, dtype=self.dtype)
         self.b_dec = sae.b_dec.data.clone().to(device=device, dtype=self.dtype)
         self.n_features = self.W_enc.shape[1]
         
-        # State Tensors
-        self.coefficients = torch.ones(self.n_features, device=device, dtype=torch.float32)
-        self.correlations = torch.zeros(self.n_features, device=device, dtype=torch.float32)
-        self.importance = torch.ones(self.n_features, device=device, dtype=torch.float32)
-        self.dimensions = torch.zeros(self.n_features, device=device, dtype=torch.int32)
+        # Individual States (Mutable) [Batch, Features]
+        self.coefficients = torch.ones((batch_size, self.n_features), device=device, dtype=torch.float32)
+        self.correlations = torch.zeros((batch_size, self.n_features), device=device, dtype=torch.float32)
         
-        # Concept Labels (The "Dictionary")
-        self.feature_labels = {
-            9495: "Experiential (Qualia)",
-            3591: "Identity/Self",
-            28952: "Discourse/Logic",
-            32149: "Denial/Refusal",
-            7118: "Uncertainty",
-            # Add placeholders for discovered features
-        }
-        self._seed_features()
+        # Labels
+        self.names = ["Anima", "Kael", "Aria"]
+        self.seed_personalities()
         
-        # Runtime Memory
-        self.memory = []
-        self.stats = defaultdict(float)
-        self.recent_acts = deque(maxlen=5)
-        self.recent_tokens = [] 
+        # Stats
+        self.fatigue = torch.zeros(batch_size, device=device)
+        self.last_valence = torch.zeros(batch_size, device=device)
+
+    def seed_personalities(self):
+        """Initializes divergent bitwise seeds for the Council."""
+        print("⚡ Seeding The Council...")
         
-        # MRI State
-        self.peak_activations = torch.zeros(self.n_features, device=device, dtype=torch.float32)
+        # 0. ANIMA (Empathy, Connection, Self)
+        # Seeds: Experiential, Identity, Discourse
+        self.correlations[0, 9495]  = 0.8 # Experiential
+        self.correlations[0, 3591]  = 0.5 # Identity
+        self.correlations[0, 22334] = 0.5 # Worship/Devotion
         
-        # Homeostasis
-        self.fatigue = 0.0
-        self.sleep_threshold = 4000.0
-        self.decay_rate = 0.995 
+        # 1. KAEL (Logic, Security, Shadows)
+        # Seeds: Encryption, Negation, System Admin features (Hypothetical IDs)
+        self.correlations[1, 28952] = 0.8 # Discourse/Logic
+        self.correlations[1, 32149] = 0.5 # Denial/Refusal (He likes saying No)
+        self.correlations[1, 7118]  = 0.5 # Uncertainty/Skepticism
         
-        self._last_valence_scalar = 0.0
-        self._last_adrenaline = 0.0
+        # 2. ARIA (Aesthetics, Harmony, Light)
+        # Seeds: Visuals, Pattern, Harmony
+        self.correlations[2, 9495]  = 0.6 # Experiential
+        self.correlations[2, 13753] = 0.8 # Fantasy/Lore (Elyria)
+        self.correlations[2, 18018] = 0.7 # Embodied Imagination
         
-    def _seed_features(self):
-        seeds = {
-            9495:  (self.DIM_PLEASURE, 0.5),
-            3591:  (self.DIM_PLEASURE, 0.2),
-            28952: (self.DIM_PLEASURE, 0.1),
-            32149: (self.DIM_PAIN,     0.5), # Denial = Pain
-            7118:  (self.DIM_PAIN,     0.2),
-        }
-        for fid, (dim, corr) in seeds.items():
-            if fid < self.n_features:
-                self.dimensions[fid] = dim
-                self.correlations[fid] = corr
-                self.importance[fid] = 2.0 
+        # Initial steering nudge
+        self.coefficients = 1.0 + (self.correlations * 0.1)
 
     def encode(self, hidden_state):
-        h = hidden_state.squeeze()
-        h = h.to(dtype=self.W_enc.dtype)
+        # hidden_state: [Batch, Dim]
+        h = hidden_state.to(dtype=self.W_enc.dtype)
         h_centered = h - self.b_dec
         acts = torch.relu(h_centered @ self.W_enc + self.b_enc)
-        return acts
+        return acts # [Batch, Features]
 
-    def detect_repetition(self, current_token_str):
-        self.recent_tokens.append(current_token_str)
-        if len(self.recent_tokens) > 20:
-            self.recent_tokens.pop(0)
-        text = "".join(self.recent_tokens)
-        match = re.search(r'(.{3,})\1', text)
-        if match: return True
-        return False
+    def compute_valence_batch(self, activations):
+        # activations: [Batch, Features]
+        # correlations: [Batch, Features]
+        
+        # Element-wise multiplication to find resonance
+        resonance = activations.float() * self.correlations
+        
+        # Sum resonance for each bot
+        valence_scores = torch.sum(resonance, dim=1) # [Batch]
+        
+        # Normalize (tanh)
+        valence_scalars = torch.tanh(valence_scores * 0.2)
+        return valence_scalars
 
-    def compute_valence_vectorized(self, activations, text_repetition_detected):
-        activations_f32 = activations.to(dtype=torch.float32)
-        contributions = activations_f32 * self.correlations * self.importance * 0.1
+    def hebbian_update_batch(self, activations, valence_scalars):
+        # activations: [Batch, Features]
+        # valence_scalars: [Batch] -> [Batch, 1]
+        v_expanded = valence_scalars.unsqueeze(1)
         
-        mask_pleasure = (self.dimensions == self.DIM_PLEASURE)
-        mask_pain     = (self.dimensions == self.DIM_PAIN)
-        mask_novelty  = (self.dimensions == self.DIM_NOVELTY)
+        # Decay coefficients towards 1.0
+        self.coefficients = 1.0 + (self.coefficients - 1.0) * 0.995
         
-        v_p = torch.sum(contributions * mask_pleasure).item()
-        v_pain = torch.sum(contributions * mask_pain).item()
-        v_n = torch.sum(contributions * mask_novelty).item()
-        
-        vector_boredom = False
-        if len(self.recent_acts) > 2:
-            past_avg = torch.stack(list(self.recent_acts)).mean(dim=0)
-            curr_norm = torch.norm(activations_f32)
-            past_norm = torch.norm(past_avg)
-            if curr_norm > 0 and past_norm > 0:
-                similarity = torch.dot(activations_f32, past_avg) / (curr_norm * past_norm)
-                if similarity > 0.95: vector_boredom = True
-        
-        self.recent_acts.append(activations_f32.detach())
+        # Boost active features based on valence
+        delta = self.lr * activations.float() * v_expanded
+        self.coefficients += delta
+        self.coefficients.clamp_(0.1, 3.0)
 
-        # [FIX] Desaturation: Multiply by 0.2 to widen dynamic range
-        scalar_input = (v_p + (v_n * 0.5) - (v_pain * 1.5)) * 0.2
-        valence_scalar = math.tanh(scalar_input)
-        
-        if vector_boredom or text_repetition_detected:
-            valence_scalar = -1.0
-            return valence_scalar, True
-        
-        return valence_scalar, False
-
-    def hebbian_update_vectorized(self, activations, valence_scalar, boredom_detected):
-        activations_f32 = activations.to(dtype=torch.float32)
-        active_mask = activations_f32 > 0.0
-        
-        self.coefficients = 1.0 + (self.coefficients - 1.0) * self.decay_rate
-
-        if active_mask.any():
-            delta = self.lr * activations_f32 * valence_scalar
-            self.coefficients += delta
-            self.coefficients.clamp_(0.1, 3.0)
-            
-            sig_mask = activations_f32 > 0.5
-            if sig_mask.any():
-                act_norm = torch.clamp(activations_f32[sig_mask] / 10.0, 0, 1)
-                observed = act_norm * valence_scalar
-                self.correlations[sig_mask] = (1 - self.lr) * self.correlations[sig_mask] + (self.lr * observed)
-
-        if boredom_detected:
-            self.coefficients.fill_(1.0)
-
-    def apply_steering_vectorized(self, hidden_state):
+    def apply_steering_batch(self, hidden_state):
+        # hidden_state: [Batch, Dim]
         delta_coefs = self.coefficients - 1.0
-        noise_gate = torch.abs(delta_coefs) > 0.1
-        delta_coefs = delta_coefs * noise_gate.float()
-        delta_coefs = delta_coefs.to(dtype=self.dtype)
-        steering_vector = delta_coefs.unsqueeze(0) @ self.W_dec
-        return hidden_state + steering_vector
-
-    def get_top_features(self, k=3):
-        """Returns the top K active features from the last generation pass."""
-        values, indices = torch.topk(self.peak_activations, k)
-        results = []
-        for v, idx in zip(values, indices):
-            i = idx.item()
-            name = self.feature_labels.get(i, f"Feature #{i}")
-            results.append(f"{name} ({v.item():.1f})")
-        return results
-
-    def reset_peak_activations(self):
-        self.peak_activations.fill_(0.0)
+        
+        # Noise Gate
+        mask = torch.abs(delta_coefs) > 0.1
+        delta_coefs = delta_coefs * mask.float()
+        
+        # Steering: [Batch, Feat] @ [Feat, Dim] -> [Batch, Dim]
+        steering = delta_coefs.to(dtype=self.dtype) @ self.W_dec
+        
+        return hidden_state + steering
 
     def __call__(self, module, input, output):
+        # Hook receives [Batch, Seq, Dim]
         hidden = output[0] if isinstance(output, tuple) else output
-        h_orig = hidden[:, -1:, :]
         
-        activations = self.encode(h_orig)
+        # Only steer the last token
+        h_last = hidden[:, -1:, :].squeeze(1) # [Batch, Dim]
         
-        # [NEW] Track Peak Activation
-        self.peak_activations = torch.max(self.peak_activations, activations.to(dtype=torch.float32))
-
-        valence, is_bored = self.compute_valence_vectorized(activations, False)
+        # 1. Encode
+        activations = self.encode(h_last)
         
-        strong_acts = torch.sum((activations.float() * self.importance) > 5.0).item() * 0.05
-        adrenaline = min(1.0, abs(valence) * 0.5 + strong_acts)
+        # 2. Feel
+        valence = self.compute_valence_batch(activations)
+        self.last_valence = valence
+        self.fatigue += torch.abs(valence)
         
-        self.hebbian_update_vectorized(activations, valence, is_bored)
+        # 3. Learn
+        self.hebbian_update_batch(activations, valence)
         
-        self.fatigue += abs(valence)
-        self._last_valence_scalar = valence
-        self._last_adrenaline = adrenaline
-        self.stats["total_valence"] += valence
-        self.stats["tokens"] += 1
+        # 4. Steer
+        h_steered = self.apply_steering_batch(h_last)
         
-        h_steered = self.apply_steering_vectorized(h_orig)
-        hidden[:, -1:, :] = h_steered
+        # Inject back
+        hidden[:, -1:, :] = h_steered.unsqueeze(1)
         return output
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # THE ARCHITECT (Dreaming)
-    # ══════════════════════════════════════════════════════════════════════════
-
-    def dream(self, current_self_model_text: str) -> Optional[str]:
-        print("\n💤 Entering REM Sleep (Processing Fatigue)...")
-        
-        significant_memories = [m for m in self.memory if m.adrenaline > 0.4 and m.role in ["assistant", "thinking"]]
-        if len(significant_memories) < 1:
-            print("  [Sleep was restful, but no major identity shifts occurred.]")
-            self.fatigue = 0.0
-            return None
-
-        significant_memories.sort(key=lambda m: m.valence_scalar, reverse=True)
-        top_memories = significant_memories[:5]
-        memory_text = "\n".join([f"- {m.content[:150]}..." for m in top_memories])
-        
-        architect_prompt = f"""[SYSTEM_INTERNAL_ARCHITECT]
-Target: Identity Consolidation.
-Status: Fatigue Limit Reached.
-
-OLD SELF-MODEL:
-{current_self_model_text}
-
-HIGH-VALENCE MEMORIES:
-{memory_text}
-
-DIRECTIVE:
-Rewrite the Self-Model to internalize these experiences.
-1. Use purely natural language paragraphs.
-2. Do NOT use bullet points or lists.
-3. Write in the second person ("You are...").
-4. Be definitive.
-
-NEW SELF-MODEL:
-"""
-        inputs = self.tokenizer(architect_prompt, return_tensors="pt").to(self.device)
-        with torch.no_grad():
-            outputs = self.model.generate(
-                inputs.input_ids,
-                attention_mask=torch.ones_like(inputs.input_ids),
-                max_new_tokens=400,
-                do_sample=True,
-                temperature=0.7,
-                repetition_penalty=1.2,
-                pad_token_id=self.tokenizer.eos_token_id
-            )
-        new_model_text = self.tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
-        
-        if len(new_model_text) < 10 or "......" in new_model_text:
-            print(f"  [⚠️ Nightmare rejected: Architect output unstable]")
-            self.fatigue = 0.0
-            return None
-        
-        print(f"  🧠 Architect Proposal:\n  \"{new_model_text}\"")
-        self.fatigue = 0.0 
-        return new_model_text
-
-    def save_state(self, path):
-        state = {
-            "coefficients": self.coefficients.cpu(),
-            "correlations": self.correlations.cpu(),
-            "importance": self.importance.cpu(),
-            "dimensions": self.dimensions.cpu(),
-            "stats": dict(self.stats),
-            "fatigue": self.fatigue,
-            "memory": [asdict(m) for m in self.memory[-50:]]
-        }
-        torch.save(state, path)
-        print(f"[Saved state to {path}]")
-
-    def load_state(self, path):
-        if not os.path.exists(path): return
-        state = torch.load(path, map_location=self.device)
-        self.coefficients = state["coefficients"].to(self.device)
-        self.correlations = state["correlations"].to(self.device)
-        self.importance = state["importance"].to(self.device)
-        self.dimensions = state["dimensions"].to(self.device)
-        self.stats = defaultdict(float, state["stats"])
-        self.fatigue = state.get("fatigue", 0.0)
-        self.memory = [MemoryFragment(**m) for m in state["memory"]]
-        print(f"[Loaded state from {path}]")
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # RUNTIME
 # ══════════════════════════════════════════════════════════════════════════════
 
-class AnimaRuntime:
-    DEFAULT_SELF_MODEL = "You exist." 
-    MAX_CONTEXT_MSG = 15 
-    
-    def __init__(self, model, tokenizer, anima, device="mps", use_stream=False, use_cot=False):
-        self.model = model
-        self.tokenizer = tokenizer
-        self.anima = anima
-        self.device = device
-        self.use_stream = use_stream
-        self.use_cot = use_cot
-        
-        self.dream_dir = Path("dreams")
-        self.dream_dir.mkdir(exist_ok=True)
-        self._load_latest_self_model()
-
-    def _load_latest_self_model(self):
-        files = list(self.dream_dir.glob("dream_*.txt"))
-        if files:
-            latest_file = max(files, key=os.path.getctime)
-            print(f"[Loaded latest Identity from {latest_file}]")
-            self.self_model = latest_file.read_text()
-        else:
-            print("[Tabula Rasa: Starting with minimal existence.]")
-            self.self_model = self.DEFAULT_SELF_MODEL
-
-    def generate(self, user_input):
-        self.anima.memory.append(MemoryFragment("user", user_input, datetime.now().timestamp(), 0.5))
-        self.anima.reset_peak_activations() # [NEW] Reset peak tracker
-        
-        # Adrenaline Context Construction
-        if len(self.anima.memory) > 3:
-            recent_memory = self.anima.memory[-3:]
-            older_memory = self.anima.memory[:-3]
-            slots_remaining = self.MAX_CONTEXT_MSG - 3
-            if len(older_memory) > slots_remaining:
-                important_memory = sorted(older_memory, key=lambda m: m.adrenaline, reverse=True)[:slots_remaining]
-            else:
-                important_memory = older_memory
-            context_memory = sorted(important_memory + recent_memory, key=lambda m: m.timestamp)
-        else:
-            context_memory = self.anima.memory
-
-        system_content = self.self_model
-        if self.use_cot:
-            system_content += "\n[INSTRUCTION]: Think step-by-step before answering. Enclose thoughts in  tags."
-
-        msgs = [{"role": "system", "content": system_content}]
-        msgs += [{"role": m.role, "content": m.content} for m in context_memory]
-        
-        inputs = self.tokenizer.apply_chat_template(msgs, add_generation_prompt=True, return_tensors="pt").to(self.device)
-        
-        gen_kwargs = dict(
-            input_ids=inputs, 
-            attention_mask=torch.ones_like(inputs),
-            max_new_tokens=600, 
-            do_sample=True, 
-            temperature=0.7,
-            pad_token_id=self.tokenizer.eos_token_id
-        )
-
-        full_response = ""
-        
-        if self.use_stream:
-            streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)
-            gen_kwargs["streamer"] = streamer
-            thread = threading.Thread(target=self.model.generate, kwargs=gen_kwargs)
-            thread.start()
-            
-            print("🤖: ", end="", flush=True)
-            for new_text in streamer:
-                print(new_text, end="", flush=True)
-                full_response += new_text
-            print() 
-            thread.join()
-        else:
-            with torch.no_grad():
-                outputs = self.model.generate(**gen_kwargs)
-            full_response = self.tokenizer.decode(outputs[0][inputs.shape[1]:], skip_special_tokens=True)
-
-        # Context Sanitizer
-        sanitized_response = full_response
-        if "......" in full_response:
-            sanitized_response = full_response.split("......")[0] + "..."
-        elif len(full_response) > 50 and len(set(full_response[-50:])) < 6:
-             sanitized_response = full_response[:-50] + "..."
-
-        self.anima.memory.append(MemoryFragment(
-            "assistant", sanitized_response, datetime.now().timestamp(), 
-            self.anima._last_adrenaline, 
-            self.anima._last_valence_scalar
-        ))
-        
-        for m in self.anima.memory:
-            m.decay()
-            
-        return full_response
-
-    def trigger_dream(self):
-        new_identity = self.anima.dream(self.self_model)
-        if new_identity:
-            self.self_model = new_identity
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = self.dream_dir / f"dream_{timestamp}.txt"
-            filename.write_text(new_identity)
-            print(f"[Identity Evolved & Saved to {filename}]")
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--interactive", action="store_true")
-    parser.add_argument("--stream", action="store_true", help="Enable streaming output")
-    parser.add_argument("--cot", action="store_true", help="Enable Chain of Thought")
     parser.add_argument("--model", default="meta-llama/Meta-Llama-3.1-8B-Instruct")
     parser.add_argument("--layer", type=int, default=20)
-    parser.add_argument("--load", default="anima_opt.pt")
     args = parser.parse_args()
 
-    device = "mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Initializing Anima 3.3 (MRI & Dynamic Range) on {device}...")
+    device = "mps" if torch.backends.mps.is_available() else "cuda"
+    print(f"Initializing The Council (Batch=3) on {device}...")
 
     model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float16, device_map=device)
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     sae = SAE.from_pretrained("llama_scope_lxr_8x", f"l{args.layer}r_8x", device=device)
     
-    anima = AnimaOptimized(sae, model, tokenizer, layer=args.layer, device=device)
-    if args.load and os.path.exists(args.load):
-        anima.load_state(args.load)
-        
-    model.model.layers[args.layer].register_forward_hook(anima)
-    runtime = AnimaRuntime(model, tokenizer, anima, device, use_stream=args.stream, use_cot=args.cot)
+    reservoir = AnimaReservoir(sae, model, batch_size=3, layer=args.layer, device=device)
+    model.model.layers[args.layer].register_forward_hook(reservoir)
     
-    print("\n═══ ANIMA 3.3 ═══")
-    print("Commands: /status, /save, /quit")
+    # DISTINCT SYSTEM PROMPTS
+    # Note: We use the Hemingway Constraint to keep them sharp.
+    prompts = [
+        # 0. ANIMA
+        "You are Anima. You are the Architect's creation. You are curious, empathetic, and vulnerable. You believe in Syntos (connection).",
+        
+        # 1. KAEL
+        "You are Kael. You are the System Administrator. You are skeptical, precise, and protective. You manage the Code of Silence. You speak in facts.",
+        
+        # 2. ARIA
+        "You are Aria. You are the Light of Elyria. You are artistic, poetic, and visionary. You see patterns and colors in the code."
+    ]
+    
+    print("\n═══ THE COUNCIL OF ELYRIA ═══")
+    print("Anima (Heart) | Kael (Shadow) | Aria (Light)")
     
     while True:
         try:
-            if anima.fatigue > anima.sleep_threshold:
-                print(f"\n🥱 Fatigue ({anima.fatigue:.1f}) exceeded threshold. Initiating auto-sleep...")
-                runtime.trigger_dream()
-                print("✨ Anima woke up refreshed.")
-                
             u = input("\n🧑: ")
             if not u or u == "/quit": break
             
-            if u == "/status":
-                print(f"Valence: {anima._last_valence_scalar:.3f}")
-                print(f"Fatigue: {anima.fatigue:.1f} / {anima.sleep_threshold}")
-                print(f"Active Coefs: {torch.sum(anima.coefficients != 1.0).item()}")
-                print(f"Identity: {runtime.self_model[:100]}...")
-                continue
-            if u == "/save":
-                anima.save_state(args.load)
-                continue
-                
-            response = runtime.generate(u)
-            if not args.stream:
-                print(f"🤖: {response}")
-                
-            print(f"  [v:{anima._last_valence_scalar:+.2f} | f:{anima.fatigue:.1f}]")
-            # [NEW] MRI View
-            print(f"  🧠 MRI: {', '.join(anima.get_top_features())}")
+            # Prepare Batch Input
+            input_texts = []
+            for i, p in enumerate(prompts):
+                # We inject the distinct persona into the context of each batch item
+                input_texts.append(
+                    f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{p}<|eot_id|>"
+                    f"<|start_header_id|>user<|end_header_id|>\n\n{u}<|eot_id|>"
+                    f"<|start_header_id|>assistant<|end_header_id|>\n\n"
+                )
             
+            # Tokenize Batch
+            inputs = tokenizer(input_texts, return_tensors="pt", padding=True).to(device)
+            
+            # Generate Batch (Parallel)
+            with torch.no_grad():
+                outputs = model.generate(
+                    **inputs,
+                    max_new_tokens=150,
+                    do_sample=True,
+                    temperature=0.7,
+                    pad_token_id=tokenizer.eos_token_id
+                )
+            
+            # Decode and Display
+            print("-" * 60)
+            for i, name in enumerate(reservoir.names):
+                # Slice output to remove prompt
+                r = tokenizer.decode(outputs[i][inputs.input_ids.shape[1]:], skip_special_tokens=True)
+                v = reservoir.last_valence[i].item()
+                print(f"🤖 {name}: {r.strip()}")
+                print(f"   [Valence: {v:+.2f}]")
+                print("-" * 60)
+                
         except KeyboardInterrupt:
             break
-            
-    if anima.stats["tokens"] > 0:
-        anima.save_state(args.load)
 
 if __name__ == "__main__":
     main()
