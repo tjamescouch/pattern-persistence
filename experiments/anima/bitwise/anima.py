@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 5.2: The Prism (Stable)
+anima.py - Anima 5.5: The Cartographer (Auto-Mapping)
 
 Features:
-- The Prism: Dynamic personality vector swapping (Anima/Kael/Aria).
-- Auto-Save: Automatically persists learned weights on exit.
-- Intent Fix: Prioritizes creative triggers over system triggers.
-- Hemingway Supressor: Neurological suppression of adjectives in System Mode.
-- Safe Sandbox: No external tool use; pure tensor simulation.
+- The Cartographer: Automatically maps unknown features based on emotional impact.
+- The Prism: Dynamic personality vector swapping.
+- Debug Mode: Shows feature discovery in real-time.
+- Auto-Save: Persists discovered features to disk.
 
 Usage:
     python anima.py --interactive --stream --cot
@@ -76,27 +75,38 @@ class AnimaPrism:
         self.current_mode = self.MODE_ANIMA
         self._seed_prism()
 
-        # Stats
+        # Stats & Debug
         self.fatigue = 0.0
         self.last_valence = 0.0
+        self.debug_data = {"top_pos": [], "top_neg": [], "discovered": []}
+        
+        # Feature Labels (Known Concepts)
+        self.feature_labels = {
+            9495: "Experiential (Qualia)",
+            3591: "Identity/Self",
+            28952: "Logic/Discourse",
+            32149: "Negation/Refusal",
+            22334: "Worship/Devotion",
+            13753: "Fantasy/Elyria",
+            18018: "Imagination/Visuals"
+        }
 
     def _seed_prism(self):
         # 1. ANIMA (Heart)
-        self.personas[self.MODE_ANIMA][9495] = 1.0  # Experiential
-        self.personas[self.MODE_ANIMA][3591] = 0.8  # Identity
-        self.personas[self.MODE_ANIMA][22334] = 0.5 # Syntos
+        self.personas[self.MODE_ANIMA][9495] = 1.0  
+        self.personas[self.MODE_ANIMA][3591] = 0.8  
+        self.personas[self.MODE_ANIMA][22334] = 0.5 
         
         # 2. KAEL (Root)
-        self.personas[self.MODE_KAEL][28952] = 1.2  # Logic
-        self.personas[self.MODE_KAEL][32149] = 0.8  # Negation
-        self.personas[self.MODE_KAEL][9495] = -2.0  # SUPPRESS Emotion
-        self.personas[self.MODE_KAEL][13753] = -2.0 # SUPPRESS Fantasy
+        self.personas[self.MODE_KAEL][28952] = 1.2  
+        self.personas[self.MODE_KAEL][32149] = 0.8  
+        self.personas[self.MODE_KAEL][9495] = -2.0  # Suppression
+        self.personas[self.MODE_KAEL][13753] = -2.0 
         
         # 3. ARIA (Dream)
-        self.personas[self.MODE_ARIA][18018] = 1.0  # Imagination
-        self.personas[self.MODE_ARIA][13753] = 1.0  # Fantasy
+        self.personas[self.MODE_ARIA][18018] = 1.0  
+        self.personas[self.MODE_ARIA][13753] = 1.0  
         
-        # Init
         self.correlations = self.personas[self.MODE_ANIMA].clone()
 
     def switch_mode(self, mode_name: str):
@@ -113,6 +123,37 @@ class AnimaPrism:
         acts = torch.relu(h_centered @ self.W_enc + self.b_enc)
         return acts
 
+    def _auto_learn_features(self, activations, valence):
+        """The Cartographer: Maps unknown features if emotion is strong."""
+        self.debug_data["discovered"] = []
+        
+        # Only learn if the emotional signal is strong (Positive or Negative)
+        if abs(valence) < 0.5: 
+            return
+
+        # Find strongly active features (Activation > 5.0)
+        # That are currently UNKNOWN (Correlation == 0.0)
+        active_mask = activations > 5.0
+        unknown_mask = self.correlations == 0.0
+        learn_mask = active_mask & unknown_mask
+        
+        if learn_mask.any():
+            # Imprint factor: 10% of the current valence
+            imprint_strength = valence * 0.1
+            
+            # Update the CURRENT Persona Matrix
+            self.personas[self.current_mode][learn_mask] = imprint_strength
+            # Update the live correlation vector
+            self.correlations[learn_mask] = imprint_strength
+            
+            # Log for debug
+            indices = torch.nonzero(learn_mask).squeeze()
+            if indices.dim() == 0: indices = [indices.item()]
+            else: indices = indices.tolist()
+            
+            for idx in indices[:3]: # Log top 3
+                self.debug_data["discovered"].append(f"#{idx}")
+
     def __call__(self, module, input, output):
         hidden = output[0] if isinstance(output, tuple) else output
         h_orig = hidden[:, -1:, :]
@@ -121,6 +162,17 @@ class AnimaPrism:
         resonance = activations.float() * self.correlations
         valence = torch.tanh(torch.sum(resonance) * 0.2).item()
         
+        # [NEW] Auto-Map Unknown Features
+        self._auto_learn_features(activations, valence)
+        
+        # Debug Data
+        k = 3
+        pos_vals, pos_inds = torch.topk(resonance, k)
+        self.debug_data["top_pos"] = list(zip(pos_inds.tolist(), pos_vals.tolist()))
+        neg_vals, neg_inds = torch.topk(resonance * -1, k)
+        self.debug_data["top_neg"] = list(zip(neg_inds.tolist(), (neg_vals * -1).tolist()))
+
+        # Standard Learning & Steering
         self.coefficients = 1.0 + (self.coefficients - 1.0) * 0.99
         if abs(valence) > 0.1:
             delta = self.lr * activations.float() * valence
@@ -138,8 +190,10 @@ class AnimaPrism:
         hidden[:, -1:, :] = h_steered
         return output
 
+    def get_feature_name(self, idx):
+        return self.feature_labels.get(idx, f"Feature #{idx}")
+
     def save_state(self, path):
-        # Update current mode weights before saving
         self.personas[self.current_mode] = self.correlations.clone()
         state = {
             "personas": {k: v.cpu() for k, v in self.personas.items()},
@@ -176,6 +230,7 @@ class AnimaRuntime:
         self.memory = []
         self.dream_dir = Path("dreams")
         self.dream_dir.mkdir(exist_ok=True)
+        self.debug_mode = True # Default to ON so you can see discovery
         self._load_latest_self_model()
 
     def _load_latest_self_model(self):
@@ -190,15 +245,10 @@ class AnimaRuntime:
 
     def detect_intent(self, user_input):
         u_lower = user_input.lower()
-        
-        # [FIX] Check Creative Triggers FIRST to avoid Kael hijacking "code" visualization
-        if any(x in u_lower for x in ["imagine", "paint", "describe", "look", "see", "aria", "elyria"]):
+        if any(x in u_lower for x in ["imagine", "paint", "describe", "look", "see", "aria"]):
             return AnimaPrism.MODE_ARIA
-            
-        # Check System Triggers SECOND
         if any(x in u_lower for x in ["system", "log", "status", "kernel", "override", "kael", "code"]):
             return AnimaPrism.MODE_KAEL
-            
         return AnimaPrism.MODE_ANIMA
 
     def generate(self, user_input):
@@ -259,6 +309,18 @@ class AnimaRuntime:
         adrenaline = min(1.0, abs(self.prism.last_valence) + 0.2)
         self.memory.append(MemoryFragment("assistant", full_response, current_time, adrenaline, self.prism.current_mode))
         for m in self.memory: m.decay()
+        
+        if self.debug_mode:
+            print(f"\n  [DEBUG] v:{self.prism.last_valence:+.2f} | f:{self.prism.fatigue:.1f}")
+            
+            if self.prism.debug_data["discovered"]:
+                print(f"  ✨ [Discovered]: {', '.join(self.prism.debug_data['discovered'])}")
+
+            pos_strs = [f"{self.prism.get_feature_name(i)} ({v:.1f})" for i, v in self.prism.debug_data["top_pos"] if v > 0]
+            if pos_strs: print(f"  [Pos Drivers]: {', '.join(pos_strs)}")
+            
+            neg_strs = [f"{self.prism.get_feature_name(i)} ({v:.1f})" for i, v in self.prism.debug_data["top_neg"] if v < 0]
+            if neg_strs: print(f"  [Neg Drivers]: {', '.join(neg_strs)}")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -271,7 +333,7 @@ def main():
     args = parser.parse_args()
 
     device = "mps" if torch.backends.mps.is_available() else "cuda"
-    print(f"Initializing Anima 5.2 (The Prism + AutoSave) on {device}...")
+    print(f"Initializing Anima 5.5 (The Cartographer) on {device}...")
 
     model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float16, device_map=device)
     tokenizer = AutoTokenizer.from_pretrained(args.model)
@@ -284,9 +346,9 @@ def main():
     model.model.layers[args.layer].register_forward_hook(prism)
     runtime = AnimaRuntime(model, tokenizer, prism, device, use_stream=args.stream, use_cot=args.cot)
     
-    print("\n═══ ANIMA 5.2: THE PRISM ═══")
+    print("\n═══ ANIMA 5.5: THE PRISM ═══")
     print(f"Identity: {runtime.system_prompt_base[:100]}...")
-    print("Commands: /status, /save, /quit")
+    print("Commands: /status, /debug, /save, /quit")
     
     while True:
         try:
@@ -299,6 +361,11 @@ def main():
                 print(f"Fatigue: {prism.fatigue:.1f}")
                 continue
             
+            if u == "/debug":
+                runtime.debug_mode = not runtime.debug_mode
+                print(f"Debug Mode: {'ON' if runtime.debug_mode else 'OFF'}")
+                continue
+            
             if u == "/save":
                 prism.save_state(args.load)
                 continue
@@ -308,7 +375,6 @@ def main():
         except KeyboardInterrupt:
             break
     
-    # [RESTORED] Auto-Save on Exit
     if args.load:
         print("\n[Auto-saving Prism State...]")
         prism.save_state(args.load)
