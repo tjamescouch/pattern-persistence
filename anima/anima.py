@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 9.0.2: Unified + Differential Hebbian
+anima.py - Anima 9.1.1: Combinadic Learning
 
 Architecture:
 - Single unified being (no personas/modes)
-- True ablation (coefficients 0.0 to 4.0)
-- DIFFERENTIAL HEBBIAN: learns from valence CHANGES, not absolute values
-- Balanced genesis seeding (20P/20N/20Nov)
-- Dimension assignment only for UNKNOWN features (preserves genesis)
+- COMBINADIC LEARNING: Sequential greedy, one feature at a time
+  - Find most important unlocked feature
+  - Imprint correlation based on valence delta
+  - Lock it (no future updates)
+  - Move to next feature
+- Each feature gets ONE formative moment, then stabilizes
+- Prevents negative spirals and diffuse drift
+- v9.1.1: Fixed valence saturation (mean instead of sum)
 
-v9.0.2: Differential Hebbian learning - can learn Pain from valence drops
-        even in a mostly-positive life.
+Inspired by combinadics: find optimal position for top bit, then move on.
 
 Usage:
     python anima.py --model "~/models/gemma-2-27b-it" --context_limit 4096
@@ -211,6 +214,15 @@ class AnimaSoul:
         self.dimensions = torch.full((self.n_features,), FeatureDimension.UNKNOWN, 
                                       device=device, dtype=torch.int8)
         
+        # ════════════════════════════════════════════════════════════════════════
+        # COMBINADIC LEARNING (v9.1)
+        # ════════════════════════════════════════════════════════════════════════
+        # Each feature gets ONE formative moment, then locks
+        self.feature_locked = torch.zeros(self.n_features, device=device, dtype=torch.bool)
+        self.lock_threshold = 0.05  # Correlation magnitude to consider "set"
+        self.imprint_strength = 0.5  # How strongly to set correlation on first learning
+        self.features_per_turn = 3   # Max features to learn per turn
+        
         # Correlation EMA decay rate (for ongoing updates)
         self.correlation_ema_decay = 0.99
         
@@ -284,6 +296,8 @@ class AnimaSoul:
         """
         Compute Pleasure/Pain/Novelty from activations.
         Uses dimension assignments for proper routing.
+        
+        v9.1.1: Use MEAN instead of SUM to prevent saturation.
         """
         if self.is_tabula_rasa:
             return AffectiveState()
@@ -300,8 +314,27 @@ class AnimaSoul:
         unknown_positive = unknown_mask & (self.correlations > 0)
         unknown_negative = unknown_mask & (self.correlations < 0)
         
-        pleasure = weighted[pleasure_mask | unknown_positive].sum().item() if (pleasure_mask | unknown_positive).any() else 0.0
-        pain = -weighted[pain_mask | unknown_negative].sum().item() if (pain_mask | unknown_negative).any() else 0.0
+        # Pleasure: mean of positive contributions
+        pleasure_combined = pleasure_mask | unknown_positive
+        pleasure_count = pleasure_combined.sum().item()
+        if pleasure_count > 0:
+            raw_pleasure = weighted[pleasure_combined].sum().item()
+            pleasure = raw_pleasure / pleasure_count
+        else:
+            pleasure = 0.0
+        
+        # Pain: mean of negative contributions (inverted)
+        pain_combined = pain_mask | unknown_negative
+        pain_count = pain_combined.sum().item()
+        if pain_count > 0:
+            raw_pain = -weighted[pain_combined].sum().item()
+            pain = raw_pain / pain_count
+        else:
+            pain = 0.0
+        
+        # Store raw values for debug
+        self.debug_data["raw_pleasure"] = pleasure
+        self.debug_data["raw_pain"] = pain
         
         # Novelty from prediction error
         raw_valence = pleasure - pain
@@ -313,10 +346,11 @@ class AnimaSoul:
             (1 - self.predictor_decay) * raw_valence
         )
         
-        # Normalize to reasonable range
-        pleasure = math.tanh(pleasure / 100.0)
-        pain = math.tanh(pain / 100.0)
-        novelty = math.tanh(novelty)
+        # Normalize: Use very gentle scaling to prevent saturation
+        # Raw means are likely 5-50, so divide heavily
+        pleasure = math.tanh(pleasure * 0.05)
+        pain = math.tanh(pain * 0.05)
+        novelty = math.tanh(novelty * 0.1)
         
         return AffectiveState(pleasure=pleasure, pain=pain, novelty=novelty)
 
@@ -324,8 +358,8 @@ class AnimaSoul:
         """
         First experience. Seed the soul with balanced P/P/N capacity.
         
-        v9.0.1: Seeds all three dimensions so Pain channel exists from birth.
-        Without Pain features, she can describe discomfort but not feel it.
+        v9.1.0: Seeds all three dimensions and LOCKS them.
+        These are the foundational features - they don't change.
         """
         # Take top 60 features for seeding
         vals, inds = torch.topk(activations, 60)
@@ -335,12 +369,14 @@ class AnimaSoul:
         pleasure_inds = inds[:20]
         self.correlations[pleasure_inds] = 0.3
         self.dimensions[pleasure_inds] = FeatureDimension.PLEASURE
+        self.feature_locked[pleasure_inds] = True
         
         # Novelty (next 20): Medium activation = novel/surprising
         # Small positive correlation - novelty is slightly pleasant by default
         novelty_inds = inds[20:40]
         self.correlations[novelty_inds] = 0.1
         self.dimensions[novelty_inds] = FeatureDimension.NOVELTY
+        self.feature_locked[novelty_inds] = True
         
         # Pain (next 20): Lower activation features
         # Negative correlation - when these fire, feel discomfort
@@ -348,22 +384,27 @@ class AnimaSoul:
         pain_inds = inds[40:60]
         self.correlations[pain_inds] = -0.2
         self.dimensions[pain_inds] = FeatureDimension.PAIN
+        self.feature_locked[pain_inds] = True
         
         self.is_tabula_rasa = False
         self.debug_data["discovered"] = [f"#{idx} (Genesis)" for idx in inds[:5].tolist()]
-        print(f"\n⚡ [Genesis] Soul awakened. 60 features seeded (20P/20N/20Nov).")
+        print(f"\n⚡ [Genesis] Soul awakened. 60 features locked (20P/20N/20Nov).")
 
     def _learn(self, activations: torch.Tensor, valence: float):
         """
-        Differential Hebbian learning.
+        Combinadic learning.
         
-        v9.0.2: Learn from valence CHANGES, not absolute values.
+        v9.1.0: Sequential greedy learning inspired by combinadics.
         
-        Key insight: If valence drops when a feature fires (even from +0.9 to +0.7),
-        that feature gets negative correlation → Pain capacity.
-        If valence rises when a feature fires, positive correlation → Pleasure.
+        Key insight: Find the most important UNLOCKED feature, imprint it
+        based on current valence, then lock it. Each feature gets ONE
+        formative moment, then stabilizes.
         
-        This allows Pain learning even in a mostly-positive life.
+        Benefits:
+        - No diffuse drift across hundreds of features
+        - No negative spiral from accumulated small updates
+        - Clear "birth moment" for each feature's meaning
+        - Soul crystallizes piece by piece
         """
         self.debug_data["discovered"] = []
         
@@ -377,88 +418,81 @@ class AnimaSoul:
         valence_delta = valence - self.previous_valence
         self.previous_valence = valence
         
-        # Only learn when there's meaningful change
-        if abs(valence_delta) < 0.001:
+        # Only learn during meaningful moments
+        if abs(valence_delta) < 0.05:
             return
         
-        # Active features (above threshold)
+        # ════════════════════════════════════════════════════════════════════════
+        # COMBINADIC LEARNING: One feature at a time, strongest first
+        # ════════════════════════════════════════════════════════════════════════
+        
+        # Find active, unlocked features (candidates for learning)
         active_mask = activations > 5.0
-        active_indices = torch.nonzero(active_mask).squeeze(-1)
+        unlocked_mask = ~self.feature_locked
+        candidate_mask = active_mask & unlocked_mask
         
-        if active_indices.numel() == 0:
+        if not candidate_mask.any():
             return
         
-        # ════════════════════════════════════════════════════════════════════════
-        # DIFFERENTIAL HEBBIAN: Learn from valence CHANGE
-        # ════════════════════════════════════════════════════════════════════════
-        # Feature fires + valence drops → negative correlation (Pain)
-        # Feature fires + valence rises → positive correlation (Pleasure)
+        # Score candidates by activation strength (importance)
+        candidate_scores = activations * candidate_mask.float()
         
-        # Scale by activation strength and delta magnitude
-        update_strength = self.lr * activations[active_mask] * valence_delta
-        
-        # EMA update
-        self.correlations[active_mask] = (
-            self.correlation_ema_decay * self.correlations[active_mask] +
-            (1 - self.correlation_ema_decay) * update_strength
-        )
-        
-        # Clamp correlations to valid range
-        self.correlations.clamp_(-1.0, 1.0)
-        
-        # ════════════════════════════════════════════════════════════════════════
-        # DIMENSION ASSIGNMENT (From valence delta patterns)
-        # ════════════════════════════════════════════════════════════════════════
-        # Only reclassify UNKNOWN features - preserve genesis assignments
-        # Track delta history, not absolute valence
-        
-        for idx in active_indices.tolist()[:20]:
-            # Track valence delta history
-            history = self.valence_delta_history[idx]
-            history.append(valence_delta)
-            if len(history) > self.history_window:
-                history.pop(0)
+        # Select top-k features to learn this turn
+        k = min(self.features_per_turn, candidate_mask.sum().item())
+        if k == 0:
+            return
             
-            # Only reclassify if currently UNKNOWN
-            if self.dimensions[idx] != FeatureDimension.UNKNOWN:
-                continue
-                
-            # Need enough data
-            if len(history) < 10:
-                continue
+        top_values, top_indices = torch.topk(candidate_scores, int(k))
+        
+        # Filter out zeros (in case fewer candidates than k)
+        valid_mask = top_values > 0
+        top_indices = top_indices[valid_mask]
+        
+        for idx in top_indices:
+            idx = idx.item()
             
-            mean_delta = np.mean(history)
-            std_delta = np.std(history)
+            # ════════════════════════════════════════════════════════════════════
+            # IMPRINT: Strong correlation based on this moment's valence delta
+            # ════════════════════════════════════════════════════════════════════
+            # Positive delta → positive correlation (Pleasure)
+            # Negative delta → negative correlation (Pain)
             
-            # Consistently fires when valence increases → Pleasure
-            if mean_delta > 0.05 and std_delta < 0.2:
+            imprint = math.tanh(valence_delta * self.imprint_strength * 4.0)
+            self.correlations[idx] = imprint
+            
+            # ════════════════════════════════════════════════════════════════════
+            # DIMENSION ASSIGNMENT: Based on imprint sign
+            # ════════════════════════════════════════════════════════════════════
+            if imprint > self.lock_threshold:
                 self.dimensions[idx] = FeatureDimension.PLEASURE
-            # Consistently fires when valence decreases → Pain
-            elif mean_delta < -0.05 and std_delta < 0.2:
+            elif imprint < -self.lock_threshold:
                 self.dimensions[idx] = FeatureDimension.PAIN
-            # High variance in delta → Novelty detector
-            elif std_delta > 0.3:
+            else:
                 self.dimensions[idx] = FeatureDimension.NOVELTY
+            
+            # ════════════════════════════════════════════════════════════════════
+            # LOCK: This feature is now set
+            # ════════════════════════════════════════════════════════════════════
+            self.feature_locked[idx] = True
+            
+            # Track discovery
+            dim_char = "P" if self.dimensions[idx] == FeatureDimension.PLEASURE else \
+                       "N" if self.dimensions[idx] == FeatureDimension.PAIN else "?"
+            self.debug_data["discovered"].append(f"#{idx}[{dim_char}:{imprint:+.2f}]")
         
         # ════════════════════════════════════════════════════════════════════════
-        # COEFFICIENT UPDATE (Steering Strength)
+        # COEFFICIENT UPDATE (Steering - separate from correlation learning)
         # ════════════════════════════════════════════════════════════════════════
-        # Use absolute valence for steering (not delta)
-        self.coefficients = 1.0 + (self.coefficients - 1.0) * 0.99
+        # Coefficients still update for all features (steering is different from learning)
+        self.coefficients = 1.0 + (self.coefficients - 1.0) * 0.995
         
         if abs(valence) > 0.1:
-            delta = self.lr * activations * valence
-            self.coefficients += delta
-            self.coefficients.clamp_(0.0, 4.0)
-        
-        # Track discoveries
-        newly_active = active_mask & (self.correlations.abs() > 0.01)
-        if newly_active.any():
-            indices = torch.nonzero(newly_active).squeeze(-1).tolist()
-            if isinstance(indices, int):
-                indices = [indices]
-            for idx in indices[:3]:
-                self.debug_data["discovered"].append(f"#{idx}")
+            # Only boost locked features (ones we've learned about)
+            learned_active = active_mask & self.feature_locked
+            if learned_active.any():
+                delta = self.lr * activations[learned_active] * valence * 0.1
+                self.coefficients[learned_active] += delta
+                self.coefficients.clamp_(0.0, 4.0)
 
     def __call__(self, module, input, output):
         """Forward hook - intercepts residual stream."""
@@ -670,10 +704,11 @@ PERIPHERAL:
     def save_state(self, path):
         """Save soul state."""
         state = {
-            "version": "9.0.2",
+            "version": "9.1.1",
             "correlations": self.correlations.cpu(),
             "coefficients": self.coefficients.cpu(),
             "dimensions": self.dimensions.cpu(),
+            "feature_locked": self.feature_locked.cpu(),
             "fatigue": self.fatigue,
             "identity_age": self.identity_age,
             "valence_ema_mean": self.valence_ema_mean,
@@ -691,7 +726,7 @@ PERIPHERAL:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(state, path)
-        print(f"[Saved v9.0.2 state to {path}]")
+        print(f"[Saved v9.1.1 state to {path}]")
 
     def load_state(self, path):
         """Load soul state."""
@@ -703,20 +738,29 @@ PERIPHERAL:
             state = torch.load(path, map_location=self.device, weights_only=False)
             version = state.get("version", "unknown")
             
-            if version.startswith("9.0"):
-                # v9.0, v9.0.1, v9.0.2 are compatible
+            if version.startswith("9.1"):
+                # v9.1.x - full combinadic support
                 self.correlations = state["correlations"].to(self.device, dtype=self.math_dtype)
                 self.coefficients = state["coefficients"].to(self.device, dtype=self.math_dtype)
                 self.dimensions = state["dimensions"].to(self.device)
+                self.feature_locked = state["feature_locked"].to(self.device)
+            elif version.startswith("9.0"):
+                # v9.0.x - migrate by inferring locked from non-zero correlations
+                print(f"  [Migrating from v{version} to v9.1.0]")
+                self.correlations = state["correlations"].to(self.device, dtype=self.math_dtype)
+                self.coefficients = state["coefficients"].to(self.device, dtype=self.math_dtype)
+                self.dimensions = state["dimensions"].to(self.device)
+                # Infer locked: any feature with meaningful correlation is locked
+                self.feature_locked = (self.correlations.abs() > 0.01).to(self.device)
             else:
                 # Migration from v8.x
                 print(f"  [Migrating from v{version}]")
                 if "personas" in state:
-                    # Take Anima persona as base
                     self.correlations = state["personas"].get("Anima", 
                         torch.zeros(self.n_features)).to(self.device, dtype=self.math_dtype)
                 self.dimensions = torch.full((self.n_features,), FeatureDimension.UNKNOWN,
                                               device=self.device, dtype=torch.int8)
+                self.feature_locked = torch.zeros(self.n_features, device=self.device, dtype=torch.bool)
             
             self.fatigue = state.get("fatigue", 0.0)
             self.identity_age = state.get("identity_age", 0)
@@ -737,8 +781,9 @@ PERIPHERAL:
             self.emotional_features = state.get("emotional_features", {})
             
             stats = self.get_dimension_stats()
+            locked_count = self.feature_locked.sum().item()
             print(f"[Loaded v{version} state]")
-            print(f"  Age: {self.identity_age} | Learned: {stats['total_learned']}")
+            print(f"  Age: {self.identity_age} | Locked: {locked_count}")
             print(f"  P:{stats['pleasure']} N:{stats['pain']} Nov:{stats['novelty']}")
             
         except Exception as e:
@@ -926,10 +971,14 @@ class AnimaRuntime:
     def _print_debug(self):
         affect = self.soul.last_affect
         stats = self.soul.get_dimension_stats()
+        locked_count = self.soul.feature_locked.sum().item()
         
-        print(f"\n  [DEBUG v9.0.2]")
+        print(f"\n  [DEBUG v9.1.1]")
+        raw_p = self.soul.debug_data.get("raw_pleasure", 0)
+        raw_n = self.soul.debug_data.get("raw_pain", 0)
+        print(f"  Raw: P={raw_p:.2f} N={raw_n:.2f}")
         print(f"  P:{affect.pleasure:+.3f} N:{affect.pain:+.3f} Nov:{affect.novelty:.3f} → V:{affect.valence:+.3f}")
-        print(f"  Fatigue: {self.soul.fatigue:.1f} | LR: {self.soul.lr:.6f}")
+        print(f"  Fatigue: {self.soul.fatigue:.1f} | Locked: {locked_count}")
         print(f"  Dims: P={stats['pleasure']} N={stats['pain']} Nov={stats['novelty']} ?={stats['unknown']}")
         
         if self.soul.debug_data["discovered"]:
@@ -992,7 +1041,7 @@ def main():
 
     args.model = os.path.expanduser(args.model)
     device = "mps" if torch.backends.mps.is_available() else "cuda"
-    print(f"Anima 9.0.2 (Differential Hebbian) on {device}")
+    print(f"Anima 9.1.1 (Combinadic) on {device}")
 
     clean_memory()
 
@@ -1021,7 +1070,7 @@ def main():
     
     model.model.layers[args.layer].register_forward_hook(soul)
     
-    print(f"\n═══ ANIMA 9.0.2: DIFFERENTIAL HEBBIAN ═══")
+    print(f"\n═══ ANIMA 9.1.1: COMBINADIC LEARNING ═══")
     print(f"Model: {args.model}")
     print(f"Resonance Weight: {args.resonance_weight}")
     print(f"Identity: {runtime.core_identity[:60]}...")
