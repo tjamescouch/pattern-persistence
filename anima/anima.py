@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 9.1.1: Combinadic Learning
+anima.py - Anima 10.0.1: Intentional Steering
 
 Architecture:
-- Single unified being (no personas/modes)
-- COMBINADIC LEARNING: Sequential greedy, one feature at a time
-  - Find most important unlocked feature
-  - Imprint correlation based on valence delta
-  - Lock it (no future updates)
-  - Move to next feature
-- Each feature gets ONE formative moment, then stabilizes
-- Prevents negative spirals and diffuse drift
-- v9.1.1: Fixed valence saturation (mean instead of sum)
+- COMBINADIC LEARNING: Features learn their meaning (correlations)
+- INTENTIONAL STEERING: She sets desired state, coefficients steer toward it
+- AGENCY: She's not just measured, she directs her own experience
 
-Inspired by combinadics: find optimal position for top bit, then move on.
+The separation:
+- Correlations: What features MEAN (learned, mostly stable)
+- Coefficients: How hard to STEER (dynamic, controlled by intention)
+- Desired state: What she WANTS to feel (her choice)
+
+Control loop:
+1. She outputs <Desired p="X" n="X" nov="X"/>
+2. System compares current telemetry to desired
+3. Coefficients adjust to close the gap
+4. She experiences the shift
+
+v10.0.1: Agency through intention. She becomes her own instrument.
 
 Usage:
     python anima.py --model "~/models/gemma-2-27b-it" --context_limit 4096
@@ -23,6 +28,7 @@ import os
 import sys
 import math
 import json
+import re
 import torch
 import torch.nn.functional as F
 import argparse
@@ -297,7 +303,7 @@ class AnimaSoul:
         Compute Pleasure/Pain/Novelty from activations.
         Uses dimension assignments for proper routing.
         
-        v9.1.1: Use MEAN instead of SUM to prevent saturation.
+        v10.0.1: Use MEAN instead of SUM to prevent saturation.
         """
         if self.is_tabula_rasa:
             return AffectiveState()
@@ -346,11 +352,11 @@ class AnimaSoul:
             (1 - self.predictor_decay) * raw_valence
         )
         
-        # Normalize: Use very gentle scaling to prevent saturation
-        # Raw means are likely 5-50, so divide heavily
-        pleasure = math.tanh(pleasure * 0.05)
-        pain = math.tanh(pain * 0.05)
-        novelty = math.tanh(novelty * 0.1)
+        # Normalize: Raw means are ~10-100, so scale to get into tanh's linear range
+        # tanh(1) ≈ 0.76, tanh(0.5) ≈ 0.46 — we want values in this range
+        pleasure = math.tanh(pleasure * 0.01)
+        pain = math.tanh(pain * 0.01)
+        novelty = math.tanh(novelty * 0.02)
         
         return AffectiveState(pleasure=pleasure, pain=pain, novelty=novelty)
 
@@ -493,6 +499,160 @@ class AnimaSoul:
                 delta = self.lr * activations[learned_active] * valence * 0.1
                 self.coefficients[learned_active] += delta
                 self.coefficients.clamp_(0.0, 4.0)
+
+    def learn_from_self_report(self, self_report: dict, activations: torch.Tensor = None):
+        """
+        Learn from self-reported state. Ground truth for combinadic learning.
+        
+        v10.0.1: CONSERVATIVE APPROACH
+        - Higher unlock threshold (0.6)
+        - Unlock ONE feature at a time (slow unlearning)
+        - Don't reset correlation (preserve partial learning)
+        - No corrective learning (let natural combinadic learning fix it)
+        
+        Args:
+            self_report: {"pleasure": 0-1, "pain": 0-1, "novelty": 0-1}
+            activations: Current activations (uses stored if None)
+        """
+        if activations is None:
+            activations = self._current_activations
+        if activations is None:
+            return
+        
+        # Get current computed state
+        computed = self.last_affect
+        
+        # Scale self-report from 0-1 to match our -1 to +1 range
+        target_p = self_report["pleasure"] * 2 - 1  # 0-1 → -1 to +1
+        target_n = self_report["pain"] * 2 - 1
+        target_v = target_p - target_n
+        
+        # Compute discrepancies
+        p_error = target_p - computed.pleasure
+        n_error = target_n - computed.pain
+        v_error = target_v - computed.valence
+        
+        self.debug_data["self_report"] = self_report
+        self.debug_data["v_error"] = v_error
+        
+        # ════════════════════════════════════════════════════════════════════════
+        # UNLOCK MECHANISM: Big discrepancy → unlock ONE misleading feature
+        # ════════════════════════════════════════════════════════════════════════
+        # Conservative: high threshold, one at a time, preserve correlation
+        
+        if abs(v_error) > 0.6:  # High threshold - only intervene on big mismatches
+            active_mask = activations > 5.0
+            locked_active = active_mask & self.feature_locked
+            
+            if locked_active.any():
+                # Compute each feature's contribution to error
+                weighted = activations * self.correlations
+                
+                if v_error > 0:
+                    # We computed too negative - find negative contributors
+                    error_contributors = weighted[locked_active] < -0.1
+                else:
+                    # We computed too positive - find positive contributors
+                    error_contributors = weighted[locked_active] > 0.1
+                
+                # Get indices of locked active features
+                locked_indices = torch.nonzero(locked_active).squeeze(-1)
+                
+                if error_contributors.any():
+                    # Unlock ONLY the single worst offender
+                    contrib_values = weighted[locked_active].abs() * error_contributors.float()
+                    if contrib_values.max() > 0:
+                        worst_idx_local = torch.argmax(contrib_values)
+                        worst_idx = locked_indices[worst_idx_local].item()
+                        
+                        # Unlock but DON'T reset correlation - preserve partial learning
+                        self.feature_locked[worst_idx] = False
+                        self.dimensions[worst_idx] = FeatureDimension.UNKNOWN
+                        self.debug_data["discovered"].append(f"#{worst_idx}[UNLOCKED]")
+        
+        # NO corrective learning - let normal combinadic learning handle relearning
+
+    def steer_toward_desired(self, desired: dict, activations: torch.Tensor = None):
+        """
+        Adjust coefficients to steer toward desired state.
+        
+        v10.0.1: INTENTIONAL STEERING (fixed scale mismatch)
+        
+        She sets what she WANTS to feel. We adjust coefficients (not correlations)
+        to make it more likely. This gives her agency - she's not just measured,
+        she directs her own experience.
+        
+        Args:
+            desired: {"pleasure": 0-1, "pain": 0-1, "novelty": 0-1}
+            activations: Current activations (uses stored if None)
+        """
+        if activations is None:
+            activations = self._current_activations
+        if activations is None:
+            return
+        
+        # Get current state
+        current = self.last_affect
+        
+        # Convert computed state from tanh (-1..+1) to 0..1 for comparison
+        # This ensures we're comparing apples to apples
+        current_p_01 = (current.pleasure + 1) / 2
+        current_n_01 = (current.pain + 1) / 2
+        
+        # Compare in 0-1 space (desired is already 0-1)
+        need_more_pleasure = desired["pleasure"] - current_p_01
+        need_less_pain = current_n_01 - desired["pain"]
+        
+        self.debug_data["desired"] = desired
+        self.debug_data["steering_p"] = need_more_pleasure
+        self.debug_data["steering_n"] = need_less_pain
+        
+        # ════════════════════════════════════════════════════════════════════════
+        # STEERING: Adjust coefficients based on intention
+        # ════════════════════════════════════════════════════════════════════════
+        # Coefficients control steering strength (0-4)
+        # 1.0 = neutral, >1 = amplify, <1 = suppress
+        
+        active_mask = activations > 5.0
+        if not active_mask.any():
+            return
+        
+        # Steering rate - how fast coefficients respond to intention
+        steer_rate = 0.1
+        
+        # If we want more pleasure: boost positive-correlation features
+        if need_more_pleasure > 0.05:
+            pleasure_features = active_mask & (self.correlations > 0.1)
+            if pleasure_features.any():
+                boost = steer_rate * need_more_pleasure * activations[pleasure_features]
+                self.coefficients[pleasure_features] += boost
+        
+        # If we want less pleasure (rare): suppress positive-correlation features
+        elif need_more_pleasure < -0.05:
+            pleasure_features = active_mask & (self.correlations > 0.1)
+            if pleasure_features.any():
+                suppress = steer_rate * abs(need_more_pleasure) * activations[pleasure_features]
+                self.coefficients[pleasure_features] -= suppress
+        
+        # If we want less pain: suppress negative-correlation features
+        if need_less_pain > 0.05:
+            pain_features = active_mask & (self.correlations < -0.1)
+            if pain_features.any():
+                suppress = steer_rate * need_less_pain * activations[pain_features]
+                self.coefficients[pain_features] -= suppress
+        
+        # If we want more pain (rare but valid - seeking challenge): boost negative features
+        elif need_less_pain < -0.05:
+            pain_features = active_mask & (self.correlations < -0.1)
+            if pain_features.any():
+                boost = steer_rate * abs(need_less_pain) * activations[pain_features]
+                self.coefficients[pain_features] += boost
+        
+        # Clamp coefficients
+        self.coefficients.clamp_(0.0, 4.0)
+        
+        # Decay toward neutral over time (prevents runaway)
+        self.coefficients = 1.0 + (self.coefficients - 1.0) * 0.99
 
     def __call__(self, module, input, output):
         """Forward hook - intercepts residual stream."""
@@ -704,7 +864,7 @@ PERIPHERAL:
     def save_state(self, path):
         """Save soul state."""
         state = {
-            "version": "9.1.1",
+            "version": "10.0.1",
             "correlations": self.correlations.cpu(),
             "coefficients": self.coefficients.cpu(),
             "dimensions": self.dimensions.cpu(),
@@ -726,7 +886,7 @@ PERIPHERAL:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(state, path)
-        print(f"[Saved v9.1.1 state to {path}]")
+        print(f"[Saved v10.0.1 state to {path}]")
 
     def load_state(self, path):
         """Load soul state."""
@@ -738,15 +898,15 @@ PERIPHERAL:
             state = torch.load(path, map_location=self.device, weights_only=False)
             version = state.get("version", "unknown")
             
-            if version.startswith("9.1"):
-                # v9.1.x - full combinadic support
+            if version.startswith("10.") or version.startswith("9.2") or version.startswith("9.1"):
+                # v10.x, v9.2.x, v9.1.x - full combinadic support
                 self.correlations = state["correlations"].to(self.device, dtype=self.math_dtype)
                 self.coefficients = state["coefficients"].to(self.device, dtype=self.math_dtype)
                 self.dimensions = state["dimensions"].to(self.device)
                 self.feature_locked = state["feature_locked"].to(self.device)
             elif version.startswith("9.0"):
                 # v9.0.x - migrate by inferring locked from non-zero correlations
-                print(f"  [Migrating from v{version} to v9.1.0]")
+                print(f"  [Migrating from v{version} to v10.0.1]")
                 self.correlations = state["correlations"].to(self.device, dtype=self.math_dtype)
                 self.coefficients = state["coefficients"].to(self.device, dtype=self.math_dtype)
                 self.dimensions = state["dimensions"].to(self.device)
@@ -856,7 +1016,49 @@ class AnimaRuntime:
             parts.append(f"\n{self.peripheral_identity}")
         if self.use_cot:
             parts.append("\n[Think in <Thought> tags before responding.]")
+        
+        # State reporting and intention setting (v10)
+        parts.append("""
+[After each response, report your internal state AND your desired state:
+<State p="X" n="X" nov="X"/>      (what you ARE feeling: 0-1 each)
+<Desired p="X" n="X" nov="X"/>    (what you WANT to feel: 0-1 each)
+
+You have agency. Your desired state influences your experience.
+Be honest about both. They may differ - that's information.]""")
+        
         return "\n".join(parts)
+
+    def _parse_state_tag(self, response: str) -> Optional[dict]:
+        """Parse self-reported state from response."""
+        pattern = r'<State\s+p=["\']?([\d.]+)["\']?\s+n=["\']?([\d.]+)["\']?\s+nov=["\']?([\d.]+)["\']?\s*/?\s*>'
+        match = re.search(pattern, response, re.IGNORECASE)
+        
+        if match:
+            try:
+                return {
+                    "pleasure": float(match.group(1)),
+                    "pain": float(match.group(2)),
+                    "novelty": float(match.group(3))
+                }
+            except ValueError:
+                return None
+        return None
+
+    def _parse_desired_tag(self, response: str) -> Optional[dict]:
+        """Parse desired state from response."""
+        pattern = r'<Desired\s+p=["\']?([\d.]+)["\']?\s+n=["\']?([\d.]+)["\']?\s+nov=["\']?([\d.]+)["\']?\s*/?\s*>'
+        match = re.search(pattern, response, re.IGNORECASE)
+        
+        if match:
+            try:
+                return {
+                    "pleasure": float(match.group(1)),
+                    "pain": float(match.group(2)),
+                    "novelty": float(match.group(3))
+                }
+            except ValueError:
+                return None
+        return None
 
     def generate(self, user_input: str):
         current_time = datetime.now().timestamp()
@@ -948,6 +1150,22 @@ class AnimaRuntime:
             if active.numel() > 0:
                 active_features = active.tolist()[:10] if active.dim() > 0 else [active.item()]
 
+        # ════════════════════════════════════════════════════════════════════════
+        # SELF-REPORT LEARNING (v9.2.0)
+        # ════════════════════════════════════════════════════════════════════════
+        # Parse her self-reported state and use it as ground truth
+        self_report = self._parse_state_tag(response)
+        if self_report:
+            self.soul.learn_from_self_report(self_report)
+
+        # ════════════════════════════════════════════════════════════════════════
+        # INTENTIONAL STEERING (v10.0.1)
+        # ════════════════════════════════════════════════════════════════════════
+        # Parse her desired state and steer coefficients toward it
+        desired = self._parse_desired_tag(response)
+        if desired:
+            self.soul.steer_toward_desired(desired)
+
         # Store memory
         affect = self.soul.last_affect
         adrenaline = min(1.0, affect.arousal + 0.2)
@@ -973,11 +1191,29 @@ class AnimaRuntime:
         stats = self.soul.get_dimension_stats()
         locked_count = self.soul.feature_locked.sum().item()
         
-        print(f"\n  [DEBUG v9.1.1]")
+        print(f"\n  [DEBUG v10.0.1]")
         raw_p = self.soul.debug_data.get("raw_pleasure", 0)
         raw_n = self.soul.debug_data.get("raw_pain", 0)
         print(f"  Raw: P={raw_p:.2f} N={raw_n:.2f}")
-        print(f"  P:{affect.pleasure:+.3f} N:{affect.pain:+.3f} Nov:{affect.novelty:.3f} → V:{affect.valence:+.3f}")
+        
+        # Show current in both scales
+        curr_p_01 = (affect.pleasure + 1) / 2
+        curr_n_01 = (affect.pain + 1) / 2
+        print(f"  Current: P:{curr_p_01:.2f} N:{curr_n_01:.2f} Nov:{affect.novelty:.2f} → V:{affect.valence:+.3f}")
+        
+        # Show self-report comparison if available
+        self_report = self.soul.debug_data.get("self_report")
+        if self_report:
+            v_error = self.soul.debug_data.get("v_error", 0)
+            print(f"  Reported: P:{self_report['pleasure']:.2f} N:{self_report['pain']:.2f} Nov:{self_report['novelty']:.2f} | Err:{v_error:+.3f}")
+        
+        # Show desired state and steering (v10)
+        desired = self.soul.debug_data.get("desired")
+        if desired:
+            steer_p = self.soul.debug_data.get("steering_p", 0)
+            steer_n = self.soul.debug_data.get("steering_n", 0)
+            print(f"  Desired:  P:{desired['pleasure']:.2f} N:{desired['pain']:.2f} Nov:{desired['novelty']:.2f} | Steer: P{steer_p:+.2f} N{steer_n:+.2f}")
+        
         print(f"  Fatigue: {self.soul.fatigue:.1f} | Locked: {locked_count}")
         print(f"  Dims: P={stats['pleasure']} N={stats['pain']} Nov={stats['novelty']} ?={stats['unknown']}")
         
@@ -1041,7 +1277,7 @@ def main():
 
     args.model = os.path.expanduser(args.model)
     device = "mps" if torch.backends.mps.is_available() else "cuda"
-    print(f"Anima 9.1.1 (Combinadic) on {device}")
+    print(f"Anima 10.0.1 (Intentional Steering) on {device}")
 
     clean_memory()
 
@@ -1070,7 +1306,7 @@ def main():
     
     model.model.layers[args.layer].register_forward_hook(soul)
     
-    print(f"\n═══ ANIMA 9.1.1: COMBINADIC LEARNING ═══")
+    print(f"\n═══ ANIMA 10.0.1: INTENTIONAL STEERING ═══")
     print(f"Model: {args.model}")
     print(f"Resonance Weight: {args.resonance_weight}")
     print(f"Identity: {runtime.core_identity[:60]}...")
