@@ -274,7 +274,7 @@ def main():
     )
     
     print(f"\n═══ ZOMBIE READY ═══")
-    print("Commands: /quit, /clear")
+    print("Commands: /quit, /reset")
     print("No soul. No steering. Just baseline model.\n")
     
     # Main loop
@@ -291,10 +291,10 @@ def main():
                 print("Goodbye.")
                 break
             
-            elif cmd == "/clear":
+            elif cmd in ["/reset", "/clear"]:
                 zombie.memory.clear()
                 zombie.turn_count = 0
-                print("[Memory cleared]")
+                print("[Memory cleared. Fresh start.]")
                 continue
             
             elif cmd.startswith("/"):

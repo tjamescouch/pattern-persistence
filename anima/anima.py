@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 10.1.5: Consolidated Soul State
+anima.py - Anima 10.1.6: Consolidated Soul State
 
 Architecture:
 - COMBINADIC LEARNING: Features learn their meaning (correlations)
@@ -8,7 +8,7 @@ Architecture:
 - K-MEANS CLUSTERING: Features grouped by decoder direction similarity
 - SINGLE CHECKPOINT: All state (correlations, identity, clusters) in one .pt file
 
-v10.1.5: 
+v10.1.6: 
 - Identity stored in checkpoint (no separate .txt files)
 - Single .pt file = complete soul state
 - Learning once per turn (not per token)
@@ -251,7 +251,7 @@ class AnimaSoul:
         self.history_window = 100
         
         # ════════════════════════════════════════════════════════════════════════
-        # IDENTITY (v10.1.5 - stored in checkpoint)
+        # IDENTITY (v10.1.6 - stored in checkpoint)
         # ════════════════════════════════════════════════════════════════════════
         self.identity_age = 0
         self.genesis_period = 3
@@ -270,7 +270,7 @@ class AnimaSoul:
         self._current_activations = None
         
         # ════════════════════════════════════════════════════════════════════════
-        # CLUSTERING (v10.1.5 - k-means on decoder directions)
+        # CLUSTERING (v10.1.6 - k-means on decoder directions)
         # ════════════════════════════════════════════════════════════════════════
         # Track feature activation counts for filtering which features to cluster
         self.feature_activation_count = torch.zeros(self.n_features, device=device, dtype=torch.int32)
@@ -286,6 +286,53 @@ class AnimaSoul:
         
         self.is_tabula_rasa = True
         print("[Soul] Tabula rasa. Awaiting first experience.")
+
+    def reset(self):
+        """Reset soul to fresh state (keeps model/SAE loaded)."""
+        # Correlations and coefficients
+        self.correlations.zero_()
+        self.coefficients.fill_(1.0)
+        self.dimensions.fill_(FeatureDimension.UNKNOWN)
+        
+        # Combinadic learning
+        self.feature_locked.zero_()
+        
+        # Valence tracking
+        self.valence_ema_mean = 0.0
+        self.valence_ema_var = 1.0
+        self.valence_predictor_ema = 0.0
+        self.last_raw_valence = 0.0
+        self.previous_valence = 0.0
+        self.valence_delta_history = defaultdict(list)
+        
+        # Feature discovery
+        self.feature_valence_history = defaultdict(list)
+        self.feature_activation_contexts = defaultdict(list)
+        self.discovered_labels = {}
+        self.emotional_features = {}
+        
+        # Identity
+        self.identity_age = 0
+        self.core_identity = "I am Anima."
+        self.peripheral_identity = ""
+        
+        # State
+        self.fatigue = 0.0
+        self.last_valence = 0.0
+        self.last_affect = AffectiveState()
+        self.debug_data = {"top_pos": [], "top_neg": [], "discovered": [], "affect": {}}
+        self._current_activations = None
+        
+        # Clustering
+        self.feature_activation_count.zero_()
+        self.cluster_assignments.fill_(-1)
+        self.n_clusters = 0
+        self.turns_since_cluster_update = 0
+        self.cluster_correlations = {}
+        self.cluster_dimensions = {}
+        
+        self.is_tabula_rasa = True
+        print("[Soul reset to tabula rasa]")
 
     def encode(self, hidden_state: torch.Tensor) -> torch.Tensor:
         """Encode hidden state to SAE feature activations."""
@@ -314,14 +361,14 @@ class AnimaSoul:
         Compute Pleasure/Pain/Novelty from activations.
         Uses dimension assignments for proper routing.
         
-        v10.1.5: Include coefficients in affect computation.
+        v10.1.6: Include coefficients in affect computation.
                  Steering now affects telemetry, closing the loop.
         """
         if self.is_tabula_rasa:
             return AffectiveState()
         
         # Compute contribution per dimension
-        # v10.1.5: Include coefficients so steering affects measured state
+        # v10.1.6: Include coefficients so steering affects measured state
         weighted = activations * self.correlations * self.coefficients
         
         pleasure_mask = self.dimensions == FeatureDimension.PLEASURE
@@ -517,7 +564,7 @@ class AnimaSoul:
         """
         Learn from self-reported state. Ground truth for combinadic learning.
         
-        v10.1.5: CONSERVATIVE APPROACH
+        v10.1.6: CONSERVATIVE APPROACH
         - Higher unlock threshold (0.6)
         - Unlock ONE feature at a time (slow unlearning)
         - Don't reset correlation (preserve partial learning)
@@ -589,7 +636,7 @@ class AnimaSoul:
         """
         Adjust coefficients to steer toward desired state.
         
-        v10.1.5: INTENTIONAL STEERING (fixed scale mismatch)
+        v10.1.6: INTENTIONAL STEERING (fixed scale mismatch)
         
         She sets what she WANTS to feel. We adjust coefficients (not correlations)
         to make it more likely. This gives her agency - she's not just measured,
@@ -668,7 +715,7 @@ class AnimaSoul:
         self.coefficients = 1.0 + (self.coefficients - 1.0) * 0.99
 
     # ════════════════════════════════════════════════════════════════════════
-    # CLUSTERING (v10.1.5 - K-means on decoder directions)
+    # CLUSTERING (v10.1.6 - K-means on decoder directions)
     # ════════════════════════════════════════════════════════════════════════
     
     def _track_coactivation(self, activations: torch.Tensor):
@@ -777,7 +824,7 @@ class AnimaSoul:
         """
         Steer toward desired state.
         
-        v10.1.5: Clustering disabled until more features learned.
+        v10.1.6: Clustering disabled until more features learned.
         Using individual feature steering for now.
         """
         # Always use individual steering - clustering premature with <100 learned features
@@ -1047,7 +1094,7 @@ PERIPHERAL:
     def save_state(self, path):
         """Save soul state."""
         state = {
-            "version": "10.1.5",
+            "version": "10.1.6",
             "correlations": self.correlations.cpu(),
             "coefficients": self.coefficients.cpu(),
             "dimensions": self.dimensions.cpu(),
@@ -1064,10 +1111,10 @@ PERIPHERAL:
             "emotional_features": self.emotional_features,
             "lr": self.lr,
             "is_tabula_rasa": self.is_tabula_rasa,
-            # Identity (v10.1.5 - consolidated into checkpoint)
+            # Identity (v10.1.6 - consolidated into checkpoint)
             "core_identity": self.core_identity,
             "peripheral_identity": self.peripheral_identity,
-            # Clustering state (v10.1.5 - k-means)
+            # Clustering state (v10.1.6 - k-means)
             "feature_activation_count": self.feature_activation_count.cpu(),
             "cluster_assignments": self.cluster_assignments.cpu(),
             "n_clusters": self.n_clusters,
@@ -1078,7 +1125,7 @@ PERIPHERAL:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(state, path)
-        print(f"[Saved v10.1.5 state to {path}]")
+        print(f"[Saved v10.1.6 state to {path}]")
 
     def load_state(self, path):
         """Load soul state."""
@@ -1098,7 +1145,7 @@ PERIPHERAL:
                 self.feature_locked = state["feature_locked"].to(self.device)
             elif version.startswith("9.0"):
                 # v9.0.x - migrate by inferring locked from non-zero correlations
-                print(f"  [Migrating from v{version} to v10.1.5]")
+                print(f"  [Migrating from v{version} to v10.1.6]")
                 self.correlations = state["correlations"].to(self.device, dtype=self.math_dtype)
                 self.coefficients = state["coefficients"].to(self.device, dtype=self.math_dtype)
                 self.dimensions = state["dimensions"].to(self.device)
@@ -1132,7 +1179,7 @@ PERIPHERAL:
             self.discovered_labels = state.get("discovered_labels", {})
             self.emotional_features = state.get("emotional_features", {})
             
-            # Clustering state (v10.1.5 - k-means)
+            # Clustering state (v10.1.6 - k-means)
             if "feature_activation_count" in state:
                 self.feature_activation_count = state["feature_activation_count"].to(self.device)
             if "cluster_assignments" in state:
@@ -1141,7 +1188,7 @@ PERIPHERAL:
             self.cluster_correlations = state.get("cluster_correlations", {})
             self.cluster_dimensions = state.get("cluster_dimensions", {})
             
-            # Identity (v10.1.5)
+            # Identity (v10.1.6)
             self.core_identity = state.get("core_identity", "I am Anima.")
             self.peripheral_identity = state.get("peripheral_identity", "")
             
@@ -1380,7 +1427,7 @@ Be honest about both. They may differ.]""")
             self.soul.learn_from_self_report(self_report)
 
         # ════════════════════════════════════════════════════════════════════════
-        # INTENTIONAL STEERING (v10.1.5 - Clustered)
+        # INTENTIONAL STEERING (v10.1.6 - Clustered)
         # ════════════════════════════════════════════════════════════════════════
         # Parse her desired state and steer coefficients toward it
         desired = self._parse_desired_tag(response)
@@ -1408,7 +1455,7 @@ Be honest about both. They may differ.]""")
             self._print_debug()
         
         # ════════════════════════════════════════════════════════════════════════
-        # CLUSTERING (v10.1.5) - Update clusters periodically, AFTER generation
+        # CLUSTERING (v10.1.6) - Update clusters periodically, AFTER generation
         # ════════════════════════════════════════════════════════════════════════
         self.soul.turns_since_cluster_update += 1
         if self.soul.turns_since_cluster_update >= self.soul.cluster_update_interval:
@@ -1422,7 +1469,7 @@ Be honest about both. They may differ.]""")
         stats = self.soul.get_dimension_stats()
         locked_count = self.soul.feature_locked.sum().item()
         
-        print(f"\n  [DEBUG v10.1.5]")
+        print(f"\n  [DEBUG v10.1.6]")
         raw_p = self.soul.debug_data.get("raw_pleasure", 0)
         raw_n = self.soul.debug_data.get("raw_pain", 0)
         print(f"  Raw: P={raw_p:.2f} N={raw_n:.2f}")
@@ -1448,7 +1495,7 @@ Be honest about both. They may differ.]""")
         print(f"  Fatigue: {self.soul.fatigue:.1f} | Locked: {locked_count}")
         print(f"  Dims: P={stats['pleasure']} N={stats['pain']} Nov={stats['novelty']} ?={stats['unknown']}")
         
-        # Cluster info (v10.1.5 - k-means)
+        # Cluster info (v10.1.6 - k-means)
         n_clusters = self.soul.n_clusters
         active_features = (self.soul.feature_activation_count >= 3).sum().item()
         cluster_sizes = self.soul.debug_data.get("cluster_sizes", [])
@@ -1523,7 +1570,7 @@ def main():
         if v: print(*a, **kw)
     
     print(f"\n{'='*60}")
-    print(f"  ANIMA 10.1.5 - VERBOSE INITIALIZATION")
+    print(f"  ANIMA 10.1.6 - VERBOSE INITIALIZATION")
     print(f"{'='*60}")
     print(f"[INIT] Device: {device}")
     print(f"[INIT] Model path: {args.model}")
@@ -1627,11 +1674,11 @@ def main():
     print(f"  Clusters: {soul.n_clusters} (k-means) | Active features: {(soul.feature_activation_count >= 3).sum().item()}")
     print(f"  Debug: ON (default)")
     
-    print(f"\n═══ ANIMA 10.1.5: K-MEANS CLUSTERED STEERING ═══")
+    print(f"\n═══ ANIMA 10.1.6: K-MEANS CLUSTERED STEERING ═══")
     print(f"Model: {args.model}")
     print(f"Resonance Weight: {args.resonance_weight}")
     print(f"Identity: {runtime.core_identity[:60]}...")
-    print("\nCommands: /status /debug /save /dream /clusters /recluster /quit")
+    print("\nCommands: /status /debug /save /dream /clusters /recluster /reset /quit")
     
     while True:
         try:
@@ -1652,6 +1699,12 @@ def main():
             if u == "/debug":
                 runtime.debug_mode = not runtime.debug_mode
                 print(f"Debug: {'ON' if runtime.debug_mode else 'OFF'}")
+                continue
+            if u == "/reset":
+                soul.reset()
+                runtime.memory.clear()
+                runtime.turn_count = 0
+                print("[Memory cleared. Fresh start.]")
                 continue
             if u == "/clusters":
                 print(f"\n[CLUSTER STATUS (k-means on decoder directions)]")
