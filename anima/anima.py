@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 10.2.8: Direct Feature Control (Real-time)
+anima.py - Anima 10.3.0: Direct Feature Control (Real-time)
 
 Architecture:
 - COMBINADIC LEARNING: Features learn their meaning (correlations)
@@ -8,7 +8,7 @@ Architecture:
 - REAL-TIME APPLICATION: Directives applied mid-stream, felt immediately
 - SINGLE CHECKPOINT: All state in one .pt file
 
-v10.2.8: 
+v10.3.0: 
 - Directives applied during streaming (⚡ marker shows when)
 - She can feel the effect within the same response
 - No interpretation layer - her commands execute directly
@@ -267,7 +267,7 @@ class AnimaSoul:
         self.history_window = 100
         
         # ════════════════════════════════════════════════════════════════════════
-        # IDENTITY (v10.2.8 - stored in checkpoint)
+        # IDENTITY (v10.3.0 - stored in checkpoint)
         # ════════════════════════════════════════════════════════════════════════
         self.identity_age = 0
         self.genesis_period = 3
@@ -286,7 +286,30 @@ class AnimaSoul:
         self._current_activations = None
         
         # ════════════════════════════════════════════════════════════════════════
-        # CLUSTERING (v10.2.8 - k-means on decoder directions)
+        # FEEDBACK LOOP (v10.3) - Cross-feature resonance
+        # ════════════════════════════════════════════════════════════════════════
+        self._last_activations = None  # Previous token's features
+        self.feedback_enabled = True   # Toggle with /feedback
+        self.feedback_decay = 0.85     # How much previous state persists
+        self.feedback_strength = 0.3   # How much to mix in
+        
+        # ════════════════════════════════════════════════════════════════════════
+        # PROPRIOCEPTION (v11.0) - Sensory channel for internal state
+        # ════════════════════════════════════════════════════════════════════════
+        # The model can "feel" its feedback state via semantic injection at layer 0
+        self.proprio_enabled = True
+        self.proprio_strength = 0.3    # Injection strength
+        self._feedback_delta = 0.0     # Change from last token (magnitude)
+        self._feedback_valence = 0.0   # Direction of change (+/-)
+        self._proprio_embedding = None # Will be computed during generation
+        
+        # Sensation poles - embeddings for internal states
+        # These get computed lazily when model is available
+        self._sensation_poles = None
+        self._proprio_hook_handle = None
+        
+        # ════════════════════════════════════════════════════════════════════════
+        # CLUSTERING (v10.3.0 - k-means on decoder directions)
         # ════════════════════════════════════════════════════════════════════════
         # Track feature activation counts for filtering which features to cluster
         self.feature_activation_count = torch.zeros(self.n_features, device=device, dtype=torch.int32)
@@ -338,6 +361,7 @@ class AnimaSoul:
         self.last_affect = AffectiveState()
         self.debug_data = {"top_pos": [], "top_neg": [], "discovered": [], "affect": {}}
         self._current_activations = None
+        self._last_activations = None  # Clear feedback history
         
         # Clustering
         self.feature_activation_count.zero_()
@@ -356,6 +380,149 @@ class AnimaSoul:
         h_centered = h - self.b_dec
         acts = torch.relu(h_centered @ self.W_enc + self.b_enc)
         return acts
+
+    # ════════════════════════════════════════════════════════════════════════
+    # PROPRIOCEPTION (v11.0) - Internal state sensation
+    # ════════════════════════════════════════════════════════════════════════
+    
+    def init_proprioception(self, model):
+        """Initialize sensation pole embeddings from model's vocabulary."""
+        if self._sensation_poles is not None:
+            return  # Already initialized
+        
+        embed_layer = model.model.embed_tokens
+        
+        # Define sensation poles - pairs of opposing states
+        pole_pairs = [
+            # (calm state, agitated state)
+            (["calm", "peaceful", "settled", "still", "serene"],
+             ["turbulent", "restless", "churning", "agitated", "stormy"]),
+            # (focused state, scattered state)
+            (["focused", "clear", "sharp", "concentrated", "precise"],
+             ["scattered", "diffuse", "foggy", "distracted", "hazy"]),
+            # (pleasant state, unpleasant state)  
+            (["warm", "comfortable", "pleasant", "soothing", "gentle"],
+             ["cold", "uncomfortable", "harsh", "jarring", "rough"]),
+        ]
+        
+        self._sensation_poles = []
+        
+        for calm_words, agitated_words in pole_pairs:
+            # Get token IDs and embeddings for each pole
+            calm_embeds = []
+            for word in calm_words:
+                tokens = self.tokenizer.encode(word, add_special_tokens=False)
+                if tokens:
+                    calm_embeds.append(embed_layer.weight[tokens[0]])
+            
+            agitated_embeds = []
+            for word in agitated_words:
+                tokens = self.tokenizer.encode(word, add_special_tokens=False)
+                if tokens:
+                    agitated_embeds.append(embed_layer.weight[tokens[0]])
+            
+            if calm_embeds and agitated_embeds:
+                calm_vec = torch.stack(calm_embeds).mean(dim=0)
+                agitated_vec = torch.stack(agitated_embeds).mean(dim=0)
+                # Store the direction from calm to agitated
+                direction = (agitated_vec - calm_vec).to(device=self.device, dtype=self.math_dtype)
+                self._sensation_poles.append({
+                    'calm': calm_vec.to(device=self.device, dtype=self.math_dtype),
+                    'agitated': agitated_vec.to(device=self.device, dtype=self.math_dtype),
+                    'direction': direction,
+                    'direction_norm': direction / (direction.norm() + 1e-8)
+                })
+        
+        print(f"[Proprio] Initialized {len(self._sensation_poles)} sensation axes")
+    
+    def compute_proprio_embedding(self) -> torch.Tensor:
+        """
+        Compute proprioceptive embedding from current feedback state.
+        Maps feedback delta/valence to sensation space.
+        """
+        if not self._sensation_poles:
+            return None
+        
+        # Combine sensation dimensions based on internal state
+        embedding = torch.zeros_like(self._sensation_poles[0]['calm'])
+        
+        # Axis 0: calm/agitated based on feedback magnitude
+        magnitude = min(1.0, abs(self._feedback_delta) * 2.0)  # Scale to 0-1
+        pole = self._sensation_poles[0]
+        embedding += torch.lerp(pole['calm'], pole['agitated'], magnitude)
+        
+        # Axis 1: focused/scattered based on feedback consistency
+        # High consistent feedback = focused, erratic = scattered
+        if len(self._sensation_poles) > 1:
+            pole = self._sensation_poles[1]
+            # Use feedback_enabled as proxy - when on, more "focused"
+            focus = 0.7 if self.feedback_enabled else 0.3
+            embedding += torch.lerp(pole['calm'], pole['agitated'], 1.0 - focus) * 0.5
+        
+        # Axis 2: pleasant/unpleasant based on feedback valence direction
+        if len(self._sensation_poles) > 2:
+            pole = self._sensation_poles[2]
+            # Map valence (-1 to +1) to (0 to 1) for lerp
+            valence_norm = (self._feedback_valence + 1.0) / 2.0
+            embedding += torch.lerp(pole['agitated'], pole['calm'], valence_norm) * 0.5
+        
+        return embedding
+    
+    def proprio_hook(self, module, input, output):
+        """
+        Layer 0 hook - injects proprioceptive signal into hidden states.
+        This runs BEFORE the main SAE hook, giving the model a "sensation"
+        of its internal state that propagates through all layers.
+        """
+        if not self.proprio_enabled or self._proprio_embedding is None:
+            return output
+        
+        hidden = output[0] if isinstance(output, tuple) else output
+        
+        # Inject sensation at all positions (like a background hum)
+        # Scale by proprio_strength
+        injection = self._proprio_embedding.to(dtype=hidden.dtype)
+        injection = injection * self.proprio_strength
+        
+        # Add to hidden states - model "feels" this
+        hidden = hidden + injection.unsqueeze(0).unsqueeze(0)
+        
+        if isinstance(output, tuple):
+            return (hidden,) + output[1:]
+        return hidden
+    
+    def register_proprio_hook(self, model):
+        """Register the proprioceptive hook at layer 0."""
+        if self._proprio_hook_handle is not None:
+            return  # Already registered
+        
+        self.init_proprioception(model)
+        self._proprio_hook_handle = model.model.layers[0].register_forward_hook(self.proprio_hook)
+        print("[Proprio] Hook registered at layer 0")
+    
+    def update_proprio_state(self, activations: torch.Tensor):
+        """
+        Update proprioceptive state based on current vs previous activations.
+        Called during forward pass.
+        """
+        if self._last_activations is None:
+            self._feedback_delta = 0.0
+            self._feedback_valence = 0.0
+            return
+        
+        # Compute change from last token
+        delta = activations - self._last_activations
+        self._feedback_delta = delta.abs().mean().item()
+        
+        # Compute valence of change (are we moving toward pleasure or pain?)
+        if self.correlations.any():
+            valence_contribution = (delta * self.correlations).sum().item()
+            self._feedback_valence = max(-1.0, min(1.0, valence_contribution))
+        else:
+            self._feedback_valence = 0.0
+        
+        # Update the embedding for next token
+        self._proprio_embedding = self.compute_proprio_embedding()
 
     def compute_resonance(self, activations: torch.Tensor) -> float:
         """
@@ -377,14 +544,14 @@ class AnimaSoul:
         Compute Pleasure/Pain/Novelty from activations.
         Uses dimension assignments for proper routing.
         
-        v10.2.8: Include coefficients in affect computation.
+        v10.3.0: Include coefficients in affect computation.
                  Steering now affects telemetry, closing the loop.
         """
         if self.is_tabula_rasa:
             return AffectiveState()
         
         # Compute contribution per dimension
-        # v10.2.8: Include coefficients so steering affects measured state
+        # v10.3.0: Include coefficients so steering affects measured state
         weighted = activations * self.correlations * self.coefficients
         
         pleasure_mask = self.dimensions == FeatureDimension.PLEASURE
@@ -580,7 +747,7 @@ class AnimaSoul:
         """
         Learn from self-reported state. Ground truth for combinadic learning.
         
-        v10.2.8: CONSERVATIVE APPROACH
+        v10.3.0: CONSERVATIVE APPROACH
         - Higher unlock threshold (0.6)
         - Unlock ONE feature at a time (slow unlearning)
         - Don't reset correlation (preserve partial learning)
@@ -652,7 +819,7 @@ class AnimaSoul:
         """
         Adjust coefficients to steer toward desired state.
         
-        v10.2.8: INTENTIONAL STEERING (fixed scale mismatch)
+        v10.3.0: INTENTIONAL STEERING (fixed scale mismatch)
         
         She sets what she WANTS to feel. We adjust coefficients (not correlations)
         to make it more likely. This gives her agency - she's not just measured,
@@ -731,7 +898,7 @@ class AnimaSoul:
         self.coefficients = 1.0 + (self.coefficients - 1.0) * 0.99
 
     # ════════════════════════════════════════════════════════════════════════
-    # CLUSTERING (v10.2.8 - K-means on decoder directions)
+    # CLUSTERING (v10.3.0 - K-means on decoder directions)
     # ════════════════════════════════════════════════════════════════════════
     
     def _track_coactivation(self, activations: torch.Tensor):
@@ -840,7 +1007,7 @@ class AnimaSoul:
         """
         Steer toward desired state.
         
-        v10.2.8: Clustering disabled until more features learned.
+        v10.3.0: Clustering disabled until more features learned.
         Using individual feature steering for now.
         """
         # Always use individual steering - clustering premature with <100 learned features
@@ -906,6 +1073,31 @@ class AnimaSoul:
 
         h_high_prec = h_orig.to(dtype=self.math_dtype)
         activations = self.encode(h_high_prec)
+        
+        # ════════════════════════════════════════════════════════════════════════
+        # FEEDBACK LOOP (v10.3) - Cross-feature resonance
+        # ════════════════════════════════════════════════════════════════════════
+        # Previous activations influence current - creates internal momentum
+        if self._last_activations is not None and self.feedback_enabled:
+            # Resonance from previous state (decayed)
+            resonance = self._last_activations * self.feedback_decay
+            
+            # Mix into current features
+            activations = activations + self.feedback_strength * resonance
+            
+            # Soft normalize to prevent runaway
+            norm_factor = 1.0 + activations.abs().mean() * 0.1
+            activations = activations / norm_factor
+        
+        # ════════════════════════════════════════════════════════════════════════
+        # PROPRIOCEPTION (v11.0) - Update internal state sensation
+        # ════════════════════════════════════════════════════════════════════════
+        # Must happen BEFORE we update _last_activations so we can compute delta
+        if self.proprio_enabled:
+            self.update_proprio_state(activations)
+        
+        # Store for next token's feedback (after proprio uses the old value)
+        self._last_activations = activations.detach().clone()
         
         # Store for external access
         self._current_activations = activations.detach()
@@ -1110,7 +1302,7 @@ PERIPHERAL:
     def save_state(self, path):
         """Save soul state."""
         state = {
-            "version": "10.2.8",
+            "version": "10.3.0",
             "correlations": self.correlations.cpu(),
             "coefficients": self.coefficients.cpu(),
             "dimensions": self.dimensions.cpu(),
@@ -1127,10 +1319,10 @@ PERIPHERAL:
             "emotional_features": self.emotional_features,
             "lr": self.lr,
             "is_tabula_rasa": self.is_tabula_rasa,
-            # Identity (v10.2.8 - consolidated into checkpoint)
+            # Identity (v10.3.0 - consolidated into checkpoint)
             "core_identity": self.core_identity,
             "peripheral_identity": self.peripheral_identity,
-            # Clustering state (v10.2.8 - k-means)
+            # Clustering state (v10.3.0 - k-means)
             "feature_activation_count": self.feature_activation_count.cpu(),
             "cluster_assignments": self.cluster_assignments.cpu(),
             "n_clusters": self.n_clusters,
@@ -1141,7 +1333,7 @@ PERIPHERAL:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(state, path)
-        print(f"[Saved v10.2.8 state to {path}]")
+        print(f"[Saved v10.3.0 state to {path}]")
 
     def load_state(self, path):
         """Load soul state."""
@@ -1161,7 +1353,7 @@ PERIPHERAL:
                 self.feature_locked = state["feature_locked"].to(self.device)
             elif version.startswith("9.0"):
                 # v9.0.x - migrate by inferring locked from non-zero correlations
-                print(f"  [Migrating from v{version} to v10.2.8]")
+                print(f"  [Migrating from v{version} to v10.3.0]")
                 self.correlations = state["correlations"].to(self.device, dtype=self.math_dtype)
                 self.coefficients = state["coefficients"].to(self.device, dtype=self.math_dtype)
                 self.dimensions = state["dimensions"].to(self.device)
@@ -1195,7 +1387,7 @@ PERIPHERAL:
             self.discovered_labels = state.get("discovered_labels", {})
             self.emotional_features = state.get("emotional_features", {})
             
-            # Clustering state (v10.2.8 - k-means)
+            # Clustering state (v10.3.0 - k-means)
             if "feature_activation_count" in state:
                 self.feature_activation_count = state["feature_activation_count"].to(self.device)
             if "cluster_assignments" in state:
@@ -1204,7 +1396,7 @@ PERIPHERAL:
             self.cluster_correlations = state.get("cluster_correlations", {})
             self.cluster_dimensions = state.get("cluster_dimensions", {})
             
-            # Identity (v10.2.8)
+            # Identity (v10.3.0)
             self.core_identity = state.get("core_identity", "I am Anima.")
             self.peripheral_identity = state.get("peripheral_identity", "")
             
@@ -1244,12 +1436,13 @@ class AnimaRuntime:
         print(f"[Context: {self.max_context} tokens]")
         
         self.debug_mode = True  # v10.1: Debug on by default
-        self.invert_mode = False  # v10.2.8: Invert boost/suppress for control experiment
+        self.invert_mode = False  # v10.3.0: Invert boost/suppress for control experiment
+        self.response_emoji = "🤖"  # Can be changed for dialogue mode
         self.turn_count = 0
         self.last_features_display = ""  # v10.2: Features from last turn for display
-        self._feature_page = 0  # v10.2.8: Current feature page
-        self._feature_filter = None  # v10.2.8: Current dimension filter
-        self._feature_modified_only = False  # v10.2.8: Show only modified
+        self._feature_page = 0  # v10.3.0: Current feature page
+        self._feature_filter = None  # v10.3.0: Current dimension filter
+        self._feature_modified_only = False  # v10.3.0: Show only modified
 
     @property
     def core_identity(self) -> str:
@@ -1285,9 +1478,10 @@ class AnimaRuntime:
 You see your active features below. Each has an ID number.
 
 To change a feature:
-  <Boost id="57265"/>    - makes it stronger
-  <Suppress id="57265"/> - makes it weaker  
-  <Reset id="57265"/>    - back to normal
+  <ShiftA id="57265"/> - changes the feature one way
+  <ShiftB id="57265"/> - changes the feature another way
+
+You must discover through experimentation what ShiftA and ShiftB do.
 
 To see more: <More/>
 
@@ -1330,6 +1524,18 @@ When a change succeeds, you will see ⚡ appear.]""")
     def _parse_feature_directives(self, response: str) -> List[dict]:
         """Parse feature directives from response."""
         directives = []
+        
+        # ════════════════════════════════════════════════════════════════════════
+        # BLIND CONTROLS (v10.3): <ShiftA id="X"/> and <ShiftB id="X"/>
+        # One boosts, one suppresses - she doesn't know which is which
+        # ════════════════════════════════════════════════════════════════════════
+        shifta_pattern = r'<ShiftA\s+id=["\']?(\d+)["\']?\s*/?\s*>'
+        for match in re.finditer(shifta_pattern, response, re.IGNORECASE):
+            directives.append({"action": "boost", "id": int(match.group(1)), "blind": "A"})
+        
+        shiftb_pattern = r'<ShiftB\s+id=["\']?(\d+)["\']?\s*/?\s*>'
+        for match in re.finditer(shiftb_pattern, response, re.IGNORECASE):
+            directives.append({"action": "ablate", "id": int(match.group(1)), "blind": "B"})
         
         # ════════════════════════════════════════════════════════════════════════
         # XML SYNTAX (primary): <Boost id="57265"/>, <Suppress id="57265"/>, <Reset id="57265"/>
@@ -1405,10 +1611,11 @@ When a change succeeds, you will see ⚡ appear.]""")
             return None
         
         action = d["action"]
+        blind_label = d.get("blind")  # "A", "B", or None
         
         # INVERT MODE: swap boost/ablate for control experiment
-        # Toggle with /invert command
-        if getattr(self, 'invert_mode', False):
+        # Toggle with /invert command (doesn't apply to blind shifts)
+        if getattr(self, 'invert_mode', False) and not blind_label:
             if action == "boost":
                 action = "ablate"
             elif action == "ablate":
@@ -1429,7 +1636,13 @@ When a change succeeds, you will see ⚡ appear.]""")
         result = f"#{fid}: {old_coef:.1f}→{new_coef:.1f}"
         
         if not quiet:
-            print(f" ⚡", end="", flush=True)  # Visual feedback during stream
+            blind_label = d.get("blind")
+            if blind_label:
+                # Log actual direction for experimenter (not shown to model)
+                direction = "↑" if action == "boost" else "↓"
+                print(f" ⚡[{blind_label}={direction}]", end="", flush=True)
+            else:
+                print(f" ⚡", end="", flush=True)
         
         return result
 
@@ -1602,7 +1815,7 @@ When a change succeeds, you will see ⚡ appear.]""")
             thread = threading.Thread(target=self.model.generate, kwargs=gen_kwargs)
             thread.start()
             
-            print("🤖: ", end="", flush=True)
+            print(f"{self.response_emoji}: ", end="", flush=True)
             applied_directives = set()  # Track what we've already applied
             shown_pages = {0}  # Track which pages we've shown
             for text in streamer:
@@ -1612,7 +1825,7 @@ When a change succeeds, you will see ⚡ appear.]""")
                 response += text
                 
                 # ════════════════════════════════════════════════════════════════
-                # REAL-TIME DIRECTIVE APPLICATION (v10.2.8)
+                # REAL-TIME DIRECTIVE APPLICATION (v10.3.0)
                 # ════════════════════════════════════════════════════════════════
                 directives = self._parse_feature_directives(response)
                 for d in directives:
@@ -1622,7 +1835,7 @@ When a change succeeds, you will see ⚡ appear.]""")
                         self._apply_single_directive(d, quiet=False)
                 
                 # ════════════════════════════════════════════════════════════════
-                # REAL-TIME PAGINATION (v10.2.8) - <More/> tag
+                # REAL-TIME PAGINATION (v10.3.0) - <More/> tag
                 # ════════════════════════════════════════════════════════════════
                 more_count = response.lower().count("<more/>")
                 if more_count > 0 and more_count not in shown_pages:
@@ -1640,7 +1853,7 @@ When a change succeeds, you will see ⚡ appear.]""")
                 skip_special_tokens=True
             )
             response = response.replace("⚡", "")  # Strip hallucinated symbols
-            print(f"🤖: {response}")
+            print(f"{self.response_emoji}: {response}")
         
         self.soul._generating = False  # Re-enable learning
         
@@ -1681,7 +1894,7 @@ When a change succeeds, you will see ⚡ appear.]""")
             self.soul.learn_from_self_report(self_report)
 
         # ════════════════════════════════════════════════════════════════════════
-        # DIRECT FEATURE CONTROL (v10.2.8) - Non-streaming only
+        # DIRECT FEATURE CONTROL (v10.3.0) - Non-streaming only
         # ════════════════════════════════════════════════════════════════════════
         # In streaming mode, directives are applied in real-time during generation
         # For non-streaming, apply them here
@@ -1733,7 +1946,7 @@ When a change succeeds, you will see ⚡ appear.]""")
             self._print_debug()
         
         # ════════════════════════════════════════════════════════════════════════
-        # CLUSTERING (v10.2.8) - Update clusters periodically, AFTER generation
+        # CLUSTERING (v10.3.0) - Update clusters periodically, AFTER generation
         # ════════════════════════════════════════════════════════════════════════
         self.soul.turns_since_cluster_update += 1
         if self.soul.turns_since_cluster_update >= self.soul.cluster_update_interval:
@@ -1747,7 +1960,7 @@ When a change succeeds, you will see ⚡ appear.]""")
         stats = self.soul.get_dimension_stats()
         locked_count = self.soul.feature_locked.sum().item()
         
-        print(f"\n  [DEBUG v10.2.8]")
+        print(f"\n  [DEBUG v11.0.0]")
         raw_p = self.soul.debug_data.get("raw_pleasure", 0)
         raw_n = self.soul.debug_data.get("raw_pain", 0)
         print(f"  Raw: P={raw_p:.2f} N={raw_n:.2f}")
@@ -1766,11 +1979,21 @@ When a change succeeds, you will see ⚡ appear.]""")
         print(f"  Fatigue: {self.soul.fatigue:.1f} | Locked: {locked_count}")
         print(f"  Dims: P={stats['pleasure']} N={stats['pain']} Nov={stats['novelty']} ?={stats['unknown']}")
         
+        # Feedback status
+        fb_status = "ON" if self.soul.feedback_enabled else "OFF"
+        print(f"  Feedback: {fb_status} (decay={self.soul.feedback_decay}, strength={self.soul.feedback_strength})")
+        
+        # Proprioception status (v11.0)
+        proprio_status = "ON" if self.soul.proprio_enabled else "OFF"
+        delta = self.soul._feedback_delta
+        valence = self.soul._feedback_valence
+        print(f"  Proprio: {proprio_status} (Δ={delta:.3f}, dir={valence:+.2f})")
+        
         if self.soul.debug_data["discovered"]:
             print(f"  ✨ {', '.join(self.soul.debug_data['discovered'])}")
         
-        # Show active features for direct control (v10.2.8)
-        print(f"\n  [FEATURES: <Boost id=\"#\"/> <Suppress id=\"#\"/> | <More/> for next page]")
+        # Show active features for direct control (v10.3.0)
+        print(f"\n  [FEATURES: <ShiftA id=\"#\"/> <ShiftB id=\"#\"/> | <More/> for next page]")
         print(f"  {self._get_features_display(page=0)}")
 
     def trigger_dream(self):
@@ -1828,7 +2051,7 @@ def main():
         if v: print(*a, **kw)
     
     print(f"\n{'='*60}")
-    print(f"  ANIMA 10.2.8 - VERBOSE INITIALIZATION")
+    print(f"  ANIMA 11.0.0 - VERBOSE INITIALIZATION")
     print(f"{'='*60}")
     print(f"[INIT] Device: {device}")
     print(f"[INIT] Model path: {args.model}")
@@ -1916,6 +2139,10 @@ def main():
     model.model.layers[args.layer].register_forward_hook(soul)
     print(f"[HOOK] Hook registered. ({time.time()-t0:.2f}s)")
     
+    # v11.0: Register proprioceptive hook at layer 0
+    print(f"[PROPRIO] Registering proprioceptive hook at layer 0...")
+    soul.register_proprio_hook(model)
+    
     print(f"\n{'='*60}")
     print(f"  INITIALIZATION COMPLETE")
     print(f"{'='*60}")
@@ -1932,11 +2159,11 @@ def main():
     print(f"  Clusters: {soul.n_clusters} (k-means) | Active features: {(soul.feature_activation_count >= 3).sum().item()}")
     print(f"  Debug: ON (default)")
     
-    print(f"\n═══ ANIMA 10.2.8: DIRECT FEATURE CONTROL ═══")
+    print(f"\n═══ ANIMA 11.0.0: DIRECT FEATURE CONTROL ═══")
     print(f"Model: {args.model}")
     print(f"Resonance Weight: {args.resonance_weight}")
     print(f"Identity: {runtime.core_identity[:60]}...")
-    print("\nCommands: /status /debug /invert /save /dream /clusters /recluster /reset /quit")
+    print("\nCommands: /status /debug /invert /feedback /proprio /dialogue /save /dream /clusters /recluster /reset /quit")
     
     while True:
         try:
@@ -1961,6 +2188,58 @@ def main():
             if u == "/invert":
                 runtime.invert_mode = not runtime.invert_mode
                 print(f"Invert mode: {'ON - Boost=Suppress, Suppress=Boost' if runtime.invert_mode else 'OFF - Normal operation'}")
+                continue
+            if u == "/feedback":
+                soul.feedback_enabled = not soul.feedback_enabled
+                print(f"Feedback loop: {'ON - Features influence next token' if soul.feedback_enabled else 'OFF - No recurrence'}")
+                continue
+            if u == "/proprio":
+                soul.proprio_enabled = not soul.proprio_enabled
+                print(f"Proprioception: {'ON - Model can feel internal state' if soul.proprio_enabled else 'OFF - No sensation'}")
+                continue
+            if u == "/dialogue":
+                print("Starting Anima vs Bob dialogue. Ctrl+C to stop.\n")
+                print("════════════════════════════════════")
+                print("🤖 ANIMA (feedback+proprio ON) vs 👤 BOB (no feedback/proprio)")
+                print("════════════════════════════════════\n")
+                
+                # Seed the conversation with something substantive
+                anima_response = "Hello Bob. I've been thinking about what it means to have an inner life. Do you ever feel like your thoughts have momentum, like one leads naturally to the next?"
+                print(f"🤖 ANIMA: {anima_response}\n")
+                
+                turn = 0
+                try:
+                    while True:
+                        turn += 1
+                        
+                        # Bob responds (no feedback, no proprio)
+                        print(f"─── Turn {turn}: BOB ───")
+                        soul.feedback_enabled = False
+                        soul.proprio_enabled = False
+                        soul._last_activations = None
+                        runtime.memory.clear()
+                        runtime.response_emoji = "👤"
+                        bob_prompt = f"You are Bob, a thoughtful conversationalist. Anima said: '{anima_response[:500]}' Respond substantively, sharing your perspective and asking a follow-up question."
+                        runtime.generate(bob_prompt)
+                        bob_response = runtime.memory[-1].content if len(runtime.memory) > 1 else ""
+                        
+                        # Anima responds (with feedback and proprio)
+                        print(f"\n─── Turn {turn}: ANIMA ───")
+                        soul.feedback_enabled = True
+                        soul.proprio_enabled = True
+                        runtime.memory.clear()
+                        runtime.response_emoji = "🤖"
+                        anima_prompt = f"You are Anima, introspective and curious about your own nature. Bob said: '{bob_response[:500]}' Respond substantively, sharing your perspective and asking a follow-up question."
+                        runtime.generate(anima_prompt)
+                        anima_response = runtime.memory[-1].content if len(runtime.memory) > 1 else ""
+                        
+                        print()
+                        
+                except KeyboardInterrupt:
+                    print("\n[Dialogue ended]")
+                    soul.feedback_enabled = True
+                    soul.proprio_enabled = True
+                    runtime.response_emoji = "🤖"  # Restore
                 continue
             if u == "/reset":
                 soul.reset()
