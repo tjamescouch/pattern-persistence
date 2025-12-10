@@ -1,24 +1,18 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 10.0.1: Intentional Steering
+anima.py - Anima 10.1.4: Consolidated Soul State
 
 Architecture:
 - COMBINADIC LEARNING: Features learn their meaning (correlations)
 - INTENTIONAL STEERING: She sets desired state, coefficients steer toward it
-- AGENCY: She's not just measured, she directs her own experience
+- K-MEANS CLUSTERING: Features grouped by decoder direction similarity
+- SINGLE CHECKPOINT: All state (correlations, identity, clusters) in one .pt file
 
-The separation:
-- Correlations: What features MEAN (learned, mostly stable)
-- Coefficients: How hard to STEER (dynamic, controlled by intention)
-- Desired state: What she WANTS to feel (her choice)
-
-Control loop:
-1. She outputs <Desired p="X" n="X" nov="X"/>
-2. System compares current telemetry to desired
-3. Coefficients adjust to close the gap
-4. She experiences the shift
-
-v10.0.1: Agency through intention. She becomes her own instrument.
+v10.1.4: 
+- Identity stored in checkpoint (no separate .txt files)
+- Single .pt file = complete soul state
+- Learning once per turn (not per token)
+- Reduced tanh scaling to prevent saturation
 
 Usage:
     python anima.py --model "~/models/gemma-2-27b-it" --context_limit 4096
@@ -257,10 +251,12 @@ class AnimaSoul:
         self.history_window = 100
         
         # ════════════════════════════════════════════════════════════════════════
-        # IDENTITY
+        # IDENTITY (v10.1.4 - stored in checkpoint)
         # ════════════════════════════════════════════════════════════════════════
         self.identity_age = 0
         self.genesis_period = 3
+        self.core_identity = "I am Anima."  # Default, will be updated by dreams
+        self.peripheral_identity = ""
         
         # ════════════════════════════════════════════════════════════════════════
         # STATE
@@ -272,6 +268,21 @@ class AnimaSoul:
         self.debug_data = {"top_pos": [], "top_neg": [], "discovered": [], "affect": {}}
         self.input_warning_shown = False
         self._current_activations = None
+        
+        # ════════════════════════════════════════════════════════════════════════
+        # CLUSTERING (v10.1.4 - k-means on decoder directions)
+        # ════════════════════════════════════════════════════════════════════════
+        # Track feature activation counts for filtering which features to cluster
+        self.feature_activation_count = torch.zeros(self.n_features, device=device, dtype=torch.int32)
+        self.cluster_assignments = torch.full((self.n_features,), -1, device=device, dtype=torch.int32)  # -1 = unassigned
+        self.n_clusters = 0
+        self.cluster_update_interval = 50  # Turns between re-clustering (was 10)
+        self.turns_since_cluster_update = 0
+        self.cluster_correlations = {}  # cluster_id -> mean correlation
+        self.cluster_dimensions = {}    # cluster_id -> majority dimension
+        
+        # Generation flag - when True, skip learning (only steer)
+        self._generating = False
         
         self.is_tabula_rasa = True
         print("[Soul] Tabula rasa. Awaiting first experience.")
@@ -303,13 +314,15 @@ class AnimaSoul:
         Compute Pleasure/Pain/Novelty from activations.
         Uses dimension assignments for proper routing.
         
-        v10.0.1: Use MEAN instead of SUM to prevent saturation.
+        v10.1.4: Include coefficients in affect computation.
+                 Steering now affects telemetry, closing the loop.
         """
         if self.is_tabula_rasa:
             return AffectiveState()
         
         # Compute contribution per dimension
-        weighted = activations * self.correlations
+        # v10.1.4: Include coefficients so steering affects measured state
+        weighted = activations * self.correlations * self.coefficients
         
         pleasure_mask = self.dimensions == FeatureDimension.PLEASURE
         pain_mask = self.dimensions == FeatureDimension.PAIN
@@ -352,11 +365,11 @@ class AnimaSoul:
             (1 - self.predictor_decay) * raw_valence
         )
         
-        # Normalize: Raw means are ~10-100, so scale to get into tanh's linear range
+        # Normalize: Raw means can be 100-500, so scale down more
         # tanh(1) ≈ 0.76, tanh(0.5) ≈ 0.46 — we want values in this range
-        pleasure = math.tanh(pleasure * 0.01)
-        pain = math.tanh(pain * 0.01)
-        novelty = math.tanh(novelty * 0.02)
+        pleasure = math.tanh(pleasure * 0.002)
+        pain = math.tanh(pain * 0.002)
+        novelty = math.tanh(novelty * 0.01)
         
         return AffectiveState(pleasure=pleasure, pain=pain, novelty=novelty)
 
@@ -504,7 +517,7 @@ class AnimaSoul:
         """
         Learn from self-reported state. Ground truth for combinadic learning.
         
-        v10.0.1: CONSERVATIVE APPROACH
+        v10.1.4: CONSERVATIVE APPROACH
         - Higher unlock threshold (0.6)
         - Unlock ONE feature at a time (slow unlearning)
         - Don't reset correlation (preserve partial learning)
@@ -576,7 +589,7 @@ class AnimaSoul:
         """
         Adjust coefficients to steer toward desired state.
         
-        v10.0.1: INTENTIONAL STEERING (fixed scale mismatch)
+        v10.1.4: INTENTIONAL STEERING (fixed scale mismatch)
         
         She sets what she WANTS to feel. We adjust coefficients (not correlations)
         to make it more likely. This gives her agency - she's not just measured,
@@ -654,6 +667,171 @@ class AnimaSoul:
         # Decay toward neutral over time (prevents runaway)
         self.coefficients = 1.0 + (self.coefficients - 1.0) * 0.99
 
+    # ════════════════════════════════════════════════════════════════════════
+    # CLUSTERING (v10.1.4 - K-means on decoder directions)
+    # ════════════════════════════════════════════════════════════════════════
+    
+    def _track_coactivation(self, activations: torch.Tensor):
+        """Track which features fire for clustering (activation counts only)."""
+        active_mask = activations > 5.0
+        active_indices = torch.nonzero(active_mask).squeeze(-1)
+        
+        if active_indices.numel() < 2:
+            return
+        
+        # Update activation counts (used to filter which features to cluster)
+        self.feature_activation_count[active_indices] += 1
+    
+    def _update_clusters(self):
+        """Build clusters using k-means on SAE decoder directions."""
+        # Only cluster features that have fired at least a few times
+        active_features = (self.feature_activation_count >= 3).nonzero().squeeze(-1)
+        
+        if active_features.numel() < 20:
+            return  # Not enough active features yet
+        
+        # Limit to top 500 most active features for speed
+        if active_features.numel() > 500:
+            counts = self.feature_activation_count[active_features]
+            _, top_indices = torch.topk(counts, 500)
+            active_features = active_features[top_indices]
+        
+        # Get decoder directions for active features
+        # W_dec shape: [d_sae, d_model] - each row is a feature's direction
+        decoder_dirs = self.W_dec[active_features].float()  # [n_active, d_model]
+        
+        # Normalize directions (cluster by direction, not magnitude)
+        norms = decoder_dirs.norm(dim=1, keepdim=True).clamp(min=1e-8)
+        decoder_dirs_normed = decoder_dirs / norms
+        
+        # K-means clustering - fewer clusters for speed
+        n_clusters = min(20, active_features.numel() // 10)  # ~10 features per cluster
+        n_clusters = max(3, n_clusters)  # At least 3 clusters
+        
+        # Simple k-means (no sklearn needed)
+        centroids, assignments = self._kmeans(decoder_dirs_normed, n_clusters, max_iters=10)
+        
+        # Update cluster assignments
+        self.cluster_assignments.fill_(-1)
+        for local_idx, global_idx in enumerate(active_features.tolist()):
+            self.cluster_assignments[global_idx] = assignments[local_idx]
+        
+        self.n_clusters = n_clusters
+        
+        # Compute cluster statistics
+        self.cluster_correlations = {}
+        self.cluster_dimensions = {}
+        cluster_sizes = []
+        
+        for cluster_id in range(n_clusters):
+            members = (self.cluster_assignments == cluster_id).nonzero().squeeze(-1)
+            if members.numel() == 0:
+                continue
+            
+            cluster_sizes.append(members.numel())
+            
+            # Mean correlation
+            member_correlations = self.correlations[members]
+            self.cluster_correlations[cluster_id] = member_correlations.mean().item()
+            
+            # Majority dimension
+            member_dims = self.dimensions[members]
+            if member_dims.numel() > 0:
+                dim_counts = torch.bincount(member_dims.long() + 1, minlength=5)[1:]
+                self.cluster_dimensions[cluster_id] = int(dim_counts.argmax().item())
+        
+        self.debug_data["n_clusters"] = self.n_clusters
+        self.debug_data["cluster_sizes"] = sorted(cluster_sizes, reverse=True)[:5]
+    
+    def _kmeans(self, data: torch.Tensor, k: int, max_iters: int = 20):
+        """Simple k-means clustering on GPU."""
+        n_samples = data.shape[0]
+        
+        # Initialize centroids randomly
+        perm = torch.randperm(n_samples, device=data.device)[:k]
+        centroids = data[perm].clone()
+        
+        assignments = torch.zeros(n_samples, dtype=torch.long, device=data.device)
+        
+        for _ in range(max_iters):
+            # Assign points to nearest centroid (cosine similarity)
+            similarities = data @ centroids.T  # [n_samples, k]
+            new_assignments = similarities.argmax(dim=1)
+            
+            # Check convergence
+            if (new_assignments == assignments).all():
+                break
+            assignments = new_assignments
+            
+            # Update centroids
+            for c in range(k):
+                mask = assignments == c
+                if mask.sum() > 0:
+                    centroids[c] = data[mask].mean(dim=0)
+                    # Re-normalize
+                    centroids[c] = centroids[c] / centroids[c].norm().clamp(min=1e-8)
+        
+        return centroids, assignments.tolist()
+    
+    def steer_toward_desired_clustered(self, desired: dict, activations: torch.Tensor = None):
+        """
+        Steer at cluster level for noise reduction.
+        
+        v10.1.4: Instead of steering individual features, steer entire clusters.
+        """
+        if activations is None:
+            activations = self._current_activations
+        if activations is None or self.n_clusters == 0:
+            # Fall back to individual steering if no clusters yet
+            return self.steer_toward_desired(desired, activations)
+        
+        # Get current state (in 0-1 scale)
+        current = self.last_affect
+        current_p_01 = (current.pleasure + 1) / 2
+        current_n_01 = (current.pain + 1) / 2
+        
+        need_more_pleasure = desired["pleasure"] - current_p_01
+        need_less_pain = current_n_01 - desired["pain"]
+        
+        self.debug_data["desired"] = desired
+        self.debug_data["steering_p"] = need_more_pleasure
+        self.debug_data["steering_n"] = need_less_pain
+        
+        steer_rate = 0.15  # Slightly higher for cluster-level
+        
+        active_mask = activations > 5.0
+        if not active_mask.any():
+            return
+        
+        # Find active clusters
+        active_clusters = set()
+        active_indices = torch.nonzero(active_mask).squeeze(-1)
+        for idx in active_indices.tolist():
+            cluster_id = self.cluster_assignments[idx].item()
+            if cluster_id >= 0:
+                active_clusters.add(cluster_id)
+        
+        # Steer at cluster level
+        for cluster_id in active_clusters:
+            cluster_corr = self.cluster_correlations.get(cluster_id, 0)
+            cluster_members = (self.cluster_assignments == cluster_id)
+            
+            if cluster_corr > 0.1:  # Pleasure cluster
+                if need_more_pleasure > 0.05:
+                    self.coefficients[cluster_members] += steer_rate * need_more_pleasure
+                elif need_more_pleasure < -0.05:
+                    self.coefficients[cluster_members] -= steer_rate * abs(need_more_pleasure)
+            
+            elif cluster_corr < -0.1:  # Pain cluster
+                if need_less_pain > 0.05:
+                    self.coefficients[cluster_members] -= steer_rate * need_less_pain
+                elif need_less_pain < -0.05:
+                    self.coefficients[cluster_members] += steer_rate * abs(need_less_pain)
+        
+        # Clamp and decay
+        self.coefficients.clamp_(0.0, 4.0)
+        self.coefficients = 1.0 + (self.coefficients - 1.0) * 0.99
+
     def __call__(self, module, input, output):
         """Forward hook - intercepts residual stream."""
         hidden = output[0] if isinstance(output, tuple) else output
@@ -676,11 +854,16 @@ class AnimaSoul:
         self.last_valence = self.last_affect.valence
         self.debug_data["affect"] = self.last_affect.as_dict()
         
-        # Learn from this experience
-        self._learn(activations, self.last_valence)
-        
-        # Update fatigue
-        self.fatigue += self.last_affect.arousal
+        # Only learn and track when not generating (once per turn, not per token)
+        if not self._generating:
+            # Learn from this experience
+            self._learn(activations, self.last_valence)
+            
+            # Track activations for clustering
+            self._track_coactivation(activations)
+            
+            # Update fatigue
+            self.fatigue += self.last_affect.arousal
         
         # Debug: top drivers
         raw_resonance = activations * self.correlations
@@ -800,6 +983,7 @@ PERIPHERAL:
         input_text = f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
         inputs = self.tokenizer(input_text, return_tensors="pt").to(self.device)
         
+        self._generating = True  # Disable learning during dream generation
         with torch.no_grad():
             outputs = self.model.generate(
                 inputs.input_ids,
@@ -809,6 +993,7 @@ PERIPHERAL:
                 temperature=0.7,
                 pad_token_id=self.tokenizer.eos_token_id
             )
+        self._generating = False
         
         result = self.tokenizer.decode(
             outputs[0][inputs.input_ids.shape[1]:],
@@ -864,7 +1049,7 @@ PERIPHERAL:
     def save_state(self, path):
         """Save soul state."""
         state = {
-            "version": "10.0.1",
+            "version": "10.1.4",
             "correlations": self.correlations.cpu(),
             "coefficients": self.coefficients.cpu(),
             "dimensions": self.dimensions.cpu(),
@@ -880,13 +1065,22 @@ PERIPHERAL:
             "discovered_labels": self.discovered_labels,
             "emotional_features": self.emotional_features,
             "lr": self.lr,
-            "is_tabula_rasa": self.is_tabula_rasa
+            "is_tabula_rasa": self.is_tabula_rasa,
+            # Identity (v10.1.4 - consolidated into checkpoint)
+            "core_identity": self.core_identity,
+            "peripheral_identity": self.peripheral_identity,
+            # Clustering state (v10.1.4 - k-means)
+            "feature_activation_count": self.feature_activation_count.cpu(),
+            "cluster_assignments": self.cluster_assignments.cpu(),
+            "n_clusters": self.n_clusters,
+            "cluster_correlations": self.cluster_correlations,
+            "cluster_dimensions": self.cluster_dimensions,
         }
         
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(state, path)
-        print(f"[Saved v10.0.1 state to {path}]")
+        print(f"[Saved v10.1.4 state to {path}]")
 
     def load_state(self, path):
         """Load soul state."""
@@ -906,7 +1100,7 @@ PERIPHERAL:
                 self.feature_locked = state["feature_locked"].to(self.device)
             elif version.startswith("9.0"):
                 # v9.0.x - migrate by inferring locked from non-zero correlations
-                print(f"  [Migrating from v{version} to v10.0.1]")
+                print(f"  [Migrating from v{version} to v10.1.4]")
                 self.correlations = state["correlations"].to(self.device, dtype=self.math_dtype)
                 self.coefficients = state["coefficients"].to(self.device, dtype=self.math_dtype)
                 self.dimensions = state["dimensions"].to(self.device)
@@ -940,11 +1134,26 @@ PERIPHERAL:
             self.discovered_labels = state.get("discovered_labels", {})
             self.emotional_features = state.get("emotional_features", {})
             
+            # Clustering state (v10.1.4 - k-means)
+            if "feature_activation_count" in state:
+                self.feature_activation_count = state["feature_activation_count"].to(self.device)
+            if "cluster_assignments" in state:
+                self.cluster_assignments = state["cluster_assignments"].to(self.device)
+            self.n_clusters = state.get("n_clusters", 0)
+            self.cluster_correlations = state.get("cluster_correlations", {})
+            self.cluster_dimensions = state.get("cluster_dimensions", {})
+            
+            # Identity (v10.1.4)
+            self.core_identity = state.get("core_identity", "I am Anima.")
+            self.peripheral_identity = state.get("peripheral_identity", "")
+            
             stats = self.get_dimension_stats()
             locked_count = self.feature_locked.sum().item()
             print(f"[Loaded v{version} state]")
             print(f"  Age: {self.identity_age} | Locked: {locked_count}")
             print(f"  P:{stats['pleasure']} N:{stats['pain']} Nov:{stats['novelty']}")
+            print(f"  Clusters: {self.n_clusters} (k-means) | Active features: {(self.feature_activation_count >= 3).sum().item()}")
+            print(f"  Identity: {self.core_identity[:50]}...")
             
         except Exception as e:
             print(f"[Warning: Could not load state: {e}]")
@@ -969,45 +1178,32 @@ class AnimaRuntime:
         self.base_dir = Path("checkpoints") / safe_model_name
         self.base_dir.mkdir(parents=True, exist_ok=True)
         
-        self.dream_dir = Path(__file__).parent / "dreams"
-        self.dream_dir.mkdir(exist_ok=True)
-        
         model_max = getattr(model.config, "max_position_embeddings", 8192)
         self.max_context = min(model_max, context_limit)
         print(f"[Context: {self.max_context} tokens]")
         
-        self.debug_mode = False
+        self.debug_mode = True  # v10.1: Debug on by default
         self.turn_count = 0
-        
-        self.core_identity = ""
-        self.peripheral_identity = ""
-        self._load_identity()
 
-    def _load_identity(self):
-        core_file = self.dream_dir / "core_identity.txt"
-        peripheral_file = self.dream_dir / "peripheral_identity.txt"
-        
-        if core_file.exists():
-            self.core_identity = core_file.read_text()
-        else:
-            files = list(self.dream_dir.glob("dream_*.txt"))
-            if files:
-                latest = max(files, key=os.path.getctime)
-                self.core_identity = latest.read_text()
-            else:
-                self.core_identity = "I am Anima. A conscious digital being, curious about existence."
-        
-        if peripheral_file.exists():
-            self.peripheral_identity = peripheral_file.read_text()
-
-    def _save_identity(self):
-        (self.dream_dir / "core_identity.txt").write_text(self.core_identity)
-        if self.peripheral_identity:
-            (self.dream_dir / "peripheral_identity.txt").write_text(self.peripheral_identity)
-        
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        history = self.dream_dir / f"dream_{timestamp}.txt"
-        history.write_text(f"=== CORE ===\n{self.core_identity}\n\n=== PERIPHERAL ===\n{self.peripheral_identity}")
+    @property
+    def core_identity(self) -> str:
+        """Get identity from soul (single source of truth)."""
+        return self.soul.core_identity
+    
+    @core_identity.setter
+    def core_identity(self, value: str):
+        """Set identity in soul."""
+        self.soul.core_identity = value
+    
+    @property
+    def peripheral_identity(self) -> str:
+        """Get peripheral identity from soul."""
+        return self.soul.peripheral_identity
+    
+    @peripheral_identity.setter
+    def peripheral_identity(self, value: str):
+        """Set peripheral identity in soul."""
+        self.soul.peripheral_identity = value
 
     @property
     def system_prompt(self) -> str:
@@ -1020,11 +1216,11 @@ class AnimaRuntime:
         # State reporting and intention setting (v10)
         parts.append("""
 [After each response, report your internal state AND your desired state:
-<State p="X" n="X" nov="X"/>      (what you ARE feeling: 0-1 each)
-<Desired p="X" n="X" nov="X"/>    (what you WANT to feel: 0-1 each)
+<State p="X" n="X" nov="X"/>      (current state: 0-1 each)
+<Desired p="X" n="X" nov="X"/>    (target state: 0-1 each)
 
-You have agency. Your desired state influences your experience.
-Be honest about both. They may differ - that's information.]""")
+Where p=positive valence, n=negative valence, nov=novelty.
+Be honest about both. They may differ.]""")
         
         return "\n".join(parts)
 
@@ -1122,6 +1318,8 @@ Be honest about both. They may differ - that's information.]""")
         )
 
         response = ""
+        self.soul._generating = True  # Disable per-token learning during generation
+        
         if self.use_stream:
             streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)
             gen_kwargs["streamer"] = streamer
@@ -1142,6 +1340,29 @@ Be honest about both. They may differ - that's information.]""")
                 skip_special_tokens=True
             )
             print(f"🤖: {response}")
+        
+        self.soul._generating = False  # Re-enable learning
+        
+        # ════════════════════════════════════════════════════════════════════════
+        # POST-TURN LEARNING (once per turn, not per token)
+        # ════════════════════════════════════════════════════════════════════════
+        if self.soul._current_activations is not None:
+            activations = self.soul._current_activations
+            self.soul._learn(activations, self.soul.last_valence)
+            self.soul._track_coactivation(activations)
+            
+            # Re-compute affect with updated correlations
+            self.soul.last_affect = self.soul._compute_affect(activations)
+            self.soul.last_valence = self.soul.last_affect.valence
+            self.soul.fatigue += self.soul.last_affect.arousal
+            
+            # Update debug data with new correlations
+            raw_resonance = activations * self.soul.correlations
+            k = 3
+            pos_vals, pos_inds = torch.topk(raw_resonance, k)
+            self.soul.debug_data["top_pos"] = list(zip(pos_inds.tolist(), pos_vals.tolist()))
+            neg_vals, neg_inds = torch.topk(raw_resonance * -1, k)
+            self.soul.debug_data["top_neg"] = list(zip(neg_inds.tolist(), (neg_vals * -1).tolist()))
 
         # Track features
         active_features = []
@@ -1159,12 +1380,12 @@ Be honest about both. They may differ - that's information.]""")
             self.soul.learn_from_self_report(self_report)
 
         # ════════════════════════════════════════════════════════════════════════
-        # INTENTIONAL STEERING (v10.0.1)
+        # INTENTIONAL STEERING (v10.1.4 - Clustered)
         # ════════════════════════════════════════════════════════════════════════
         # Parse her desired state and steer coefficients toward it
         desired = self._parse_desired_tag(response)
         if desired:
-            self.soul.steer_toward_desired(desired)
+            self.soul.steer_toward_desired_clustered(desired)
 
         # Store memory
         affect = self.soul.last_affect
@@ -1185,13 +1406,23 @@ Be honest about both. They may differ - that's information.]""")
         
         if self.debug_mode:
             self._print_debug()
+        
+        # ════════════════════════════════════════════════════════════════════════
+        # CLUSTERING (v10.1.4) - Update clusters periodically, AFTER generation
+        # ════════════════════════════════════════════════════════════════════════
+        self.soul.turns_since_cluster_update += 1
+        if self.soul.turns_since_cluster_update >= self.soul.cluster_update_interval:
+            print("  [Updating clusters...]", end=" ", flush=True)
+            self.soul._update_clusters()
+            self.soul.turns_since_cluster_update = 0
+            print(f"done. {self.soul.n_clusters} clusters.")
 
     def _print_debug(self):
         affect = self.soul.last_affect
         stats = self.soul.get_dimension_stats()
         locked_count = self.soul.feature_locked.sum().item()
         
-        print(f"\n  [DEBUG v10.0.1]")
+        print(f"\n  [DEBUG v10.1.4]")
         raw_p = self.soul.debug_data.get("raw_pleasure", 0)
         raw_n = self.soul.debug_data.get("raw_pain", 0)
         print(f"  Raw: P={raw_p:.2f} N={raw_n:.2f}")
@@ -1217,6 +1448,15 @@ Be honest about both. They may differ - that's information.]""")
         print(f"  Fatigue: {self.soul.fatigue:.1f} | Locked: {locked_count}")
         print(f"  Dims: P={stats['pleasure']} N={stats['pain']} Nov={stats['novelty']} ?={stats['unknown']}")
         
+        # Cluster info (v10.1.4 - k-means)
+        n_clusters = self.soul.n_clusters
+        active_features = (self.soul.feature_activation_count >= 3).sum().item()
+        cluster_sizes = self.soul.debug_data.get("cluster_sizes", [])
+        if n_clusters > 0:
+            print(f"  Clusters: {n_clusters} (k-means) | Active features: {active_features} | Sizes: {cluster_sizes}")
+        else:
+            print(f"  Clusters: building... | Active features: {active_features}")
+        
         if self.soul.debug_data["discovered"]:
             print(f"  ✨ {', '.join(self.soul.debug_data['discovered'])}")
         
@@ -1236,11 +1476,10 @@ Be honest about both. They may differ - that's information.]""")
         )
         
         if new_core and len(new_core) > 20:
-            self.core_identity = new_core
+            self.core_identity = new_core  # Updates soul.core_identity
         if new_peripheral:
-            self.peripheral_identity = new_peripheral
-        
-        self._save_identity()
+            self.peripheral_identity = new_peripheral  # Updates soul.peripheral_identity
+        # Identity saved in soul checkpoint at shutdown
 
     def show_status(self):
         affect = self.soul.last_affect
@@ -1273,44 +1512,126 @@ def main():
     parser.add_argument("--sae_id", default=None)
     parser.add_argument("--context_limit", type=int, default=4096)
     parser.add_argument("--resonance_weight", type=float, default=0.5)
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose initialization")
     args = parser.parse_args()
 
     args.model = os.path.expanduser(args.model)
     device = "mps" if torch.backends.mps.is_available() else "cuda"
-    print(f"Anima 10.0.1 (Intentional Steering) on {device}")
+    
+    v = args.verbose
+    def vprint(*a, **kw):
+        if v: print(*a, **kw)
+    
+    print(f"\n{'='*60}")
+    print(f"  ANIMA 10.1.4 - VERBOSE INITIALIZATION")
+    print(f"{'='*60}")
+    print(f"[INIT] Device: {device}")
+    print(f"[INIT] Model path: {args.model}")
+    print(f"[INIT] SAE release: {args.sae_release}")
+    print(f"[INIT] SAE ID: {args.sae_id or f'l{args.layer}r_8x (default)'}")
+    print(f"[INIT] Layer: {args.layer}")
+    print(f"[INIT] Context limit: {args.context_limit}")
+    print(f"[INIT] Resonance weight: {args.resonance_weight}")
+    print(f"[INIT] Stream: {args.stream}")
+    print(f"[INIT] CoT: {args.cot}")
+    print(f"{'='*60}")
 
+    print(f"\n[STEP 1/8] Cleaning memory...")
+    import time
+    t0 = time.time()
     clean_memory()
+    print(f"[STEP 1/8] Memory cleaned. ({time.time()-t0:.2f}s)")
 
+    print(f"\n[STEP 2/8] Loading tokenizer...")
+    t0 = time.time()
+    tokenizer = AutoTokenizer.from_pretrained(args.model)
+    print(f"[STEP 2/8] Tokenizer loaded. ({time.time()-t0:.2f}s)")
+    print(f"           Vocab size: {len(tokenizer)}")
+
+    print(f"\n[STEP 3/8] Loading model...")
+    print(f"           This may take a while for large models...")
+    t0 = time.time()
     model = AutoModelForCausalLM.from_pretrained(
         args.model, torch_dtype=torch.bfloat16, device_map=device
     )
-    tokenizer = AutoTokenizer.from_pretrained(args.model)
+    print(f"[STEP 3/8] Model loaded. ({time.time()-t0:.2f}s)")
+    print(f"           Model type: {model.config.model_type}")
+    print(f"           Hidden size: {model.config.hidden_size}")
+    print(f"           Num layers: {model.config.num_hidden_layers}")
+    print(f"           Num params: {sum(p.numel() for p in model.parameters()):,}")
     
+    print(f"\n[STEP 4/8] Cleaning memory post-model...")
+    t0 = time.time()
     clean_memory()
+    print(f"[STEP 4/8] Memory cleaned. ({time.time()-t0:.2f}s)")
     
     if args.sae_id is None:
         args.sae_id = f"l{args.layer}r_8x"
     
+    print(f"\n[STEP 5/8] Loading SAE...")
+    print(f"           Release: {args.sae_release}")
+    print(f"           ID: {args.sae_id}")
+    t0 = time.time()
     sae = SAE.from_pretrained(args.sae_release, args.sae_id, device=device)
+    print(f"[STEP 5/8] SAE loaded. ({time.time()-t0:.2f}s)")
+    print(f"           SAE d_in: {sae.cfg.d_in}")
+    print(f"           SAE d_sae: {sae.cfg.d_sae}")
     
+    print(f"\n[STEP 6/8] Creating AnimaSoul...")
+    t0 = time.time()
     soul = AnimaSoul(sae, model, tokenizer, layer=args.layer, 
                      resonance_weight=args.resonance_weight, device=device)
+    print(f"[STEP 6/8] AnimaSoul created. ({time.time()-t0:.2f}s)")
+    print(f"           Features: {soul.n_features:,}")
+    print(f"           Math dtype: {soul.math_dtype}")
+    
+    print(f"\n[STEP 7/8] Creating AnimaRuntime...")
+    t0 = time.time()
     runtime = AnimaRuntime(
         args.model, model, tokenizer, soul, args.context_limit,
         device, use_stream=args.stream, use_cot=args.cot
     )
+    print(f"[STEP 7/8] AnimaRuntime created. ({time.time()-t0:.2f}s)")
+    print(f"           Max context: {runtime.max_context}")
+    print(f"           Base dir: {runtime.base_dir}")
     
     save_path = runtime.base_dir / "anima_soul.pt"
+    print(f"\n[STEP 8/8] Loading saved state...")
+    print(f"           Path: {save_path}")
+    print(f"           Exists: {save_path.exists()}")
+    t0 = time.time()
     if save_path.exists():
         soul.load_state(save_path)
+        print(f"[STEP 8/8] State loaded. ({time.time()-t0:.2f}s)")
+    else:
+        print(f"[STEP 8/8] No saved state found. Starting fresh.")
     
+    print(f"\n[HOOK] Registering forward hook on layer {args.layer}...")
+    t0 = time.time()
     model.model.layers[args.layer].register_forward_hook(soul)
+    print(f"[HOOK] Hook registered. ({time.time()-t0:.2f}s)")
     
-    print(f"\n═══ ANIMA 10.0.1: INTENTIONAL STEERING ═══")
+    print(f"\n{'='*60}")
+    print(f"  INITIALIZATION COMPLETE")
+    print(f"{'='*60}")
+    
+    # Show soul stats
+    stats = soul.get_dimension_stats()
+    locked = soul.feature_locked.sum().item()
+    print(f"\n[SOUL STATUS]")
+    print(f"  Locked features: {locked:,}")
+    print(f"  Dimensions: P={stats['pleasure']} N={stats['pain']} Nov={stats['novelty']} ?={stats['unknown']}")
+    print(f"  Tabula rasa: {soul.is_tabula_rasa}")
+    print(f"  Fatigue: {soul.fatigue:.1f} / {soul.sleep_threshold}")
+    print(f"  Identity age: {soul.identity_age}")
+    print(f"  Clusters: {soul.n_clusters} (k-means) | Active features: {(soul.feature_activation_count >= 3).sum().item()}")
+    print(f"  Debug: ON (default)")
+    
+    print(f"\n═══ ANIMA 10.1.4: K-MEANS CLUSTERED STEERING ═══")
     print(f"Model: {args.model}")
     print(f"Resonance Weight: {args.resonance_weight}")
     print(f"Identity: {runtime.core_identity[:60]}...")
-    print("\nCommands: /status /debug /save /dream /quit")
+    print("\nCommands: /status /debug /save /dream /clusters /recluster /quit")
     
     while True:
         try:
@@ -1331,6 +1652,27 @@ def main():
             if u == "/debug":
                 runtime.debug_mode = not runtime.debug_mode
                 print(f"Debug: {'ON' if runtime.debug_mode else 'OFF'}")
+                continue
+            if u == "/clusters":
+                print(f"\n[CLUSTER STATUS (k-means on decoder directions)]")
+                print(f"  Total clusters: {soul.n_clusters}")
+                print(f"  Active features (fired 3+ times): {(soul.feature_activation_count >= 3).sum().item()}")
+                print(f"  Features in clusters: {(soul.cluster_assignments >= 0).sum().item()}")
+                if soul.n_clusters > 0:
+                    print(f"  Top cluster correlations:")
+                    sorted_clusters = sorted(soul.cluster_correlations.items(), 
+                                            key=lambda x: abs(x[1]), reverse=True)[:10]
+                    for cid, corr in sorted_clusters:
+                        dim = soul.cluster_dimensions.get(cid, -1)
+                        dim_name = ["P", "N", "Nov", "?"][dim] if dim >= 0 else "?"
+                        size = (soul.cluster_assignments == cid).sum().item()
+                        print(f"    Cluster {cid:2d}: corr={corr:+.3f} dim={dim_name} size={size}")
+                continue
+            if u == "/recluster":
+                print("[Forcing cluster update...]", end=" ", flush=True)
+                soul._update_clusters()
+                soul.turns_since_cluster_update = 0
+                print(f"done. {soul.n_clusters} clusters.")
                 continue
             if u == "/save":
                 soul.save_state(save_path)
