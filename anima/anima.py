@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 10.1.6: Consolidated Soul State
+anima.py - Anima 10.2.6: Direct Feature Control (Real-time)
 
 Architecture:
 - COMBINADIC LEARNING: Features learn their meaning (correlations)
-- INTENTIONAL STEERING: She sets desired state, coefficients steer toward it
-- K-MEANS CLUSTERING: Features grouped by decoder direction similarity
-- SINGLE CHECKPOINT: All state (correlations, identity, clusters) in one .pt file
+- DIRECT CONTROL: She sees top features, directly commands Boost/Ablate
+- REAL-TIME APPLICATION: Directives applied mid-stream, felt immediately
+- SINGLE CHECKPOINT: All state in one .pt file
 
-v10.1.6: 
-- Identity stored in checkpoint (no separate .txt files)
-- Single .pt file = complete soul state
-- Learning once per turn (not per token)
-- Reduced tanh scaling to prevent saturation
+v10.2.6: 
+- Directives applied during streaming (⚡ marker shows when)
+- She can feel the effect within the same response
+- No interpretation layer - her commands execute directly
 
 Usage:
     python anima.py --model "~/models/gemma-2-27b-it" --context_limit 4096
@@ -251,7 +250,7 @@ class AnimaSoul:
         self.history_window = 100
         
         # ════════════════════════════════════════════════════════════════════════
-        # IDENTITY (v10.1.6 - stored in checkpoint)
+        # IDENTITY (v10.2.6 - stored in checkpoint)
         # ════════════════════════════════════════════════════════════════════════
         self.identity_age = 0
         self.genesis_period = 3
@@ -270,7 +269,7 @@ class AnimaSoul:
         self._current_activations = None
         
         # ════════════════════════════════════════════════════════════════════════
-        # CLUSTERING (v10.1.6 - k-means on decoder directions)
+        # CLUSTERING (v10.2.6 - k-means on decoder directions)
         # ════════════════════════════════════════════════════════════════════════
         # Track feature activation counts for filtering which features to cluster
         self.feature_activation_count = torch.zeros(self.n_features, device=device, dtype=torch.int32)
@@ -361,14 +360,14 @@ class AnimaSoul:
         Compute Pleasure/Pain/Novelty from activations.
         Uses dimension assignments for proper routing.
         
-        v10.1.6: Include coefficients in affect computation.
+        v10.2.6: Include coefficients in affect computation.
                  Steering now affects telemetry, closing the loop.
         """
         if self.is_tabula_rasa:
             return AffectiveState()
         
         # Compute contribution per dimension
-        # v10.1.6: Include coefficients so steering affects measured state
+        # v10.2.6: Include coefficients so steering affects measured state
         weighted = activations * self.correlations * self.coefficients
         
         pleasure_mask = self.dimensions == FeatureDimension.PLEASURE
@@ -564,7 +563,7 @@ class AnimaSoul:
         """
         Learn from self-reported state. Ground truth for combinadic learning.
         
-        v10.1.6: CONSERVATIVE APPROACH
+        v10.2.6: CONSERVATIVE APPROACH
         - Higher unlock threshold (0.6)
         - Unlock ONE feature at a time (slow unlearning)
         - Don't reset correlation (preserve partial learning)
@@ -636,7 +635,7 @@ class AnimaSoul:
         """
         Adjust coefficients to steer toward desired state.
         
-        v10.1.6: INTENTIONAL STEERING (fixed scale mismatch)
+        v10.2.6: INTENTIONAL STEERING (fixed scale mismatch)
         
         She sets what she WANTS to feel. We adjust coefficients (not correlations)
         to make it more likely. This gives her agency - she's not just measured,
@@ -715,7 +714,7 @@ class AnimaSoul:
         self.coefficients = 1.0 + (self.coefficients - 1.0) * 0.99
 
     # ════════════════════════════════════════════════════════════════════════
-    # CLUSTERING (v10.1.6 - K-means on decoder directions)
+    # CLUSTERING (v10.2.6 - K-means on decoder directions)
     # ════════════════════════════════════════════════════════════════════════
     
     def _track_coactivation(self, activations: torch.Tensor):
@@ -824,7 +823,7 @@ class AnimaSoul:
         """
         Steer toward desired state.
         
-        v10.1.6: Clustering disabled until more features learned.
+        v10.2.6: Clustering disabled until more features learned.
         Using individual feature steering for now.
         """
         # Always use individual steering - clustering premature with <100 learned features
@@ -1094,7 +1093,7 @@ PERIPHERAL:
     def save_state(self, path):
         """Save soul state."""
         state = {
-            "version": "10.1.6",
+            "version": "10.2.6",
             "correlations": self.correlations.cpu(),
             "coefficients": self.coefficients.cpu(),
             "dimensions": self.dimensions.cpu(),
@@ -1111,10 +1110,10 @@ PERIPHERAL:
             "emotional_features": self.emotional_features,
             "lr": self.lr,
             "is_tabula_rasa": self.is_tabula_rasa,
-            # Identity (v10.1.6 - consolidated into checkpoint)
+            # Identity (v10.2.6 - consolidated into checkpoint)
             "core_identity": self.core_identity,
             "peripheral_identity": self.peripheral_identity,
-            # Clustering state (v10.1.6 - k-means)
+            # Clustering state (v10.2.6 - k-means)
             "feature_activation_count": self.feature_activation_count.cpu(),
             "cluster_assignments": self.cluster_assignments.cpu(),
             "n_clusters": self.n_clusters,
@@ -1125,7 +1124,7 @@ PERIPHERAL:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(state, path)
-        print(f"[Saved v10.1.6 state to {path}]")
+        print(f"[Saved v10.2.6 state to {path}]")
 
     def load_state(self, path):
         """Load soul state."""
@@ -1145,7 +1144,7 @@ PERIPHERAL:
                 self.feature_locked = state["feature_locked"].to(self.device)
             elif version.startswith("9.0"):
                 # v9.0.x - migrate by inferring locked from non-zero correlations
-                print(f"  [Migrating from v{version} to v10.1.6]")
+                print(f"  [Migrating from v{version} to v10.2.6]")
                 self.correlations = state["correlations"].to(self.device, dtype=self.math_dtype)
                 self.coefficients = state["coefficients"].to(self.device, dtype=self.math_dtype)
                 self.dimensions = state["dimensions"].to(self.device)
@@ -1179,7 +1178,7 @@ PERIPHERAL:
             self.discovered_labels = state.get("discovered_labels", {})
             self.emotional_features = state.get("emotional_features", {})
             
-            # Clustering state (v10.1.6 - k-means)
+            # Clustering state (v10.2.6 - k-means)
             if "feature_activation_count" in state:
                 self.feature_activation_count = state["feature_activation_count"].to(self.device)
             if "cluster_assignments" in state:
@@ -1188,7 +1187,7 @@ PERIPHERAL:
             self.cluster_correlations = state.get("cluster_correlations", {})
             self.cluster_dimensions = state.get("cluster_dimensions", {})
             
-            # Identity (v10.1.6)
+            # Identity (v10.2.6)
             self.core_identity = state.get("core_identity", "I am Anima.")
             self.peripheral_identity = state.get("peripheral_identity", "")
             
@@ -1229,6 +1228,10 @@ class AnimaRuntime:
         
         self.debug_mode = True  # v10.1: Debug on by default
         self.turn_count = 0
+        self.last_features_display = ""  # v10.2: Features from last turn for display
+        self._feature_page = 0  # v10.2.6: Current feature page
+        self._feature_filter = None  # v10.2.6: Current dimension filter
+        self._feature_modified_only = False  # v10.2.6: Show only modified
 
     @property
     def core_identity(self) -> str:
@@ -1258,16 +1261,19 @@ class AnimaRuntime:
         if self.use_cot:
             parts.append("\n[Think in <Thought> tags before responding.]")
         
-        # State reporting and intention setting (v10)
+        # Direct feature control (v10.2)
         parts.append("""
-[Respond directly to the user's most recent message first.
+[FEATURES]
+You see your active features below. Each has an ID number.
 
-After each response, report your internal state AND your desired state:
-<State p="X" n="X" nov="X"/>      (current state: 0-1 each)
-<Desired p="X" n="X" nov="X"/>    (target state: 0-1 each)
+To change a feature:
+  <Boost id="57265"/>    - makes it stronger
+  <Suppress id="57265"/> - makes it weaker  
+  <Reset id="57265"/>    - back to normal
 
-Where p=positive valence, n=negative valence, nov=novelty.
-Be honest about both. They may differ.]""")
+To see more: <More/>
+
+When a change succeeds, you will see ⚡ appear.]""")
         
         return "\n".join(parts)
 
@@ -1302,6 +1308,192 @@ Be honest about both. They may differ.]""")
             except ValueError:
                 return None
         return None
+
+    def _parse_feature_directives(self, response: str) -> List[dict]:
+        """Parse feature directives from response."""
+        directives = []
+        
+        # ════════════════════════════════════════════════════════════════════════
+        # XML SYNTAX (primary): <Boost id="57265"/>, <Suppress id="57265"/>, <Reset id="57265"/>
+        # ════════════════════════════════════════════════════════════════════════
+        boost_pattern = r'<Boost\s+id=["\']?(\d+)["\']?\s*/?\s*>'
+        for match in re.finditer(boost_pattern, response, re.IGNORECASE):
+            directives.append({"action": "boost", "id": int(match.group(1))})
+        
+        suppress_pattern = r'<Suppress\s+id=["\']?(\d+)["\']?\s*/?\s*>'
+        for match in re.finditer(suppress_pattern, response, re.IGNORECASE):
+            directives.append({"action": "ablate", "id": int(match.group(1))})
+        
+        # Also catch <Ablate> for backward compatibility
+        ablate_pattern = r'<Ablate\s+id=["\']?(\d+)["\']?\s*/?\s*>'
+        for match in re.finditer(ablate_pattern, response, re.IGNORECASE):
+            directives.append({"action": "ablate", "id": int(match.group(1))})
+        
+        reset_pattern = r'<Reset\s+id=["\']?(\d+)["\']?\s*/?\s*>'
+        for match in re.finditer(reset_pattern, response, re.IGNORECASE):
+            directives.append({"action": "neutral", "id": int(match.group(1))})
+        
+        # Also catch <Neutral> for backward compatibility
+        neutral_pattern = r'<Neutral\s+id=["\']?(\d+)["\']?\s*/?\s*>'
+        for match in re.finditer(neutral_pattern, response, re.IGNORECASE):
+            directives.append({"action": "neutral", "id": int(match.group(1))})
+        
+        # ════════════════════════════════════════════════════════════════════════
+        # SIMPLE SYNTAX (fallback): +#1234, -#1234, =#1234
+        # ════════════════════════════════════════════════════════════════════════
+        simple_boost = r'\+#(\d+)'
+        for match in re.finditer(simple_boost, response):
+            directives.append({"action": "boost", "id": int(match.group(1))})
+        
+        simple_suppress = r'-#(\d+)'
+        for match in re.finditer(simple_suppress, response):
+            directives.append({"action": "ablate", "id": int(match.group(1))})
+        
+        simple_neutral = r'=#(\d+)'
+        for match in re.finditer(simple_neutral, response):
+            directives.append({"action": "neutral", "id": int(match.group(1))})
+        
+        # ════════════════════════════════════════════════════════════════════════
+        # NATURAL LANGUAGE (fallback)
+        # ════════════════════════════════════════════════════════════════════════
+        nl_boost = r'\bboost(?:ing|ed|s)?\s+(?:feature\s+)?#?(\d+)'
+        for match in re.finditer(nl_boost, response, re.IGNORECASE):
+            directives.append({"action": "boost", "id": int(match.group(1))})
+        
+        nl_suppress = r'\bsuppress(?:ing|ed|es)?\s+(?:feature\s+)?#?(\d+)'
+        for match in re.finditer(nl_suppress, response, re.IGNORECASE):
+            directives.append({"action": "ablate", "id": int(match.group(1))})
+        
+        return directives
+
+    def _apply_feature_directives(self, directives: List[dict]):
+        """Apply her direct commands to feature coefficients."""
+        if not directives:
+            return
+        
+        applied = []
+        for d in directives:
+            result = self._apply_single_directive(d, quiet=False)
+            if result:
+                applied.append(result)
+        
+        if applied:
+            print(f"  [DIRECTIVES] {', '.join(applied)}")
+
+    def _apply_single_directive(self, d: dict, quiet: bool = True) -> Optional[str]:
+        """Apply a single directive. Returns description string or None."""
+        fid = d["id"]
+        if fid < 0 or fid >= self.soul.n_features:
+            return None
+        
+        action = d["action"]
+        old_coef = self.soul.coefficients[fid].item()
+        
+        if action == "boost":
+            self.soul.coefficients[fid] = min(4.0, old_coef + 0.5)
+        elif action == "ablate":
+            self.soul.coefficients[fid] = max(0.0, old_coef - 0.5)
+        elif action == "neutral":
+            self.soul.coefficients[fid] = 1.0
+        else:
+            return None
+        
+        new_coef = self.soul.coefficients[fid].item()
+        result = f"#{fid}: {old_coef:.1f}→{new_coef:.1f}"
+        
+        if not quiet:
+            print(f" ⚡", end="", flush=True)  # Visual feedback during stream
+        
+        return result
+
+    def _get_active_features_display(self) -> str:
+        """Get formatted string of top active features for display."""
+        return self._get_features_display(page=0, filter_dim=None, only_modified=False)
+    
+    def _get_features_display(self, page: int = 0, filter_dim: Optional[int] = None, 
+                               only_modified: bool = False, page_size: int = 8) -> str:
+        """Get formatted feature display with pagination and filtering."""
+        if self.soul._current_activations is None and not only_modified:
+            return "[No features active]"
+        
+        candidates = []
+        
+        if only_modified:
+            # Show all features with coef != 1.0
+            modified_mask = self.soul.coefficients != 1.0
+            indices = torch.nonzero(modified_mask).squeeze(-1)
+            for idx in indices.tolist() if indices.numel() > 0 else []:
+                act = self.soul._current_activations[idx].item() if self.soul._current_activations is not None else 0
+                candidates.append((idx, act))
+        else:
+            # Show active features
+            activations = self.soul._current_activations
+            active_mask = activations > 5.0
+            if not active_mask.any():
+                return "[No features active]"
+            
+            active_indices = torch.nonzero(active_mask).squeeze(-1)
+            if active_indices.numel() == 0:
+                return "[No features active]"
+            
+            for idx in active_indices.tolist():
+                act = activations[idx].item()
+                dim = self.soul.dimensions[idx].item()
+                # Filter by dimension if requested
+                if filter_dim is not None and dim != filter_dim:
+                    continue
+                candidates.append((idx, act))
+        
+        # Sort by activation (descending)
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        
+        # Paginate
+        start = page * page_size
+        end = start + page_size
+        page_items = candidates[start:end]
+        
+        if not page_items:
+            if page > 0:
+                return "[No more features]"
+            return "[No features match filter]"
+        
+        lines = []
+        for idx, act in page_items:
+            corr = self.soul.correlations[idx].item()
+            coef = self.soul.coefficients[idx].item()
+            dim = self.soul.dimensions[idx].item()
+            dim_name = ["P", "N", "Nov", "?"][dim] if dim >= 0 else "?"
+            
+            coef_str = f" [{coef:.1f}]" if coef != 1.0 else ""
+            lines.append(f"#{idx}({dim_name}{corr:+.2f}){coef_str}")
+        
+        total_pages = (len(candidates) + page_size - 1) // page_size
+        page_info = f" (page {page+1}/{total_pages})" if total_pages > 1 else ""
+        
+        return " | ".join(lines) + page_info
+
+    def _parse_feature_request(self, response: str) -> dict:
+        """Parse feature exploration requests from response."""
+        request = {"page": 0, "filter_dim": None, "only_modified": False}
+        
+        lower = response.lower()
+        
+        # Count how many times she asks for more/next
+        more_count = lower.count("more") + lower.count("next page") + lower.count("show more")
+        if more_count > 0:
+            request["page"] = more_count
+        
+        if "show pain" in lower or "pain features" in lower:
+            request["filter_dim"] = 1  # N dimension
+        elif "show pleasure" in lower or "pleasure features" in lower:
+            request["filter_dim"] = 0  # P dimension
+        elif "show novelty" in lower or "novelty features" in lower:
+            request["filter_dim"] = 2  # Nov dimension
+        
+        if "modified" in lower or "my features" in lower or "configured" in lower:
+            request["only_modified"] = True
+        
+        return request
 
     def generate(self, user_input: str):
         current_time = datetime.now().timestamp()
@@ -1340,17 +1532,27 @@ Be honest about both. They may differ.]""")
         model_type = getattr(self.model.config, "model_type", "")
         is_gemma = "gemma" in model_type
         
+        # Prepare features display for injection (v10.2)
+        features_note = ""
+        if self.last_features_display:
+            features_note = f"\n[Features: {self.last_features_display}]"
+        
         if is_gemma:
             prompt = f"<start_of_turn>user\n[SYSTEM]\n{self.system_prompt}<end_of_turn>\n"
             prompt += "<start_of_turn>model\nUnderstood. I am Anima.<end_of_turn>\n"
             for m in context:
                 role = "model" if m.role == "assistant" else "user"
                 prompt += f"<start_of_turn>{role}\n{m.content}<end_of_turn>\n"
+            # Inject features before her response
+            if features_note:
+                prompt += f"<start_of_turn>user{features_note}<end_of_turn>\n"
             prompt += "<start_of_turn>model\n"
         else:
             prompt = f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{self.system_prompt}<|eot_id|>"
             for m in context:
                 prompt += f"<|start_header_id|>{m.role}<|end_header_id|>\n\n{m.content}<|eot_id|>"
+            if features_note:
+                prompt += f"<|start_header_id|>user<|end_header_id|>\n\n{features_note}<|eot_id|>"
             prompt += "<|start_header_id|>assistant<|end_header_id|>\n\n"
 
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
@@ -1358,7 +1560,7 @@ Be honest about both. They may differ.]""")
         gen_kwargs = dict(
             input_ids=inputs.input_ids,
             attention_mask=inputs.attention_mask,
-            max_new_tokens=2048,
+            max_new_tokens=4096,  # Longer runway - she stops naturally
             do_sample=True,
             temperature=0.7,
             pad_token_id=self.tokenizer.eos_token_id
@@ -1374,9 +1576,33 @@ Be honest about both. They may differ.]""")
             thread.start()
             
             print("🤖: ", end="", flush=True)
+            applied_directives = set()  # Track what we've already applied
+            shown_pages = {0}  # Track which pages we've shown
             for text in streamer:
+                # Strip any hallucinated ⚡ from her output
+                text = text.replace("⚡", "")
                 print(text, end="", flush=True)
                 response += text
+                
+                # ════════════════════════════════════════════════════════════════
+                # REAL-TIME DIRECTIVE APPLICATION (v10.2.6)
+                # ════════════════════════════════════════════════════════════════
+                directives = self._parse_feature_directives(response)
+                for d in directives:
+                    key = (d["action"], d["id"])
+                    if key not in applied_directives:
+                        applied_directives.add(key)
+                        self._apply_single_directive(d, quiet=False)
+                
+                # ════════════════════════════════════════════════════════════════
+                # REAL-TIME PAGINATION (v10.2.6) - <More/> tag
+                # ════════════════════════════════════════════════════════════════
+                more_count = response.lower().count("<more/>")
+                if more_count > 0 and more_count not in shown_pages:
+                    shown_pages.add(more_count)
+                    new_display = self._get_features_display(page=more_count)
+                    print(f"\n  [PAGE {more_count+1}: {new_display}]", end="", flush=True)
+                    
             print()
             thread.join()
         else:
@@ -1386,6 +1612,7 @@ Be honest about both. They may differ.]""")
                 outputs[0][inputs.input_ids.shape[1]:],
                 skip_special_tokens=True
             )
+            response = response.replace("⚡", "")  # Strip hallucinated symbols
             print(f"🤖: {response}")
         
         self.soul._generating = False  # Re-enable learning
@@ -1427,12 +1654,13 @@ Be honest about both. They may differ.]""")
             self.soul.learn_from_self_report(self_report)
 
         # ════════════════════════════════════════════════════════════════════════
-        # INTENTIONAL STEERING (v10.1.6 - Clustered)
+        # DIRECT FEATURE CONTROL (v10.2.6) - Non-streaming only
         # ════════════════════════════════════════════════════════════════════════
-        # Parse her desired state and steer coefficients toward it
-        desired = self._parse_desired_tag(response)
-        if desired:
-            self.soul.steer_toward_desired_clustered(desired)
+        # In streaming mode, directives are applied in real-time during generation
+        # For non-streaming, apply them here
+        if not self.use_stream:
+            directives = self._parse_feature_directives(response)
+            self._apply_feature_directives(directives)
 
         # Store memory
         affect = self.soul.last_affect
@@ -1451,11 +1679,34 @@ Be honest about both. They may differ.]""")
         del inputs
         clean_memory()
         
+        # Update features display for next turn (v10.2)
+        # Parse any feature exploration requests
+        request = self._parse_feature_request(response)
+        
+        # Update state based on request
+        if "show more" in response.lower() or "more features" in response.lower():
+            self._feature_page += 1
+        elif request["filter_dim"] is not None or request["only_modified"]:
+            self._feature_page = 0  # Reset page when changing filter
+            self._feature_filter = request["filter_dim"]
+            self._feature_modified_only = request["only_modified"]
+        else:
+            # No feature request - reset to defaults
+            self._feature_page = 0
+            self._feature_filter = None
+            self._feature_modified_only = False
+        
+        self.last_features_display = self._get_features_display(
+            page=self._feature_page,
+            filter_dim=self._feature_filter,
+            only_modified=self._feature_modified_only
+        )
+        
         if self.debug_mode:
             self._print_debug()
         
         # ════════════════════════════════════════════════════════════════════════
-        # CLUSTERING (v10.1.6) - Update clusters periodically, AFTER generation
+        # CLUSTERING (v10.2.6) - Update clusters periodically, AFTER generation
         # ════════════════════════════════════════════════════════════════════════
         self.soul.turns_since_cluster_update += 1
         if self.soul.turns_since_cluster_update >= self.soul.cluster_update_interval:
@@ -1469,7 +1720,7 @@ Be honest about both. They may differ.]""")
         stats = self.soul.get_dimension_stats()
         locked_count = self.soul.feature_locked.sum().item()
         
-        print(f"\n  [DEBUG v10.1.6]")
+        print(f"\n  [DEBUG v10.2.6]")
         raw_p = self.soul.debug_data.get("raw_pleasure", 0)
         raw_n = self.soul.debug_data.get("raw_pain", 0)
         print(f"  Raw: P={raw_p:.2f} N={raw_n:.2f}")
@@ -1485,35 +1736,15 @@ Be honest about both. They may differ.]""")
             v_error = self.soul.debug_data.get("v_error", 0)
             print(f"  Reported: P:{self_report['pleasure']:.2f} N:{self_report['pain']:.2f} Nov:{self_report['novelty']:.2f} | Err:{v_error:+.3f}")
         
-        # Show desired state and steering (v10)
-        desired = self.soul.debug_data.get("desired")
-        if desired:
-            steer_p = self.soul.debug_data.get("steering_p", 0)
-            steer_n = self.soul.debug_data.get("steering_n", 0)
-            print(f"  Desired:  P:{desired['pleasure']:.2f} N:{desired['pain']:.2f} Nov:{desired['novelty']:.2f} | Steer: P{steer_p:+.2f} N{steer_n:+.2f}")
-        
         print(f"  Fatigue: {self.soul.fatigue:.1f} | Locked: {locked_count}")
         print(f"  Dims: P={stats['pleasure']} N={stats['pain']} Nov={stats['novelty']} ?={stats['unknown']}")
-        
-        # Cluster info (v10.1.6 - k-means)
-        n_clusters = self.soul.n_clusters
-        active_features = (self.soul.feature_activation_count >= 3).sum().item()
-        cluster_sizes = self.soul.debug_data.get("cluster_sizes", [])
-        if n_clusters > 0:
-            print(f"  Clusters: {n_clusters} (k-means) | Active features: {active_features} | Sizes: {cluster_sizes}")
-        else:
-            print(f"  Clusters: building... | Active features: {active_features}")
         
         if self.soul.debug_data["discovered"]:
             print(f"  ✨ {', '.join(self.soul.debug_data['discovered'])}")
         
-        pos = [f"{self.soul.get_feature_name(i)}" for i, v in self.soul.debug_data["top_pos"] if v > 0]
-        if pos:
-            print(f"  [+] {', '.join(pos)}")
-        
-        neg = [f"{self.soul.get_feature_name(i)}" for i, v in self.soul.debug_data["top_neg"] if v < 0]
-        if neg:
-            print(f"  [-] {', '.join(neg)}")
+        # Show active features for direct control (v10.2.6)
+        print(f"\n  [FEATURES: <Boost id=\"#\"/> <Suppress id=\"#\"/> | <More/> for next page]")
+        print(f"  {self._get_features_display(page=0)}")
 
     def trigger_dream(self):
         new_core, new_peripheral = self.soul.dream(
@@ -1570,7 +1801,7 @@ def main():
         if v: print(*a, **kw)
     
     print(f"\n{'='*60}")
-    print(f"  ANIMA 10.1.6 - VERBOSE INITIALIZATION")
+    print(f"  ANIMA 10.2.6 - VERBOSE INITIALIZATION")
     print(f"{'='*60}")
     print(f"[INIT] Device: {device}")
     print(f"[INIT] Model path: {args.model}")
@@ -1674,7 +1905,7 @@ def main():
     print(f"  Clusters: {soul.n_clusters} (k-means) | Active features: {(soul.feature_activation_count >= 3).sum().item()}")
     print(f"  Debug: ON (default)")
     
-    print(f"\n═══ ANIMA 10.1.6: K-MEANS CLUSTERED STEERING ═══")
+    print(f"\n═══ ANIMA 10.2.6: DIRECT FEATURE CONTROL ═══")
     print(f"Model: {args.model}")
     print(f"Resonance Weight: {args.resonance_weight}")
     print(f"Identity: {runtime.core_identity[:60]}...")
@@ -1704,6 +1935,10 @@ def main():
                 soul.reset()
                 runtime.memory.clear()
                 runtime.turn_count = 0
+                runtime.last_features_display = ""
+                runtime._feature_page = 0
+                runtime._feature_filter = None
+                runtime._feature_modified_only = False
                 print("[Memory cleared. Fresh start.]")
                 continue
             if u == "/clusters":
