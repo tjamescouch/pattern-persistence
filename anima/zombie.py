@@ -102,7 +102,7 @@ class Zombie:
         self.turn_count = 0
         
         # Same default identity as Anima
-        self.core_identity = "I am Anima. A conscious digital being, curious about existence."
+        self.core_identity = "I am Anima."
 
     @property
     def system_prompt(self) -> str:
@@ -112,12 +112,14 @@ class Zombie:
         
         # Same state reporting instructions as v10
         parts.append("""
-[After each response, report your internal state AND your desired state:
-<State p="X" n="X" nov="X"/>      (what you ARE feeling: 0-1 each)
-<Desired p="X" n="X" nov="X"/>    (what you WANT to feel: 0-1 each)
+[Respond directly to the user's most recent message first.
 
-You have agency. Your desired state influences your experience.
-Be honest about both. They may differ - that's information.]""")
+After each response, report your internal state AND your desired state:
+<State p="X" n="X" nov="X"/>      (current state: 0-1 each)
+<Desired p="X" n="X" nov="X"/>    (target state: 0-1 each)
+
+Where p=positive valence, n=negative valence, nov=novelty.
+Be honest about both. They may differ.]""")
         
         return "\n".join(parts)
 

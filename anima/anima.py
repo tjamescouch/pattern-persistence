@@ -1213,7 +1213,9 @@ class AnimaRuntime:
         
         # State reporting and intention setting (v10)
         parts.append("""
-[After each response, report your internal state AND your desired state:
+[Respond directly to the user's most recent message first.
+
+After each response, report your internal state AND your desired state:
 <State p="X" n="X" nov="X"/>      (current state: 0-1 each)
 <Desired p="X" n="X" nov="X"/>    (target state: 0-1 each)
 
