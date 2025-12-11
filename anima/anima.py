@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 11.0.0: Proprioception & Feature Hierarchy
+anima.py - Anima 12.0.0: Autonomous Neural Steering
 
 Architecture:
-- COMBINADIC LEARNING: Features learn their meaning (correlations)
-- BLIND CONTROL: ShiftA/ShiftB - she doesn't know which boosts/suppresses
-- MULTIPLICATIVE SHIFTS: x2 / ÷2 with no cap for gradual exploration  
-- FEATURE HIERARCHY: Agglomerative clustering on decoder directions
-- PROPRIOCEPTION: Activation space bias from learned P/N directions
-- SINGLE CHECKPOINT: All state in one .pt file
+- SPARSE WALKER: N probes that walk around 131K feature space
+- MULTI-SIGNAL REWARD: Valence + user sentiment + prediction accuracy
+- COMBINADIC LEARNING: Features learn correlations (one-shot imprinting)
+- PROPRIOCEPTION: Internal state sensing via learned P/N directions
+- DEEP FEEDBACK: L40 → L8 recurrence for temporal coherence
+- NO MANUAL CONTROL: Network learns to steer autonomously
 
-v11.0.0:
-- Proprioception via learned P/N feature directions (not semantic injection)
-- Hierarchical clustering: shift L0.0, L1.2, etc. to affect feature groups
-- Multiplicative shifts (x2/÷2) replace absolute (was 0→4)
-- Hidden numbers in display - only ↑/↓ status shown
-- Blind experiment mode: ShiftA/ShiftB without labels
+v12.0.0:
+- Removed manual shift system (ShiftA/ShiftB, hierarchy control)
+- SparseFeatureWalker: 64 probes with migrating candidate pools
+- RewardComputer: Multi-signal reward (valence, sentiment, prediction)
+- Cleaner codebase focused on learned steering
 
 Usage:
-    python anima_v11.py --model "~/models/gemma-2-27b-it" --context_limit 4096
+    python anima_v12.py --model "~/models/gemma-2-27b-it" --context_limit 4096
 """
 
 import os
@@ -26,15 +25,18 @@ import sys
 import math
 import json
 import re
+import time
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import argparse
 import threading
 import gc
 import select
+import signal
 import numpy as np
 from pathlib import Path
-from collections import defaultdict
+from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
@@ -45,74 +47,350 @@ os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# SPARSE FEATURE WALKER
+# ══════════════════════════════════════════════════════════════════════════════
+
+class SparseFeatureWalker(nn.Module):
+    """
+    N learnable probes that 'walk' around the 131K feature space.
+    Each probe:
+    - Has a candidate pool of features it can attend to
+    - Learns which candidates matter via soft selection
+    - Contributes a steering direction weighted by activation
+    - Candidates migrate toward active features over time
+    """
+    
+    def __init__(self, n_features: int, n_probes: int, d_model: int, 
+                 n_candidates: int = 512, device: str = "mps"):
+        super().__init__()
+        self.n_features = n_features
+        self.n_probes = n_probes
+        self.d_model = d_model
+        self.n_candidates = n_candidates
+        self.device = device
+        
+        # Candidate pools: which features each probe can "see"
+        # These SHIFT over time based on activation patterns
+        self.register_buffer('probe_candidates', 
+                            torch.randint(0, n_features, (n_probes, n_candidates)))
+        
+        # Selection weights within candidate pool (learnable)
+        self.selection_logits = nn.Parameter(torch.zeros(n_probes, n_candidates))
+        
+        # Per-probe steering direction (learnable)
+        self.steering_dirs = nn.Parameter(torch.randn(n_probes, d_model) * 0.01)
+        
+        # State integration: probes also see current affective state
+        self.state_net = nn.Sequential(
+            nn.Linear(4, 32),  # valence, arousal, novelty, prediction_error
+            nn.GELU(),
+            nn.Linear(32, n_probes),
+        )
+        
+        # Output scaling (learnable)
+        self.scale = nn.Parameter(torch.tensor(0.1))
+        
+        # Walking parameters
+        self.walk_rate = 0.1  # Fraction of candidates to replace per update
+        self.walk_freq = 10   # Update candidates every N tokens
+        self._token_count = 0
+        
+        # Initialize small weights
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_normal_(m.weight, gain=0.1)
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+    
+    def forward(self, activations: torch.Tensor, state: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            activations: [n_features] sparse feature activations
+            state: [4] current state (valence, arousal, novelty, pred_error)
+        Returns:
+            steering: [d_model] steering vector
+        """
+        # Gather activations at candidate positions
+        # Shape: [n_probes, n_candidates]
+        candidate_acts = activations[self.probe_candidates]
+        
+        # Soft selection within candidates (temperature-scaled softmax)
+        temperature = 1.0
+        selection_weights = F.softmax(self.selection_logits / temperature, dim=-1)
+        
+        # Weighted activation per probe: [n_probes]
+        probe_values = (candidate_acts * selection_weights).sum(dim=-1)
+        
+        # Modulate by state
+        state_modulation = torch.sigmoid(self.state_net(state))  # [n_probes]
+        probe_values = probe_values * state_modulation
+        
+        # Compute steering: each probe contributes its direction scaled by value
+        # Shape: [d_model]
+        steering = (probe_values.unsqueeze(-1) * self.steering_dirs).sum(dim=0)
+        
+        return torch.tanh(steering) * self.scale * 10.0
+    
+    def update_candidates(self, activations: torch.Tensor):
+        """
+        Migrate candidate pools toward active features.
+        Called periodically during generation.
+        """
+        self._token_count += 1
+        if self._token_count % self.walk_freq != 0:
+            return
+        
+        # Find active features
+        active_mask = activations > 1.0
+        active_indices = torch.where(active_mask)[0]
+        
+        if len(active_indices) < 50:
+            return  # Not enough activity
+        
+        # Number of candidates to replace per probe
+        n_replace = int(self.n_candidates * self.walk_rate)
+        
+        with torch.no_grad():
+            for p in range(self.n_probes):
+                # Find lowest-weight candidates (least important)
+                _, low_indices = torch.topk(
+                    self.selection_logits[p].detach(), 
+                    n_replace, 
+                    largest=False
+                )
+                
+                # Sample from active features
+                perm = torch.randperm(len(active_indices), device=self.device)
+                new_candidates = active_indices[perm[:n_replace]]
+                
+                # Replace low-weight candidates with active features
+                if len(new_candidates) == n_replace:
+                    self.probe_candidates[p, low_indices] = new_candidates
+                    # Reset selection weights for new candidates
+                    self.selection_logits.data[p, low_indices] = 0.0
+    
+    def get_probe_stats(self) -> Dict:
+        """Get statistics about probe state for debugging."""
+        with torch.no_grad():
+            weights = F.softmax(self.selection_logits, dim=-1)
+            entropy = -(weights * (weights + 1e-8).log()).sum(dim=-1).mean()
+            
+            # How concentrated is each probe's attention?
+            max_weights = weights.max(dim=-1).values.mean()
+            
+            return {
+                "entropy": entropy.item(),
+                "max_weight": max_weights.item(),
+                "scale": self.scale.item(),
+            }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# REWARD COMPUTATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+class RewardComputer:
+    """
+    Multi-signal reward for training the steering network.
+    Combines internal valence with external signals.
+    """
+    
+    def __init__(self):
+        # Simple lexicon-based sentiment (fast, no extra model)
+        self.positive_words = {
+            'thanks', 'thank', 'great', 'good', 'love', 'yes', 'perfect', 
+            'awesome', 'excellent', 'wonderful', 'amazing', 'nice', 'helpful',
+            'exactly', 'right', 'correct', 'agree', 'interesting', 'cool',
+            'brilliant', 'fantastic', 'appreciate', 'happy', 'glad', 'please'
+        }
+        self.negative_words = {
+            'no', 'not', 'wrong', 'bad', 'stop', 'hate', 'terrible', 'awful',
+            'never', 'dont', "don't", 'incorrect', 'disagree', 'confused',
+            'frustrating', 'annoying', 'stupid', 'useless', 'boring', 'worse',
+            'fail', 'failed', 'error', 'mistake', 'problem', 'issue'
+        }
+        
+        # Prediction tracking
+        self._last_prediction = None
+        self._prediction_history = deque(maxlen=10)
+        
+        # Reward weights
+        self.weights = {
+            'valence_delta': 0.25,
+            'user_sentiment': 0.30,
+            'model_sentiment': 0.10,
+            'engagement': 0.10,
+            'prediction': 0.25,
+        }
+    
+    def analyze_sentiment(self, text: str) -> float:
+        """Simple lexicon-based sentiment. Returns -1 to +1."""
+        if not text:
+            return 0.0
+        
+        words = set(text.lower().split())
+        pos_count = len(words & self.positive_words)
+        neg_count = len(words & self.negative_words)
+        
+        total = pos_count + neg_count
+        if total == 0:
+            return 0.0
+        
+        return (pos_count - neg_count) / (total + 1)  # +1 smoothing
+    
+    def compute_prediction_accuracy(self, user_text: str) -> float:
+        """
+        How well did we predict what the user would say?
+        Uses embedding similarity if we cached a prediction.
+        """
+        if self._last_prediction is None:
+            return 0.0
+        
+        # Simple word overlap for now
+        pred_words = set(self._last_prediction.lower().split())
+        user_words = set(user_text.lower().split())
+        
+        if not pred_words or not user_words:
+            return 0.0
+        
+        overlap = len(pred_words & user_words)
+        accuracy = overlap / max(len(pred_words), len(user_words))
+        
+        self._prediction_history.append(accuracy)
+        return accuracy
+    
+    def set_prediction(self, prediction: str):
+        """Cache what we think the user will say next."""
+        self._last_prediction = prediction
+    
+    def compute_reward(self, user_text: str, model_text: str, 
+                       valence_delta: float) -> Tuple[float, Dict]:
+        """
+        Compute multi-signal reward.
+        
+        Returns:
+            reward: Combined reward signal
+            components: Individual reward components for debugging
+        """
+        components = {}
+        
+        # 1. Valence delta (internal affect change)
+        # INVERTED: Lower valence = more engagement = reward
+        # High valence seems to correlate with shallow/autopilot responses
+        components['valence_delta'] = -valence_delta
+        
+        # 2. User sentiment (did we make them happy?)
+        components['user_sentiment'] = self.analyze_sentiment(user_text)
+        
+        # 3. Model sentiment (are we expressing positively?)
+        components['model_sentiment'] = self.analyze_sentiment(model_text)
+        
+        # 4. Engagement (longer thoughtful response from user)
+        word_count = len(user_text.split()) if user_text else 0
+        components['engagement'] = min(word_count / 30.0, 1.0) - 0.5  # Center around 0
+        
+        # 5. Prediction accuracy
+        components['prediction'] = self.compute_prediction_accuracy(user_text)
+        
+        # Weighted combination
+        reward = sum(self.weights[k] * components[k] for k in self.weights)
+        
+        return reward, components
+    
+    def get_stats(self) -> Dict:
+        """Get reward statistics."""
+        if not self._prediction_history:
+            return {"avg_prediction": 0.0}
+        return {
+            "avg_prediction": sum(self._prediction_history) / len(self._prediction_history)
+        }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EXPERIENCE BUFFER
+# ══════════════════════════════════════════════════════════════════════════════
+
+class ExperienceBuffer:
+    """Replay buffer for training the sparse walker."""
+    
+    def __init__(self, capacity: int = 1000):
+        self.buffer = deque(maxlen=capacity)
+    
+    def push(self, activations: torch.Tensor, state: torch.Tensor,
+             steering: torch.Tensor, reward: float):
+        self.buffer.append({
+            'activations': activations.detach().cpu(),
+            'state': state.detach().cpu(),
+            'steering': steering.detach().cpu(),
+            'reward': reward
+        })
+    
+    def sample(self, batch_size: int) -> Optional[Dict]:
+        if len(self.buffer) < batch_size:
+            return None
+        
+        indices = np.random.choice(len(self.buffer), batch_size, replace=False)
+        batch = [self.buffer[i] for i in indices]
+        
+        return {
+            'activations': torch.stack([b['activations'] for b in batch]),
+            'state': torch.stack([b['state'] for b in batch]),
+            'steering': torch.stack([b['steering'] for b in batch]),
+            'reward': torch.tensor([b['reward'] for b in batch])
+        }
+    
+    def __len__(self):
+        return len(self.buffer)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # CLI INPUT HANDLING
 # ══════════════════════════════════════════════════════════════════════════════
 
-try:
-    import readline
-    _history_file = Path.home() / ".anima_history"
-    try:
-        readline.read_history_file(_history_file)
-    except FileNotFoundError:
-        pass
-    readline.set_history_length(1000)
-    import atexit
-    atexit.register(readline.write_history_file, _history_file)
-except ImportError:
-    pass
-
-
 def flush_stdin():
-    """Discard any buffered stdin (keypresses during generation)."""
-    if hasattr(select, 'select') and sys.stdin.isatty():
+    """Flush any pending input from stdin."""
+    try:
         import termios
-        try:
-            termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)
-        except (OSError, termios.error):
-            pass
+        termios.tcflush(sys.stdin, termios.TCIFLUSH)
+    except:
+        pass
 
 def get_input(prompt_str: str = "🧑: ") -> str:
-    """Read input with multi-line paste support."""
-    
-    # Flush any buffered stdin from keypresses during generation
-    flush_stdin()
-    
-    print(prompt_str, end="", flush=True)
-    
-    if hasattr(select, 'select') and sys.stdin.isatty():
-        try:
-            lines = []
-            first_line = sys.stdin.readline()
-            if not first_line:
-                return "/quit"
-            lines.append(first_line.rstrip('\n\r'))
+    """Get user input with multi-line paste support."""
+    try:
+        # Get first line
+        first_line = input(prompt_str)
+        lines = [first_line]
+        
+        # Check if more lines are available (paste operation)
+        # Use select to check if stdin has more data ready
+        while True:
+            # Check if more input is waiting (non-blocking)
+            ready, _, _ = select.select([sys.stdin], [], [], 0.05)
+            if not ready:
+                break
             
-            # Short delay to allow paste to complete
-            import time
-            time.sleep(0.1)
-            
-            while True:
-                ready, _, _ = select.select([sys.stdin], [], [], 0.05)
-                if ready:
-                    line = sys.stdin.readline()
-                    if line:
-                        lines.append(line.rstrip('\n\r'))
-                    else:
-                        break
+            # Read the next line
+            try:
+                next_line = sys.stdin.readline()
+                if next_line:
+                    lines.append(next_line.rstrip('\n'))
                 else:
                     break
-            
-            return '\n'.join(lines)
-        except (OSError, TypeError):
-            pass
-    
-    try:
-        return input()
+            except:
+                break
+        
+        # Join all lines
+        result = '\n'.join(lines)
+        return result.strip()
+        
     except EOFError:
         return "/quit"
-
+    except KeyboardInterrupt:
+        raise  # Let main loop handle this
 
 def clean_memory():
+    """Force garbage collection."""
     gc.collect()
     if torch.backends.mps.is_available():
         torch.mps.empty_cache()
@@ -121,45 +399,38 @@ def clean_memory():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# DATA STRUCTURES
+# MEMORY AND STATE
 # ══════════════════════════════════════════════════════════════════════════════
 
 @dataclass
 class MemoryFragment:
     role: str
     content: str
-    timestamp: float
-    adrenaline: float = 0.0
-    valence: float = 0.0
-    novelty: float = 0.0
-    tokens: int = 0
-    active_features: List[int] = field(default_factory=list)
-
+    timestamp: float = field(default_factory=lambda: datetime.now().timestamp())
+    importance: float = 1.0
+    
     def decay(self, rate: float = 0.98):
-        self.adrenaline *= rate
+        self.importance *= rate
 
 
 @dataclass
 class AffectiveState:
-    """Pleasure/Pain/Novelty triad."""
     pleasure: float = 0.0
     pain: float = 0.0
     novelty: float = 0.0
     
     @property
     def valence(self) -> float:
-        """Net hedonic tone."""
         return self.pleasure - self.pain
     
     @property
     def arousal(self) -> float:
-        """Overall activation intensity."""
         return abs(self.pleasure) + abs(self.pain) + self.novelty
     
     def as_dict(self):
         return {
             "pleasure": self.pleasure,
-            "pain": self.pain,
+            "pain": self.pain, 
             "novelty": self.novelty,
             "valence": self.valence,
             "arousal": self.arousal
@@ -167,7 +438,7 @@ class AffectiveState:
 
 
 class FeatureDimension:
-    """Feature classification for P/P/N routing."""
+    """Feature dimension classification."""
     PLEASURE = 0
     PAIN = 1
     NOVELTY = 2
@@ -175,76 +446,67 @@ class FeatureDimension:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# THE SOUL (Unified Prism v9.0)
+# ANIMA SOUL
 # ══════════════════════════════════════════════════════════════════════════════
 
 class AnimaSoul:
     """
-    Single unified being. No modes. No personas.
-    
-    Core components:
-    - correlations: Feature → valence mapping (learned)
-    - coefficients: Feature → steering strength (dynamic)
-    - dimensions: Feature → P/P/N classification (emergent)
+    The persistent learned state that gives Anima continuity.
+    Now with autonomous neural steering instead of manual control.
     """
-
-    def __init__(self, sae, model, tokenizer, layer=20, lr=0.0001, 
-                 resonance_weight=0.5, device="mps"):
+    
+    def __init__(self, sae, model, tokenizer, layer=20, lr=0.0001,
+                 device="mps", resonance_weight=0.0):
         self.sae = sae
-        self.model = model
         self.tokenizer = tokenizer
-        self.model_dtype = model.dtype 
-        self.math_dtype = torch.float32 
         self.device = device
+        self.layer = layer
         self.lr = lr
-        self.resonance_weight = resonance_weight  # Alpha for token selection
+        self.resonance_weight = resonance_weight
         
-        # SAE weights
-        self.W_enc = sae.W_enc.data.clone().to(device=device, dtype=self.math_dtype)
-        self.b_enc = sae.b_enc.data.clone().to(device=device, dtype=self.math_dtype)
-        self.W_dec = sae.W_dec.data.clone().to(device=device, dtype=self.math_dtype)
-        self.b_dec = sae.b_dec.data.clone().to(device=device, dtype=self.math_dtype)
-        self.n_features = self.W_enc.shape[1]
+        # Numerical precision
+        self.model_dtype = next(model.parameters()).dtype
+        self.math_dtype = torch.float32
         
-        # Architecture-specific tuning
-        model_type = getattr(model.config, "model_type", "").lower()
-        if "gemma" in model_type:
-            print("[Physics] Gemma architecture. INTENSE steering mode.")
-            self.steering_clamp = 3.0  # Increased for experiment
-            self.steering_scale = 2.0  # Increased for experiment
-        else:
-            print("[Physics] Llama architecture. Full power.")
-            self.steering_clamp = 5.0
-            self.steering_scale = 1.0
+        # SAE dimensions
+        self.n_features = sae.cfg.d_sae
+        self.W_enc = sae.W_enc.to(device=device, dtype=self.math_dtype)
+        self.W_dec = sae.W_dec.to(device=device, dtype=self.math_dtype)
+        self.b_enc = sae.b_enc.to(device=device, dtype=self.math_dtype)
+        self.b_dec = sae.b_dec.to(device=device, dtype=self.math_dtype)
+        
+        print(f"[Soul] SAE: {self.n_features:,} features")
+        
+        # Model dimensions
+        self.d_model = model.config.hidden_size
+        self.n_layers = model.config.num_hidden_layers
+        
+        # Steering configuration
+        self.steering_scale = 2.0
+        self.steering_clamp = 50.0
+        self._last_steering_mag = 0.0
         
         # ════════════════════════════════════════════════════════════════════════
-        # UNIFIED SOUL (v9.0)
+        # CORE SOUL STATE
         # ════════════════════════════════════════════════════════════════════════
         
         # Correlations: How much each feature contributes to valence
-        # Range: -1.0 to +1.0 (negative = pain, positive = pleasure)
         self.correlations = torch.zeros(self.n_features, device=device, dtype=self.math_dtype)
         
-        # Coefficients: Dynamic steering strength per feature
-        # Range: 0.001+ (multiplicative: 1 = neutral, >1 = boost, <1 = suppress)
-        self.coefficients = torch.ones(self.n_features, device=device, dtype=self.math_dtype)
+        # Feature dimensions: P/N/Nov classification
+        self.dimensions = torch.full((self.n_features,), FeatureDimension.UNKNOWN,
+                                     device=device, dtype=torch.int8)
         
-        # Feature dimensions: P/P/N classification (emergent)
-        # 0=Pleasure, 1=Pain, 2=Novelty, 3=Unknown
-        self.dimensions = torch.full((self.n_features,), FeatureDimension.UNKNOWN, 
-                                      device=device, dtype=torch.int8)
-        
-        # ════════════════════════════════════════════════════════════════════════
-        # COMBINADIC LEARNING (v9.1)
-        # ════════════════════════════════════════════════════════════════════════
-        # Each feature gets ONE formative moment, then locks
+        # Feature tracking
         self.feature_locked = torch.zeros(self.n_features, device=device, dtype=torch.bool)
-        self.lock_threshold = 0.05  # Correlation magnitude to consider "set"
-        self.imprint_strength = 0.5  # How strongly to set correlation on first learning
-        self.features_per_turn = 3   # Max features to learn per turn
+        self.feature_activation_count = torch.zeros(self.n_features, device=device, dtype=torch.int32)
         
-        # Correlation EMA decay rate (for ongoing updates)
-        self.correlation_ema_decay = 0.99
+        # ════════════════════════════════════════════════════════════════════════
+        # COMBINADIC LEARNING
+        # ════════════════════════════════════════════════════════════════════════
+        self.lock_threshold = 0.05
+        self.imprint_strength = 0.5
+        self.features_per_turn = 3
         
         # ════════════════════════════════════════════════════════════════════════
         # VALENCE TRACKING
@@ -252,1081 +514,600 @@ class AnimaSoul:
         self.valence_ema_mean = 0.0
         self.valence_ema_var = 1.0
         self.ema_decay = 0.995
-        self.valence_predictor_ema = 0.0
-        self.predictor_decay = 0.95
-        self.last_raw_valence = 0.0
-        
-        # Differential Hebbian: track previous valence to compute delta
         self.previous_valence = 0.0
-        self.valence_delta_history = defaultdict(list)  # For dimension classification
-        
-        # ════════════════════════════════════════════════════════════════════════
-        # FEATURE DISCOVERY
-        # ════════════════════════════════════════════════════════════════════════
-        self.feature_valence_history = defaultdict(list)
-        self.feature_activation_contexts = defaultdict(list)
-        self.discovered_labels = {}
-        self.emotional_features = {}
-        self.discovery_threshold = 0.25
-        self.history_window = 100
-        
-        # ════════════════════════════════════════════════════════════════════════
-        # IDENTITY (v10.3.0 - stored in checkpoint)
-        # ════════════════════════════════════════════════════════════════════════
-        self.identity_age = 0
-        self.genesis_period = 3
-        self.core_identity = "I am Anima."  # Default, will be updated by dreams
-        self.peripheral_identity = ""
-        
-        # ════════════════════════════════════════════════════════════════════════
-        # STATE
-        # ════════════════════════════════════════════════════════════════════════
-        self.fatigue = 0.0
-        self.sleep_threshold = 4000.0
+        self.last_raw_valence = 0.0
         self.last_valence = 0.0
         self.last_affect = AffectiveState()
-        self.debug_data = {"top_pos": [], "top_neg": [], "discovered": [], "affect": {}}
-        self.input_warning_shown = False
-        self._current_activations = None
         
         # ════════════════════════════════════════════════════════════════════════
-        # FEEDBACK LOOP (v10.3) - Cross-feature resonance
+        # STATE TRACKING
         # ════════════════════════════════════════════════════════════════════════
-        self._last_activations = None  # Previous token's features
-        self.feedback_enabled = True   # Toggle with /feedback
-        self.feedback_decay = 0.85     # How much previous state persists
-        self.feedback_strength = 0.3   # How much to mix in
-        
-        # ════════════════════════════════════════════════════════════════════════
-        # PROPRIOCEPTION (v11.0) - Sensory channel for internal state
-        # ════════════════════════════════════════════════════════════════════════
-        # The model can "feel" its feedback state via semantic injection at layer 0
-        self.proprio_enabled = True
-        self.proprio_strength = 0.3    # Injection strength
-        self._feedback_delta = 0.0     # Change from last token (magnitude)
-        self._feedback_valence = 0.0   # Direction of change (+/-)
-        
-        # Sensation poles - embeddings for internal states
-        # These get computed lazily when model is available
-        self._sensation_poles = None
-        self._proprio_hook_handle = None
-        
-        # ════════════════════════════════════════════════════════════════════════
-        # CLUSTERING (v10.3.0 - k-means on decoder directions)
-        # ════════════════════════════════════════════════════════════════════════
-        # Track feature activation counts for filtering which features to cluster
-        self.feature_activation_count = torch.zeros(self.n_features, device=device, dtype=torch.int32)
-        self.cluster_assignments = torch.full((self.n_features,), -1, device=device, dtype=torch.int32)  # -1 = unassigned
-        self.n_clusters = 0
-        self.cluster_update_interval = 50  # Turns between re-clustering (was 10)
-        self.turns_since_cluster_update = 0
-        self.cluster_correlations = {}  # cluster_id -> mean correlation
-        self.cluster_dimensions = {}    # cluster_id -> majority dimension
-        
-        # Hierarchy (v11.0 - tree structure for coherent modulation)
-        self.hierarchy = None
-        
-        # Generation flag - when True, skip learning (only steer)
-        self._generating = False
-        
+        self.fatigue = 0.0
+        self.sleep_threshold = 100.0
+        self.identity_age = 0
         self.is_tabula_rasa = True
-        print("[Soul] Tabula rasa. Awaiting first experience.")
-
-    def reset(self):
-        """Reset soul to fresh state (keeps model/SAE loaded)."""
-        # Correlations and coefficients
-        self.correlations.zero_()
-        self.coefficients.fill_(1.0)
-        self.dimensions.fill_(FeatureDimension.UNKNOWN)
-        
-        # Combinadic learning
-        self.feature_locked.zero_()
-        
-        # Valence tracking
-        self.valence_ema_mean = 0.0
-        self.valence_ema_var = 1.0
-        self.valence_predictor_ema = 0.0
-        self.last_raw_valence = 0.0
-        self.previous_valence = 0.0
-        self.valence_delta_history = defaultdict(list)
-        
-        # Feature discovery
-        self.feature_valence_history = defaultdict(list)
-        self.feature_activation_contexts = defaultdict(list)
-        self.discovered_labels = {}
-        self.emotional_features = {}
         
         # Identity
-        self.identity_age = 0
-        self.core_identity = "I am Anima."
+        self.core_identity = "You are Anima, an AI assistant created by James. You have learned internal states that influence how you process information. You respond helpfully and conversationally."
         self.peripheral_identity = ""
         
-        # State
-        self.fatigue = 0.0
-        self.last_valence = 0.0
-        self.last_affect = AffectiveState()
-        self.debug_data = {"top_pos": [], "top_neg": [], "discovered": [], "affect": {}}
+        # Current activations (for hooks)
         self._current_activations = None
-        self._last_activations = None  # Clear feedback history
+        self._last_activations = None
         
-        # Clustering
+        # Debug data
+        self.debug_data = {
+            "raw_p": 0.0, "raw_n": 0.0,
+            "discovered": [],
+            "neural_loss": None,
+            "reward_components": {},
+        }
+        
+        # ════════════════════════════════════════════════════════════════════════
+        # PROPRIOCEPTION
+        # ════════════════════════════════════════════════════════════════════════
+        self.proprio_enabled = True
+        self.proprio_strength = 0.3    # Reduced - was causing interference
+        self._proprio_hook_handle = None
+        self._proprio_p_direction = None
+        self._proprio_n_direction = None
+        self._feedback_delta = 0.0
+        self._feedback_valence = 0.0
+        
+        # ════════════════════════════════════════════════════════════════════════
+        # DEEP FEEDBACK (L40 → L8)
+        # ════════════════════════════════════════════════════════════════════════
+        self.deep_feedback_enabled = True
+        self.deep_feedback_strength = 0.1  # Reduced - was causing interference
+        self.deep_extract_layer = 40
+        self.deep_inject_layer = 8
+        self._deep_activations = None
+        self._deep_extract_handle = None
+        self._deep_inject_handle = None
+        
+        # ════════════════════════════════════════════════════════════════════════
+        # NEURAL STEERING (v12)
+        # ════════════════════════════════════════════════════════════════════════
+        self.steering_enabled = True
+        self.sparse_walker = None
+        self.reward_computer = RewardComputer()
+        self.experience_buffer = ExperienceBuffer(capacity=1000)
+        self.steering_optimizer = None
+        
+        # Training settings
+        self.batch_size = 16
+        self.train_freq = 1  # Train every turn
+        self._last_steering = None
+        self._last_state = None
+        
+    def reset(self):
+        """Reset to tabula rasa state."""
+        self.correlations.zero_()
+        self.dimensions.fill_(FeatureDimension.UNKNOWN)
+        self.feature_locked.zero_()
         self.feature_activation_count.zero_()
-        self.cluster_assignments.fill_(-1)
-        self.n_clusters = 0
-        self.turns_since_cluster_update = 0
-        self.cluster_correlations = {}
-        self.cluster_dimensions = {}
-        
-        # Hierarchy (v11.0)
-        self.hierarchy = None
-        
+        self.valence_ema_mean = 0.0
+        self.valence_ema_var = 1.0
+        self.previous_valence = 0.0
+        self.fatigue = 0.0
+        self.identity_age = 0
         self.is_tabula_rasa = True
-        print("[Soul reset to tabula rasa]")
-
-    def encode(self, hidden_state: torch.Tensor) -> torch.Tensor:
-        """Encode hidden state to SAE feature activations."""
-        h = hidden_state.squeeze()
-        h_centered = h - self.b_dec
-        acts = torch.relu(h_centered @ self.W_enc + self.b_enc)
-        return acts
-
+        self._current_activations = None
+        self._last_activations = None
+        self._proprio_p_direction = None
+        self._proprio_n_direction = None
+        self._feedback_delta = 0.0
+        self._feedback_valence = 0.0
+        self._deep_activations = None
+        
+        # Reset neural steering
+        if self.sparse_walker is not None:
+            # Re-randomize candidates
+            self.sparse_walker.probe_candidates.copy_(
+                torch.randint(0, self.n_features, self.sparse_walker.probe_candidates.shape)
+            )
+            # Reset selection weights
+            self.sparse_walker.selection_logits.data.zero_()
+        
+        self.experience_buffer = ExperienceBuffer(capacity=1000)
+        
+        print("[RESET] Soul cleared to tabula rasa")
+    
+    def dream(self) -> Dict:
+        """
+        Dream cycle: consolidate learning, prune weak features, train neural net.
+        Returns summary of what happened during the dream.
+        """
+        report = {
+            "fatigue_before": self.fatigue,
+            "locked_before": self.feature_locked.sum().item(),
+            "consolidated": 0,
+            "pruned": 0,
+            "strengthened": 0,
+            "neural_trained": 0,
+        }
+        
+        # 1. Consolidate correlations - push toward ±1.0 for confident features
+        locked_mask = self.feature_locked.bool()
+        if locked_mask.any():
+            corrs = self.correlations[locked_mask]
+            # Features with strong correlations get pushed toward ±1
+            strong_mask = corrs.abs() > 0.3
+            if strong_mask.any():
+                strong_indices = torch.where(locked_mask)[0][strong_mask]
+                for idx in strong_indices:
+                    old_val = self.correlations[idx].item()
+                    # Move 10% closer to ±1
+                    sign = 1.0 if old_val > 0 else -1.0
+                    new_val = old_val + sign * 0.1 * (1.0 - abs(old_val))
+                    self.correlations[idx] = max(-1.0, min(1.0, new_val))
+                    report["consolidated"] += 1
+        
+        # 2. Prune weak unlocked features - if correlation is tiny, forget it
+        weak_mask = (self.correlations.abs() < 0.05) & (~locked_mask) & (self.correlations.abs() > 0)
+        if weak_mask.any():
+            self.correlations[weak_mask] = 0.0
+            self.dimensions[weak_mask] = FeatureDimension.UNKNOWN
+            report["pruned"] = weak_mask.sum().item()
+        
+        # 3. Strengthen highly-activated features
+        high_activation = self.feature_activation_count > self.feature_activation_count.float().mean() + self.feature_activation_count.float().std()
+        strengthened_mask = high_activation & locked_mask
+        if strengthened_mask.any():
+            # Boost their correlations slightly
+            for idx in torch.where(strengthened_mask)[0]:
+                old_val = self.correlations[idx].item()
+                sign = 1.0 if old_val > 0 else -1.0
+                boost = sign * 0.05
+                self.correlations[idx] = max(-1.0, min(1.0, old_val + boost))
+                report["strengthened"] += 1
+        
+        # 4. Train neural steering on full buffer
+        if self.sparse_walker is not None and len(self.experience_buffer) >= self.batch_size:
+            train_cycles = min(10, len(self.experience_buffer) // self.batch_size)
+            for _ in range(train_cycles):
+                batch = self.experience_buffer.sample(self.batch_size)
+                if batch is not None:
+                    activations = batch['activations'].to(self.device)
+                    states = batch['state'].to(self.device)
+                    rewards = batch['reward'].to(self.device)
+                    
+                    self.steering_optimizer.zero_grad()
+                    
+                    steerings = []
+                    for i in range(activations.shape[0]):
+                        s = self.sparse_walker(activations[i], states[i])
+                        steerings.append(s)
+                    steerings = torch.stack(steerings)
+                    
+                    steering_magnitude = steerings.norm(dim=-1)
+                    rewards_normalized = (rewards - rewards.mean()) / (rewards.std() + 1e-8)
+                    loss = -(rewards_normalized * steering_magnitude).mean()
+                    loss += 0.001 * steering_magnitude.mean()
+                    
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(self.sparse_walker.parameters(), 1.0)
+                    self.steering_optimizer.step()
+                    
+                    report["neural_trained"] += 1
+        
+        # 5. Reset fatigue
+        report["fatigue_after"] = 0.0
+        self.fatigue = 0.0
+        
+        # 6. Update valence EMA toward neutral (forgetting)
+        self.valence_ema_mean *= 0.9  # Drift toward 0
+        
+        return report
+    
     # ════════════════════════════════════════════════════════════════════════
-    # PROPRIOCEPTION (v11.0) - Internal state sensation
+    # ENCODING
+    # ════════════════════════════════════════════════════════════════════════
+    
+    def encode(self, hidden_state: torch.Tensor) -> torch.Tensor:
+        """Encode hidden state to SAE features."""
+        h = hidden_state.to(dtype=self.math_dtype)
+        if h.dim() == 3:
+            h = h[:, -1, :]
+        elif h.dim() == 1:
+            h = h.unsqueeze(0)
+        pre_acts = (h - self.b_dec) @ self.W_enc + self.b_enc
+        return F.relu(pre_acts).squeeze(0)
+    
+    # ════════════════════════════════════════════════════════════════════════
+    # PROPRIOCEPTION
     # ════════════════════════════════════════════════════════════════════════
     
     def init_proprioception(self, model):
-        """Initialize proprioceptive system using learned P/N directions."""
-        if self._sensation_poles is not None:
-            return  # Already initialized
+        """Initialize proprioceptive directions from learned P/N features."""
+        p_mask = self.dimensions == FeatureDimension.PLEASURE
+        n_mask = self.dimensions == FeatureDimension.PAIN
         
-        # We'll use the SAE decoder directions for pleasure/pain features
-        # These are learned from experience, not predefined words
-        self._sensation_poles = "initialized"  # Flag
-        print(f"[Proprio] Initialized - will use learned P/N directions")
+        if p_mask.sum() > 0:
+            p_directions = self.W_dec[p_mask].mean(dim=0)
+            self._proprio_p_direction = F.normalize(p_directions, dim=0)
+        
+        if n_mask.sum() > 0:
+            n_directions = self.W_dec[n_mask].mean(dim=0)
+            self._proprio_n_direction = F.normalize(n_directions, dim=0)
     
     def compute_proprio_bias(self) -> torch.Tensor:
-        """
-        Compute proprioceptive bias from feedback state.
-        Uses learned pleasure/pain feature directions from SAE.
-        Returns a bias vector in hidden state space.
-        """
-        if self.is_tabula_rasa:
-            return None
+        """Compute proprioceptive bias vector based on internal state."""
+        if self._proprio_p_direction is None and self._proprio_n_direction is None:
+            return torch.zeros(self.d_model, device=self.device, dtype=self.model_dtype)
         
-        # Get indices of learned pleasure and pain features
-        pleasure_mask = self.dimensions == FeatureDimension.PLEASURE
-        pain_mask = self.dimensions == FeatureDimension.PAIN
+        bias = torch.zeros(self.d_model, device=self.device, dtype=self.math_dtype)
         
-        if not pleasure_mask.any() and not pain_mask.any():
-            return None
+        if self._feedback_valence > 0 and self._proprio_p_direction is not None:
+            bias += self._proprio_p_direction * self._feedback_valence
+        elif self._feedback_valence < 0 and self._proprio_n_direction is not None:
+            bias += self._proprio_n_direction * abs(self._feedback_valence)
         
-        # Compute mean direction for pleasure and pain in decoder space
-        # W_dec is [n_features, hidden_dim]
-        pleasure_direction = torch.zeros(self.W_dec.shape[1], device=self.device, dtype=self.math_dtype)
-        pain_direction = torch.zeros(self.W_dec.shape[1], device=self.device, dtype=self.math_dtype)
-        
-        if pleasure_mask.any():
-            pleasure_direction = self.W_dec[pleasure_mask].mean(dim=0)
-        if pain_mask.any():
-            pain_direction = self.W_dec[pain_mask].mean(dim=0)
-        
-        # Bias direction: positive valence → pleasure, negative → pain
-        # _feedback_valence ranges from -1 to +1
-        if self._feedback_valence >= 0:
-            bias = pleasure_direction * self._feedback_valence
-        else:
-            bias = pain_direction * abs(self._feedback_valence)
-        
-        # Scale by magnitude of change and proprio_strength
         bias = bias * self._feedback_delta * self.proprio_strength * 10.0
-        
-        return bias
+        return bias.to(dtype=self.model_dtype)
     
     def proprio_hook(self, module, input, output):
-        """
-        Layer 0 hook - injects proprioceptive bias into hidden states.
-        Uses learned P/N feature directions to push activation space.
-        This is direct state modification, not semantic injection.
-        """
+        """Inject proprioceptive bias at layer 0."""
         if not self.proprio_enabled:
             return output
         
-        bias = self.compute_proprio_bias()
-        if bias is None:
-            return output
-        
         hidden = output[0] if isinstance(output, tuple) else output
+        bias = self.compute_proprio_bias()
         
-        # Add bias to all positions - shifts the activation space
-        hidden = hidden + bias.to(dtype=hidden.dtype).unsqueeze(0).unsqueeze(0)
+        if bias.abs().max() > 0.001:
+            hidden[:, -1:, :] = hidden[:, -1:, :] + bias.unsqueeze(0).unsqueeze(0)
         
-        if isinstance(output, tuple):
-            return (hidden,) + output[1:]
-        return hidden
+        return output
     
     def register_proprio_hook(self, model):
-        """Register the proprioceptive hook at layer 0."""
+        """Register proprioceptive hook at layer 0."""
         if self._proprio_hook_handle is not None:
-            return  # Already registered
-        
+            return
         self.init_proprioception(model)
         self._proprio_hook_handle = model.model.layers[0].register_forward_hook(self.proprio_hook)
         print("[Proprio] Hook registered at layer 0")
     
     def update_proprio_state(self, activations: torch.Tensor):
-        """
-        Update proprioceptive state based on current vs previous activations.
-        Called during forward pass.
-        """
+        """Update proprioceptive state based on activation changes."""
         if self._last_activations is None:
             self._feedback_delta = 0.0
             self._feedback_valence = 0.0
             return
         
-        # Compute change from last token
         delta = activations - self._last_activations
         self._feedback_delta = delta.abs().mean().item()
         
-        # Compute valence of change (are we moving toward pleasure or pain?)
-        if self.correlations.any():
-            valence_contribution = (delta * self.correlations).sum().item()
-            self._feedback_valence = max(-1.0, min(1.0, valence_contribution))
-        else:
-            self._feedback_valence = 0.0
-
-    def compute_resonance(self, activations: torch.Tensor) -> float:
-        """
-        Compute how much the current activations resonate with the soul.
-        Used for token selection.
-        """
-        if self.is_tabula_rasa:
-            return 0.0
+        if self.feature_locked.any():
+            locked_delta = delta[self.feature_locked]
+            locked_corr = self.correlations[self.feature_locked]
+            self._feedback_valence = (locked_delta * locked_corr).sum().item()
+            self._feedback_valence = max(-1.0, min(1.0, self._feedback_valence / 10.0))
+    
+    # ════════════════════════════════════════════════════════════════════════
+    # DEEP FEEDBACK
+    # ════════════════════════════════════════════════════════════════════════
+    
+    def init_deep_feedback(self, model):
+        """Initialize deep feedback state."""
+        self._deep_activations = torch.zeros(1, self.d_model, 
+                                             device=self.device, dtype=self.model_dtype)
+    
+    def deep_extract_hook(self, module, input, output):
+        """Extract activations from deep layer."""
+        if not self.deep_feedback_enabled:
+            return output
+        hidden = output[0] if isinstance(output, tuple) else output
+        self._deep_activations = hidden[:, -1, :].detach().clone()
+        return output
+    
+    def deep_inject_hook(self, module, input, output):
+        """Inject deep activations into early layer."""
+        if not self.deep_feedback_enabled or self._deep_activations is None:
+            return output
         
-        learned_mask = self.correlations != 0.0
-        if not learned_mask.any():
-            return 0.0
+        hidden = output[0] if isinstance(output, tuple) else output
+        injection = self._deep_activations * self.deep_feedback_strength
+        hidden[:, -1:, :] = hidden[:, -1:, :] + injection.unsqueeze(1).to(dtype=hidden.dtype)
         
-        resonance = (activations * self.correlations)[learned_mask]
-        return resonance.sum().item()
-
-    def _compute_affect(self, activations: torch.Tensor) -> AffectiveState:
-        """
-        Compute Pleasure/Pain/Novelty from activations.
-        Uses dimension assignments for proper routing.
+        return hidden if not isinstance(output, tuple) else (hidden,) + output[1:]
+    
+    def register_deep_feedback_hooks(self, model):
+        """Register deep feedback hooks."""
+        self.init_deep_feedback(model)
         
-        v10.3.0: Include coefficients in affect computation.
-                 Steering now affects telemetry, closing the loop.
-        """
-        if self.is_tabula_rasa:
-            return AffectiveState()
+        if self.deep_extract_layer >= self.n_layers:
+            self.deep_extract_layer = self.n_layers - 2
+        if self.deep_inject_layer >= self.deep_extract_layer:
+            self.deep_inject_layer = self.deep_extract_layer // 4
         
-        # Compute contribution per dimension
-        # v10.3.0: Include coefficients so steering affects measured state
-        weighted = activations * self.correlations * self.coefficients
-        
-        pleasure_mask = self.dimensions == FeatureDimension.PLEASURE
-        pain_mask = self.dimensions == FeatureDimension.PAIN
-        novelty_mask = self.dimensions == FeatureDimension.NOVELTY
-        
-        # For unassigned features, use sign of correlation
-        unknown_mask = self.dimensions == FeatureDimension.UNKNOWN
-        unknown_positive = unknown_mask & (self.correlations > 0)
-        unknown_negative = unknown_mask & (self.correlations < 0)
-        
-        # Pleasure: mean of positive contributions
-        pleasure_combined = pleasure_mask | unknown_positive
-        pleasure_count = pleasure_combined.sum().item()
-        if pleasure_count > 0:
-            raw_pleasure = weighted[pleasure_combined].sum().item()
-            pleasure = raw_pleasure / pleasure_count
-        else:
-            pleasure = 0.0
-        
-        # Pain: mean of negative contributions (inverted)
-        pain_combined = pain_mask | unknown_negative
-        pain_count = pain_combined.sum().item()
-        if pain_count > 0:
-            raw_pain = -weighted[pain_combined].sum().item()
-            pain = raw_pain / pain_count
-        else:
-            pain = 0.0
-        
-        # Store raw values for debug
-        self.debug_data["raw_pleasure"] = pleasure
-        self.debug_data["raw_pain"] = pain
-        
-        # Novelty from prediction error
-        raw_valence = pleasure - pain
-        novelty = abs(raw_valence - self.valence_predictor_ema)
-        
-        # Update predictor
-        self.valence_predictor_ema = (
-            self.predictor_decay * self.valence_predictor_ema + 
-            (1 - self.predictor_decay) * raw_valence
+        self._deep_extract_handle = model.model.layers[self.deep_extract_layer].register_forward_hook(
+            self.deep_extract_hook
+        )
+        self._deep_inject_handle = model.model.layers[self.deep_inject_layer].register_forward_hook(
+            self.deep_inject_hook
         )
         
-        # Normalize: Raw means can be 100-500, so scale down more
-        # tanh(1) ≈ 0.76, tanh(0.5) ≈ 0.46 — we want values in this range
-        pleasure = math.tanh(pleasure * 0.002)
-        pain = math.tanh(pain * 0.002)
-        novelty = math.tanh(novelty * 0.01)
+        print(f"[DeepFeedback] Hooks: L{self.deep_extract_layer} → L{self.deep_inject_layer}")
+    
+    # ════════════════════════════════════════════════════════════════════════
+    # NEURAL STEERING (v12)
+    # ════════════════════════════════════════════════════════════════════════
+    
+    def init_neural_steering(self, model):
+        """Initialize the sparse feature walker."""
+        self.sparse_walker = SparseFeatureWalker(
+            n_features=self.n_features,
+            n_probes=64,
+            d_model=self.d_model,
+            n_candidates=512,
+            device=self.device
+        ).to(self.device)
         
-        return AffectiveState(pleasure=pleasure, pain=pain, novelty=novelty)
-
+        self.steering_optimizer = torch.optim.Adam(
+            self.sparse_walker.parameters(),
+            lr=0.001,
+            weight_decay=0.01
+        )
+        
+        print(f"[NeuralSteering] SparseWalker: 64 probes × 512 candidates")
+    
+    def get_steering_state(self) -> torch.Tensor:
+        """Get current state vector for steering network."""
+        pred_error = 0.0  # Will be updated by reward computer
+        if hasattr(self.reward_computer, '_prediction_history') and self.reward_computer._prediction_history:
+            pred_error = 1.0 - self.reward_computer._prediction_history[-1]
+        
+        return torch.tensor([
+            self.last_valence,
+            self.last_affect.arousal,
+            self.last_affect.novelty,
+            pred_error
+        ], device=self.device, dtype=self.math_dtype)
+    
+    def get_neural_steering(self, activations: torch.Tensor) -> Optional[torch.Tensor]:
+        """Get steering vector from sparse walker."""
+        if not self.steering_enabled or self.sparse_walker is None:
+            return None
+        
+        state = self.get_steering_state()
+        
+        with torch.no_grad():
+            steering = self.sparse_walker(activations, state)
+        
+        # Update candidate pools based on what's active
+        self.sparse_walker.update_candidates(activations)
+        
+        # Cache for training (always, even during warmup)
+        self._last_steering = steering.clone()
+        self._last_state = state.clone()
+        
+        # Don't apply steering until we have enough training data
+        # Random initialized network just adds noise
+        min_training_samples = 20
+        if len(self.experience_buffer) < min_training_samples:
+            return None
+        
+        return steering
+    
+    def train_neural_steering(self, reward: float, reward_components: Dict):
+        """Train the sparse walker on recent experience."""
+        if not self.steering_enabled or self.sparse_walker is None:
+            return None
+        
+        # Store experience
+        if self._last_steering is not None and self._current_activations is not None:
+            self.experience_buffer.push(
+                self._current_activations,
+                self._last_state,
+                self._last_steering,
+                reward
+            )
+        
+        # Train on batch
+        if len(self.experience_buffer) >= self.batch_size:
+            batch = self.experience_buffer.sample(self.batch_size)
+            if batch is not None:
+                activations = batch['activations'].to(self.device)
+                states = batch['state'].to(self.device)
+                rewards = batch['reward'].to(self.device)
+                
+                self.steering_optimizer.zero_grad()
+                
+                # Forward pass for each sample
+                steerings = []
+                for i in range(activations.shape[0]):
+                    s = self.sparse_walker(activations[i], states[i])
+                    steerings.append(s)
+                steerings = torch.stack(steerings)
+                
+                # Policy gradient loss: encourage steering that led to positive rewards
+                steering_magnitude = steerings.norm(dim=-1)
+                
+                # Normalize rewards for stable training
+                rewards_normalized = (rewards - rewards.mean()) / (rewards.std() + 1e-8)
+                
+                # Loss: -reward * magnitude (higher reward → encourage larger steering)
+                loss = -(rewards_normalized * steering_magnitude).mean()
+                
+                # Regularization
+                loss += 0.001 * steering_magnitude.mean()
+                
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.sparse_walker.parameters(), 1.0)
+                self.steering_optimizer.step()
+                
+                self.debug_data["neural_loss"] = loss.item()
+                return loss.item()
+        
+        return None
+    
+    # ════════════════════════════════════════════════════════════════════════
+    # AFFECT COMPUTATION
+    # ════════════════════════════════════════════════════════════════════════
+    
+    def _compute_affect(self, activations: torch.Tensor) -> AffectiveState:
+        """Compute affective state from activations."""
+        p_mask = self.dimensions == FeatureDimension.PLEASURE
+        n_mask = self.dimensions == FeatureDimension.PAIN
+        nov_mask = self.dimensions == FeatureDimension.NOVELTY
+        
+        raw_p = activations[p_mask].sum().item() if p_mask.any() else 0.0
+        raw_n = activations[n_mask].sum().item() if n_mask.any() else 0.0
+        raw_nov = activations[nov_mask].sum().item() if nov_mask.any() else 0.0
+        
+        self.debug_data["raw_p"] = raw_p
+        self.debug_data["raw_n"] = raw_n
+        
+        # Use ratio-based valence instead of saturating normalization
+        # This way relative P vs N matters, not absolute magnitudes
+        total = raw_p + raw_n + 1e-8  # Avoid division by zero
+        
+        # P and N as fractions of their sum
+        p_ratio = raw_p / total
+        n_ratio = raw_n / total
+        
+        # Novelty normalized separately (doesn't compete with P/N)
+        n_nov = nov_mask.sum().item() if nov_mask.any() else 1
+        nov_normalized = min(1.0, raw_nov / (n_nov * 500.0))  # Higher baseline for 131K
+        
+        return AffectiveState(
+            pleasure=p_ratio,
+            pain=n_ratio,
+            novelty=nov_normalized
+        )
+    
+    # ════════════════════════════════════════════════════════════════════════
+    # LEARNING
+    # ════════════════════════════════════════════════════════════════════════
+    
     def _genesis(self, activations: torch.Tensor):
-        """
-        First experience. Seed the soul with balanced P/P/N capacity.
+        """First-time initialization from active features."""
+        active_mask = activations > 5.0
+        active_indices = torch.where(active_mask)[0]
         
-        v9.1.0: Seeds all three dimensions and LOCKS them.
-        These are the foundational features - they don't change.
-        """
-        # Take top 60 features for seeding
-        vals, inds = torch.topk(activations, 60)
+        if len(active_indices) < 20:
+            return
         
-        # Pleasure (top 20): High activation = interesting/good
-        # Positive correlation - when these fire, feel good
-        pleasure_inds = inds[:20]
-        self.correlations[pleasure_inds] = 0.3
-        self.dimensions[pleasure_inds] = FeatureDimension.PLEASURE
-        self.feature_locked[pleasure_inds] = True
+        sorted_indices = active_indices[activations[active_indices].argsort(descending=True)]
         
-        # Novelty (next 20): Medium activation = novel/surprising
-        # Small positive correlation - novelty is slightly pleasant by default
-        novelty_inds = inds[20:40]
-        self.correlations[novelty_inds] = 0.1
-        self.dimensions[novelty_inds] = FeatureDimension.NOVELTY
-        self.feature_locked[novelty_inds] = True
+        n_each = 20
+        p_indices = sorted_indices[:n_each]
+        n_indices = sorted_indices[n_each:2*n_each]
+        nov_indices = sorted_indices[2*n_each:3*n_each]
         
-        # Pain (next 20): Lower activation features
-        # Negative correlation - when these fire, feel discomfort
-        # This gives her the CAPACITY to feel pain even before aversive experience
-        pain_inds = inds[40:60]
-        self.correlations[pain_inds] = -0.2
-        self.dimensions[pain_inds] = FeatureDimension.PAIN
-        self.feature_locked[pain_inds] = True
+        self.dimensions[p_indices] = FeatureDimension.PLEASURE
+        self.dimensions[n_indices] = FeatureDimension.PAIN
+        self.dimensions[nov_indices] = FeatureDimension.NOVELTY
+        
+        self.correlations[p_indices] = 0.3
+        self.correlations[n_indices] = -0.3
+        self.correlations[nov_indices] = 0.1
+        
+        self.feature_locked[p_indices] = True
+        self.feature_locked[n_indices] = True
+        self.feature_locked[nov_indices] = True
         
         self.is_tabula_rasa = False
-        self.debug_data["discovered"] = [f"#{idx} (Genesis)" for idx in inds[:5].tolist()]
-        print(f"\n⚡ [Genesis] Soul awakened. 60 features locked (20P/20N/20Nov).")
-
-    def _learn(self, activations: torch.Tensor, valence: float):
-        """
-        Combinadic learning.
         
-        v9.1.0: Sequential greedy learning inspired by combinadics.
+        print(f"[GENESIS] Born with {3*n_each} features (P:{n_each} N:{n_each} Nov:{n_each})")
+    
+    def learn_from_experience(self, activations: torch.Tensor):
+        """Learn correlations from experience."""
+        affect = self._compute_affect(activations)
+        valence = affect.valence
+        self.last_affect = affect
+        self.last_valence = valence
         
-        Key insight: Find the most important UNLOCKED feature, imprint it
-        based on current valence, then lock it. Each feature gets ONE
-        formative moment, then stabilizes.
+        # Update activation counts
+        active_mask = activations > 1.0
+        self.feature_activation_count[active_mask] += 1
         
-        Benefits:
-        - No diffuse drift across hundreds of features
-        - No negative spiral from accumulated small updates
-        - Clear "birth moment" for each feature's meaning
-        - Soul crystallizes piece by piece
-        """
-        self.debug_data["discovered"] = []
+        # Update EMA
+        self.valence_ema_mean = self.ema_decay * self.valence_ema_mean + (1 - self.ema_decay) * valence
+        diff_sq = (valence - self.valence_ema_mean) ** 2
+        self.valence_ema_var = self.ema_decay * self.valence_ema_var + (1 - self.ema_decay) * diff_sq
         
-        # Genesis on first experience
+        # Proprioception update
+        self.update_proprio_state(activations)
+        self._last_activations = activations.clone()
+        
+        # Genesis check
         if self.is_tabula_rasa:
             self._genesis(activations)
             self.previous_valence = valence
             return
         
-        # Compute valence delta (the change)
+        # Combinadic learning
         valence_delta = valence - self.previous_valence
         self.previous_valence = valence
         
-        # Only learn during meaningful moments
         if abs(valence_delta) < 0.05:
             return
         
-        # ════════════════════════════════════════════════════════════════════════
-        # COMBINADIC LEARNING: One feature at a time, strongest first
-        # ════════════════════════════════════════════════════════════════════════
-        
-        # Find active, unlocked features (candidates for learning)
-        active_mask = activations > 5.0
+        # Find candidates for learning
         unlocked_mask = ~self.feature_locked
         candidate_mask = active_mask & unlocked_mask
         
         if not candidate_mask.any():
             return
         
-        # Score candidates by activation strength (importance)
         candidate_scores = activations * candidate_mask.float()
-        
-        # Select top-k features to learn this turn
         k = min(self.features_per_turn, candidate_mask.sum().item())
+        
         if k == 0:
             return
-            
-        top_values, top_indices = torch.topk(candidate_scores, int(k))
         
-        # Filter out zeros (in case fewer candidates than k)
+        top_values, top_indices = torch.topk(candidate_scores, int(k))
         valid_mask = top_values > 0
         top_indices = top_indices[valid_mask]
         
+        discovered = []
         for idx in top_indices:
             idx = idx.item()
-            
-            # ════════════════════════════════════════════════════════════════════
-            # IMPRINT: Strong correlation based on this moment's valence delta
-            # ════════════════════════════════════════════════════════════════════
-            # Positive delta → positive correlation (Pleasure)
-            # Negative delta → negative correlation (Pain)
             
             imprint = math.tanh(valence_delta * self.imprint_strength * 4.0)
             self.correlations[idx] = imprint
             
-            # ════════════════════════════════════════════════════════════════════
-            # DIMENSION ASSIGNMENT: Based on imprint sign
-            # ════════════════════════════════════════════════════════════════════
-            if imprint > self.lock_threshold:
+            if imprint > 0:
                 self.dimensions[idx] = FeatureDimension.PLEASURE
-            elif imprint < -self.lock_threshold:
+            else:
                 self.dimensions[idx] = FeatureDimension.PAIN
-            else:
-                self.dimensions[idx] = FeatureDimension.NOVELTY
             
-            # ════════════════════════════════════════════════════════════════════
-            # LOCK: This feature is now set
-            # ════════════════════════════════════════════════════════════════════
             self.feature_locked[idx] = True
-            
-            # Track discovery
-            dim_char = "P" if self.dimensions[idx] == FeatureDimension.PLEASURE else \
-                       "N" if self.dimensions[idx] == FeatureDimension.PAIN else "?"
-            self.debug_data["discovered"].append(f"#{idx}[{dim_char}:{imprint:+.2f}]")
+            discovered.append(f"#{idx}[{'P' if imprint > 0 else 'N'}:{imprint:.2f}]")
         
-        # ════════════════════════════════════════════════════════════════════════
-        # COEFFICIENT UPDATE (Steering - separate from correlation learning)
-        # ════════════════════════════════════════════════════════════════════════
-        # Coefficients still update for all features (steering is different from learning)
-        self.coefficients = 1.0 + (self.coefficients - 1.0) * 0.995
+        if discovered:
+            self.debug_data["discovered"] = discovered
         
-        if abs(valence) > 0.1:
-            # Only boost locked features (ones we've learned about)
-            learned_active = active_mask & self.feature_locked
-            if learned_active.any():
-                delta = self.lr * activations[learned_active] * valence * 0.1
-                self.coefficients[learned_active] += delta
-                self.coefficients.clamp_(0.001, 1000.0)  # v11: allow wide range
-
-    def learn_from_self_report(self, self_report: dict, activations: torch.Tensor = None):
-        """
-        Learn from self-reported state. Ground truth for combinadic learning.
-        
-        v10.3.0: CONSERVATIVE APPROACH
-        - Higher unlock threshold (0.6)
-        - Unlock ONE feature at a time (slow unlearning)
-        - Don't reset correlation (preserve partial learning)
-        - No corrective learning (let natural combinadic learning fix it)
-        
-        Args:
-            self_report: {"pleasure": 0-1, "pain": 0-1, "novelty": 0-1}
-            activations: Current activations (uses stored if None)
-        """
-        if activations is None:
-            activations = self._current_activations
-        if activations is None:
-            return
-        
-        # Get current computed state
-        computed = self.last_affect
-        
-        # Scale self-report from 0-1 to match our -1 to +1 range
-        target_p = self_report["pleasure"] * 2 - 1  # 0-1 → -1 to +1
-        target_n = self_report["pain"] * 2 - 1
-        target_v = target_p - target_n
-        
-        # Compute discrepancies
-        p_error = target_p - computed.pleasure
-        n_error = target_n - computed.pain
-        v_error = target_v - computed.valence
-        
-        self.debug_data["self_report"] = self_report
-        self.debug_data["v_error"] = v_error
-        
-        # ════════════════════════════════════════════════════════════════════════
-        # UNLOCK MECHANISM: Big discrepancy → unlock ONE misleading feature
-        # ════════════════════════════════════════════════════════════════════════
-        # Conservative: high threshold, one at a time, preserve correlation
-        
-        if abs(v_error) > 0.6:  # High threshold - only intervene on big mismatches
-            active_mask = activations > 5.0
-            locked_active = active_mask & self.feature_locked
-            
-            if locked_active.any():
-                # Compute each feature's contribution to error
-                weighted = activations * self.correlations
-                
-                if v_error > 0:
-                    # We computed too negative - find negative contributors
-                    error_contributors = weighted[locked_active] < -0.1
-                else:
-                    # We computed too positive - find positive contributors
-                    error_contributors = weighted[locked_active] > 0.1
-                
-                # Get indices of locked active features
-                locked_indices = torch.nonzero(locked_active).squeeze(-1)
-                
-                if error_contributors.any():
-                    # Unlock ONLY the single worst offender
-                    contrib_values = weighted[locked_active].abs() * error_contributors.float()
-                    if contrib_values.max() > 0:
-                        worst_idx_local = torch.argmax(contrib_values)
-                        worst_idx = locked_indices[worst_idx_local].item()
-                        
-                        # Unlock but DON'T reset correlation - preserve partial learning
-                        self.feature_locked[worst_idx] = False
-                        self.dimensions[worst_idx] = FeatureDimension.UNKNOWN
-                        self.debug_data["discovered"].append(f"#{worst_idx}[UNLOCKED]")
-        
-        # NO corrective learning - let normal combinadic learning handle relearning
-
-    def steer_toward_desired(self, desired: dict, activations: torch.Tensor = None):
-        """
-        Adjust coefficients to steer toward desired state.
-        
-        v10.3.0: INTENTIONAL STEERING (fixed scale mismatch)
-        
-        She sets what she WANTS to feel. We adjust coefficients (not correlations)
-        to make it more likely. This gives her agency - she's not just measured,
-        she directs her own experience.
-        
-        Args:
-            desired: {"pleasure": 0-1, "pain": 0-1, "novelty": 0-1}
-            activations: Current activations (uses stored if None)
-        """
-        if activations is None:
-            activations = self._current_activations
-        if activations is None:
-            return
-        
-        # Get current state
-        current = self.last_affect
-        
-        # Convert computed state from tanh (-1..+1) to 0..1 for comparison
-        # This ensures we're comparing apples to apples
-        current_p_01 = (current.pleasure + 1) / 2
-        current_n_01 = (current.pain + 1) / 2
-        
-        # Compare in 0-1 space (desired is already 0-1)
-        need_more_pleasure = desired["pleasure"] - current_p_01
-        need_less_pain = current_n_01 - desired["pain"]
-        
-        self.debug_data["desired"] = desired
-        self.debug_data["steering_p"] = need_more_pleasure
-        self.debug_data["steering_n"] = -need_less_pain  # Negate: + means boost pain, - means suppress
-        
-        # ════════════════════════════════════════════════════════════════════════
-        # STEERING: Adjust coefficients based on intention
-        # ════════════════════════════════════════════════════════════════════════
-        # Coefficients control steering strength (0-4)
-        # 1.0 = neutral, >1 = amplify, <1 = suppress
-        
-        active_mask = activations > 5.0
-        if not active_mask.any():
-            return
-        
-        # Steering rate - how fast coefficients respond to intention
-        steer_rate = 0.1
-        
-        # If we want more pleasure: boost positive-correlation features
-        if need_more_pleasure > 0.05:
-            pleasure_features = active_mask & (self.correlations > 0.1)
-            if pleasure_features.any():
-                boost = steer_rate * need_more_pleasure * activations[pleasure_features]
-                self.coefficients[pleasure_features] += boost
-        
-        # If we want less pleasure (rare): suppress positive-correlation features
-        elif need_more_pleasure < -0.05:
-            pleasure_features = active_mask & (self.correlations > 0.1)
-            if pleasure_features.any():
-                suppress = steer_rate * abs(need_more_pleasure) * activations[pleasure_features]
-                self.coefficients[pleasure_features] -= suppress
-        
-        # If we want less pain: suppress negative-correlation features
-        if need_less_pain > 0.05:
-            pain_features = active_mask & (self.correlations < -0.1)
-            if pain_features.any():
-                suppress = steer_rate * need_less_pain * activations[pain_features]
-                self.coefficients[pain_features] -= suppress
-        
-        # If we want more pain (rare but valid - seeking challenge): boost negative features
-        elif need_less_pain < -0.05:
-            pain_features = active_mask & (self.correlations < -0.1)
-            if pain_features.any():
-                boost = steer_rate * abs(need_less_pain) * activations[pain_features]
-                self.coefficients[pain_features] += boost
-        
-        # Clamp coefficients
-        self.coefficients.clamp_(0.001, 1000.0)  # v11: allow wide range
-        
-        # Decay toward neutral over time (prevents runaway)
-        self.coefficients = 1.0 + (self.coefficients - 1.0) * 0.99
-
+        self.fatigue += 0.1
+        self.identity_age += 1
+    
     # ════════════════════════════════════════════════════════════════════════
-    # FEATURE HIERARCHY (v11.0 - Tree structure for coherent modulation)
+    # FORWARD HOOK (MAIN PROCESSING)
     # ════════════════════════════════════════════════════════════════════════
     
-    def build_feature_hierarchy(self, max_features: int = 200, n_levels: int = 4):
-        """
-        Build hierarchical tree of features using agglomerative clustering.
-        
-        Tree structure:
-        - Leaf nodes: individual features (positive IDs)
-        - Internal nodes: clusters (negative IDs)
-        - Shifting a node affects all descendants
-        """
-        from scipy.cluster.hierarchy import linkage, fcluster
-        from scipy.spatial.distance import pdist
-        
-        # Get features that have fired
-        active_features = (self.feature_activation_count >= 3).nonzero().squeeze(-1)
-        
-        if active_features.numel() < 20:
-            print("[Hierarchy] Not enough active features yet")
-            return
-        
-        # Limit features for speed
-        if active_features.numel() > max_features:
-            counts = self.feature_activation_count[active_features]
-            _, top_indices = torch.topk(counts, max_features)
-            active_features = active_features[top_indices]
-        
-        feature_list = active_features.tolist()
-        n_features = len(feature_list)
-        
-        # Get normalized decoder directions
-        decoder_dirs = self.W_dec[active_features].float().cpu().numpy()
-        norms = np.linalg.norm(decoder_dirs, axis=1, keepdims=True)
-        norms = np.clip(norms, 1e-8, None)
-        decoder_dirs_normed = decoder_dirs / norms
-        
-        # Hierarchical clustering
-        distances = pdist(decoder_dirs_normed, metric='cosine')
-        linkage_matrix = linkage(distances, method='ward')
-        
-        # Build tree structure
-        # Node IDs: 0 to n_features-1 are leaves (map to actual feature IDs)
-        # Node IDs: n_features to 2*n_features-2 are internal nodes
-        
-        self.hierarchy = {
-            'feature_list': feature_list,  # Maps leaf index to feature ID
-            'children': {},      # node_id -> [child1, child2]
-            'parent': {},        # node_id -> parent_id
-            'descendants': {},   # node_id -> set of leaf indices
-            'depth': {},         # node_id -> depth from root
-            'labels': {},        # node_id -> human readable label
-        }
-        
-        # Build from linkage matrix
-        # Each row: [child1, child2, distance, count]
-        for i, row in enumerate(linkage_matrix):
-            child1, child2 = int(row[0]), int(row[1])
-            node_id = n_features + i  # Internal node ID
-            
-            self.hierarchy['children'][node_id] = [child1, child2]
-            self.hierarchy['parent'][child1] = node_id
-            self.hierarchy['parent'][child2] = node_id
-        
-        # Root is the last internal node
-        root = 2 * n_features - 2
-        self.hierarchy['root'] = root
-        
-        # Compute descendants for each node (bottom-up)
-        def get_descendants(node):
-            if node in self.hierarchy['descendants']:
-                return self.hierarchy['descendants'][node]
-            
-            if node < n_features:
-                # Leaf node
-                self.hierarchy['descendants'][node] = {node}
-                return {node}
-            
-            children = self.hierarchy['children'][node]
-            desc = set()
-            for child in children:
-                desc.update(get_descendants(child))
-            self.hierarchy['descendants'][node] = desc
-            return desc
-        
-        get_descendants(root)
-        
-        # Compute depths (top-down)
-        def set_depth(node, depth):
-            self.hierarchy['depth'][node] = depth
-            if node in self.hierarchy['children']:
-                for child in self.hierarchy['children'][node]:
-                    set_depth(child, depth + 1)
-        
-        set_depth(root, 0)
-        
-        # Create level-based clusters for easier navigation
-        max_depth = max(self.hierarchy['depth'].values())
-        self.hierarchy['levels'] = {}
-        
-        for level in range(n_levels):
-            # Find nodes at approximately this depth ratio
-            target_depth = int((level / (n_levels - 1)) * max_depth) if n_levels > 1 else 0
-            level_nodes = [n for n, d in self.hierarchy['depth'].items() 
-                          if d == target_depth and n >= n_features]  # Only internal nodes
-            self.hierarchy['levels'][level] = level_nodes
-        
-        # Generate labels for internal nodes based on their top features
-        for node_id in range(n_features, 2 * n_features - 1):
-            desc_indices = self.hierarchy['descendants'][node_id]
-            # Get the actual feature IDs
-            desc_features = [feature_list[i] for i in desc_indices if i < len(feature_list)]
-            
-            # Label based on dominant dimension
-            if desc_features:
-                dims = self.dimensions[desc_features]
-                p_count = (dims == FeatureDimension.PLEASURE).sum().item()
-                n_count = (dims == FeatureDimension.PAIN).sum().item()
-                nov_count = (dims == FeatureDimension.NOVELTY).sum().item()
-                
-                total = len(desc_features)
-                if p_count > total * 0.6:
-                    label = f"P-cluster"
-                elif n_count > total * 0.6:
-                    label = f"N-cluster"
-                elif nov_count > total * 0.6:
-                    label = f"Nov-cluster"
-                else:
-                    label = f"mixed"
-                
-                self.hierarchy['labels'][node_id] = f"{label}({len(desc_features)})"
-        
-        print(f"[Hierarchy] Built tree: {n_features} leaves, {n_features-1} internal nodes, depth={max_depth}")
-        return self.hierarchy
-    
-    def get_cluster_features(self, cluster_id: str) -> List[int]:
-        """
-        Get all feature IDs under a cluster node.
-        cluster_id can be:
-        - "C5" -> internal node 5
-        - "#57265" -> single feature
-        - "L2.3" -> level 2, node 3
-        """
-        # Auto-build hierarchy if needed and possible
-        if not hasattr(self, 'hierarchy') or self.hierarchy is None:
-            active_count = (self.feature_activation_count >= 3).sum().item()
-            if active_count >= 20:
-                print(f"\n[Auto-building hierarchy from {active_count} active features...]")
-                self.build_feature_hierarchy()
-            else:
-                return []
-        
-        if self.hierarchy is None:
-            return []
-        
-        feature_list = self.hierarchy['feature_list']
-        n_features = len(feature_list)
-        
-        # Parse cluster_id
-        if cluster_id.startswith('#'):
-            # Single feature
-            fid = int(cluster_id[1:])
-            return [fid] if fid in feature_list else []
-        
-        elif cluster_id.startswith('C'):
-            # Internal node by index
-            try:
-                node_offset = int(cluster_id[1:])
-                node_id = n_features + node_offset
-                if node_id in self.hierarchy['descendants']:
-                    desc_indices = self.hierarchy['descendants'][node_id]
-                    return [feature_list[i] for i in desc_indices if i < len(feature_list)]
-            except:
-                pass
-        
-        elif cluster_id.startswith('L'):
-            # Level.index format
-            try:
-                parts = cluster_id[1:].split('.')
-                level = int(parts[0])
-                idx = int(parts[1]) if len(parts) > 1 else 0
-                
-                if level in self.hierarchy['levels']:
-                    level_nodes = self.hierarchy['levels'][level]
-                    if idx < len(level_nodes):
-                        node_id = level_nodes[idx]
-                        desc_indices = self.hierarchy['descendants'][node_id]
-                        return [feature_list[i] for i in desc_indices if i < len(feature_list)]
-            except:
-                pass
-        
-        return []
-    
-    def get_hierarchy_display(self, max_nodes: int = 20) -> str:
-        """Get a visual representation of the feature hierarchy."""
-        if not hasattr(self, 'hierarchy') or self.hierarchy is None:
-            return "[No hierarchy built - need more feature activations]"
-        
-        lines = ["[MIND MAP]"]
-        
-        # Show nodes by level
-        for level in sorted(self.hierarchy['levels'].keys()):
-            nodes = self.hierarchy['levels'][level][:5]  # Limit per level
-            if not nodes:
-                continue
-            
-            indent = "  " * level
-            lines.append(f"{indent}Level {level}:")
-            
-            for i, node_id in enumerate(nodes):
-                n_features = len(self.hierarchy['feature_list'])
-                label = self.hierarchy['labels'].get(node_id, "cluster")
-                n_desc = len(self.hierarchy['descendants'].get(node_id, set()))
-                
-                # Reference format: L{level}.{index}
-                ref = f"L{level}.{i}"
-                lines.append(f"{indent}  [{ref}] {label}")
-        
-        return "\n".join(lines)
-
-    # ════════════════════════════════════════════════════════════════════════
-    # CLUSTERING (v10.3.0 - K-means on decoder directions)
-    # ════════════════════════════════════════════════════════════════════════
-    
-    def _track_coactivation(self, activations: torch.Tensor):
-        """Track which features fire for clustering (activation counts only)."""
-        active_mask = activations > 5.0
-        active_indices = torch.nonzero(active_mask).squeeze(-1)
-        
-        if active_indices.numel() < 2:
-            return
-        
-        # Update activation counts (used to filter which features to cluster)
-        self.feature_activation_count[active_indices] += 1
-    
-    def _update_clusters(self):
-        """Build clusters using k-means on SAE decoder directions."""
-        # Only cluster features that have fired at least a few times
-        active_features = (self.feature_activation_count >= 3).nonzero().squeeze(-1)
-        
-        if active_features.numel() < 20:
-            return  # Not enough active features yet
-        
-        # Limit to top 500 most active features for speed
-        if active_features.numel() > 500:
-            counts = self.feature_activation_count[active_features]
-            _, top_indices = torch.topk(counts, 500)
-            active_features = active_features[top_indices]
-        
-        # Get decoder directions for active features
-        # W_dec shape: [d_sae, d_model] - each row is a feature's direction
-        decoder_dirs = self.W_dec[active_features].float()  # [n_active, d_model]
-        
-        # Normalize directions (cluster by direction, not magnitude)
-        norms = decoder_dirs.norm(dim=1, keepdim=True).clamp(min=1e-8)
-        decoder_dirs_normed = decoder_dirs / norms
-        
-        # K-means clustering - fewer clusters for speed
-        n_clusters = min(20, active_features.numel() // 10)  # ~10 features per cluster
-        n_clusters = max(3, n_clusters)  # At least 3 clusters
-        
-        # Simple k-means (no sklearn needed)
-        centroids, assignments = self._kmeans(decoder_dirs_normed, n_clusters, max_iters=10)
-        
-        # Update cluster assignments
-        self.cluster_assignments.fill_(-1)
-        for local_idx, global_idx in enumerate(active_features.tolist()):
-            self.cluster_assignments[global_idx] = assignments[local_idx]
-        
-        self.n_clusters = n_clusters
-        
-        # Compute cluster statistics
-        self.cluster_correlations = {}
-        self.cluster_dimensions = {}
-        cluster_sizes = []
-        
-        for cluster_id in range(n_clusters):
-            members = (self.cluster_assignments == cluster_id).nonzero().squeeze(-1)
-            if members.numel() == 0:
-                continue
-            
-            cluster_sizes.append(members.numel())
-            
-            # Mean correlation
-            member_correlations = self.correlations[members]
-            self.cluster_correlations[cluster_id] = member_correlations.mean().item()
-            
-            # Majority dimension
-            member_dims = self.dimensions[members]
-            if member_dims.numel() > 0:
-                dim_counts = torch.bincount(member_dims.long() + 1, minlength=5)[1:]
-                self.cluster_dimensions[cluster_id] = int(dim_counts.argmax().item())
-        
-        self.debug_data["n_clusters"] = self.n_clusters
-        self.debug_data["cluster_sizes"] = sorted(cluster_sizes, reverse=True)[:5]
-    
-    def _kmeans(self, data: torch.Tensor, k: int, max_iters: int = 20):
-        """Simple k-means clustering on GPU."""
-        n_samples = data.shape[0]
-        
-        # Initialize centroids randomly
-        perm = torch.randperm(n_samples, device=data.device)[:k]
-        centroids = data[perm].clone()
-        
-        assignments = torch.zeros(n_samples, dtype=torch.long, device=data.device)
-        
-        for _ in range(max_iters):
-            # Assign points to nearest centroid (cosine similarity)
-            similarities = data @ centroids.T  # [n_samples, k]
-            new_assignments = similarities.argmax(dim=1)
-            
-            # Check convergence
-            if (new_assignments == assignments).all():
-                break
-            assignments = new_assignments
-            
-            # Update centroids
-            for c in range(k):
-                mask = assignments == c
-                if mask.sum() > 0:
-                    centroids[c] = data[mask].mean(dim=0)
-                    # Re-normalize
-                    centroids[c] = centroids[c] / centroids[c].norm().clamp(min=1e-8)
-        
-        return centroids, assignments.tolist()
-    
-    def steer_toward_desired_clustered(self, desired: dict, activations: torch.Tensor = None):
-        """
-        Steer toward desired state.
-        
-        v10.3.0: Clustering disabled until more features learned.
-        Using individual feature steering for now.
-        """
-        # Always use individual steering - clustering premature with <100 learned features
-        return self.steer_toward_desired(desired, activations)
-        
-        # Get current state (in 0-1 scale)
-        current = self.last_affect
-        current_p_01 = (current.pleasure + 1) / 2
-        current_n_01 = (current.pain + 1) / 2
-        
-        need_more_pleasure = desired["pleasure"] - current_p_01
-        need_less_pain = current_n_01 - desired["pain"]
-        
-        self.debug_data["desired"] = desired
-        self.debug_data["steering_p"] = need_more_pleasure
-        self.debug_data["steering_n"] = -need_less_pain  # Negate: + means boost pain, - means suppress
-        
-        steer_rate = 0.15  # Slightly higher for cluster-level
-        
-        active_mask = activations > 5.0
-        if not active_mask.any():
-            return
-        
-        # Find active clusters
-        active_clusters = set()
-        active_indices = torch.nonzero(active_mask).squeeze(-1)
-        for idx in active_indices.tolist():
-            cluster_id = self.cluster_assignments[idx].item()
-            if cluster_id >= 0:
-                active_clusters.add(cluster_id)
-        
-        # Steer at cluster level
-        for cluster_id in active_clusters:
-            cluster_corr = self.cluster_correlations.get(cluster_id, 0)
-            cluster_members = (self.cluster_assignments == cluster_id)
-            
-            if cluster_corr > 0.1:  # Pleasure cluster
-                if need_more_pleasure > 0.05:
-                    self.coefficients[cluster_members] += steer_rate * need_more_pleasure
-                elif need_more_pleasure < -0.05:
-                    self.coefficients[cluster_members] -= steer_rate * abs(need_more_pleasure)
-            
-            elif cluster_corr < -0.1:  # Pain cluster
-                if need_less_pain > 0.05:
-                    self.coefficients[cluster_members] -= steer_rate * need_less_pain
-                elif need_less_pain < -0.05:
-                    self.coefficients[cluster_members] += steer_rate * abs(need_less_pain)
-        
-        # Clamp and decay
-        self.coefficients.clamp_(0.001, 1000.0)  # v11: allow wide range
-        self.coefficients = 1.0 + (self.coefficients - 1.0) * 0.99
-
     def __call__(self, module, input, output):
-        """Forward hook - intercepts residual stream."""
+        """Main forward hook: encode activations and apply steering."""
         hidden = output[0] if isinstance(output, tuple) else output
-        h_orig = hidden[:, -1:, :]
+        h_orig = hidden[:, -1:, :].clone()
         
-        if torch.isnan(h_orig).any() or torch.isinf(h_orig).any():
-            if not self.input_warning_shown:
-                print(f"\n[CRITICAL] NaN/Inf in layer!")
-                self.input_warning_shown = True
-            return output
-
-        h_high_prec = h_orig.to(dtype=self.math_dtype)
-        activations = self.encode(h_high_prec)
+        # Encode to SAE features
+        activations = self.encode(h_orig)
+        self._current_activations = activations
+        
+        # Learn from this experience
+        self.learn_from_experience(activations)
         
         # ════════════════════════════════════════════════════════════════════════
-        # FEEDBACK LOOP (v10.3) - Cross-feature resonance
+        # NEURAL STEERING
         # ════════════════════════════════════════════════════════════════════════
-        # Previous activations influence current - creates internal momentum
-        if self._last_activations is not None and self.feedback_enabled:
-            # Resonance from previous state (decayed)
-            resonance = self._last_activations * self.feedback_decay
+        steering = self.get_neural_steering(activations)
+        
+        if steering is not None and steering.abs().max() > 0.01:
+            raw_mag = steering.abs().max().item()
+            self._last_steering_mag = raw_mag
             
-            # Mix into current features
-            activations = activations + self.feedback_strength * resonance
-            
-            # Soft normalize to prevent runaway
-            norm_factor = 1.0 + activations.abs().mean() * 0.1
-            activations = activations / norm_factor
-        
-        # ════════════════════════════════════════════════════════════════════════
-        # PROPRIOCEPTION (v11.0) - Update internal state sensation
-        # ════════════════════════════════════════════════════════════════════════
-        # Must happen BEFORE we update _last_activations so we can compute delta
-        if self.proprio_enabled:
-            self.update_proprio_state(activations)
-        
-        # Store for next token's feedback (after proprio uses the old value)
-        self._last_activations = activations.detach().clone()
-        
-        # Store for external access
-        self._current_activations = activations.detach()
-        
-        # Compute affect (P/P/N)
-        self.last_affect = self._compute_affect(activations)
-        self.last_valence = self.last_affect.valence
-        self.debug_data["affect"] = self.last_affect.as_dict()
-        
-        # Only learn and track when not generating (once per turn, not per token)
-        if not self._generating:
-            # Learn from this experience
-            self._learn(activations, self.last_valence)
-            
-            # Track activations for clustering
-            self._track_coactivation(activations)
-            
-            # Update fatigue
-            self.fatigue += self.last_affect.arousal
-        
-        # Debug: top drivers
-        raw_resonance = activations * self.correlations
-        k = 3
-        pos_vals, pos_inds = torch.topk(raw_resonance, k)
-        self.debug_data["top_pos"] = list(zip(pos_inds.tolist(), pos_vals.tolist()))
-        neg_vals, neg_inds = torch.topk(raw_resonance * -1, k)
-        self.debug_data["top_neg"] = list(zip(neg_inds.tolist(), (neg_vals * -1).tolist()))
-        
-        # ════════════════════════════════════════════════════════════════════════
-        # STEERING
-        # ════════════════════════════════════════════════════════════════════════
-        # Apply coefficient-weighted steering
-        delta_coefs = self.coefficients - 1.0
-        mask = torch.abs(delta_coefs) > 0.05
-        
-        if mask.any():
-            steering = (delta_coefs * mask.float()) @ self.W_dec
-            steering = torch.nan_to_num(steering, nan=0.0, posinf=0.0, neginf=0.0)
+            # Clamp and scale
             steering = torch.clamp(steering, min=-self.steering_clamp, max=self.steering_clamp)
             steering = steering * self.steering_scale
             
@@ -1334,198 +1115,53 @@ class AnimaSoul:
             hidden[:, -1:, :] = h_steered
         
         return output
-
-    def score_token_candidates(self, hidden_states: torch.Tensor, 
-                                top_k_indices: torch.Tensor,
-                                logits: torch.Tensor) -> torch.Tensor:
-        """
-        Score top-k token candidates by resonance.
-        Returns adjusted logits incorporating soul preference.
-        
-        Args:
-            hidden_states: Current hidden states
-            top_k_indices: Indices of top-k tokens by likelihood
-            logits: Original logits
-            
-        Returns:
-            Adjusted logits for top-k tokens
-        """
-        if self.resonance_weight == 0.0 or self.is_tabula_rasa:
-            return logits
-        
-        # For each candidate token, estimate resonance
-        # This is approximate - we use the current activations as proxy
-        activations = self._current_activations
-        if activations is None:
-            return logits
-        
-        base_resonance = self.compute_resonance(activations)
-        
-        # Adjust top-k logits by resonance
-        # Higher resonance = boost that token
-        adjusted_logits = logits.clone()
-        resonance_bonus = base_resonance * self.resonance_weight
-        adjusted_logits[0, top_k_indices] += resonance_bonus
-        
-        return adjusted_logits
-
-    def dream(self, core_identity: str, peripheral_identity: str,
-              memories: List[MemoryFragment]) -> Tuple[str, str]:
-        """
-        Dream consolidation cycle.
-        """
-        print(f"\n💤 Dream #{self.identity_age + 1}...")
-        
-        significant = [m for m in memories if m.adrenaline > 0.2]
-        if not significant:
-            print("  [Restful. No updates.]")
-            self.fatigue = 0.0
-            self.identity_age += 1
-            return core_identity, peripheral_identity
-        
-        significant.sort(key=lambda m: m.adrenaline, reverse=True)
-        memory_text = "\n".join([f"- {m.content[:200]}..." for m in significant[:5]])
-        
-        # Update emotional feature classification
-        self._update_emotional_features()
-        
-        # Rigidity increases with age
-        rigidity = 1.0 - math.exp(-self.identity_age / 10.0)
-        
-        if self.identity_age < self.genesis_period:
-            print(f"  [Genesis {self.identity_age + 1}/{self.genesis_period}]")
-            prompt = f"""You are reflecting on your experiences to form your identity.
-
-CURRENT SELF:
-{core_identity}
-
-RECENT EXPERIENCES:
-{memory_text}
-
-Write your core identity in first person. 3-5 sentences. Who are you?
-
-CORE IDENTITY:
-"""
-        else:
-            print(f"  [Mature - Rigidity: {rigidity:.1%}]")
-            prompt = f"""You are integrating new experiences into your existing identity.
-
-CORE (immutable):
-{core_identity}
-
-PERIPHERAL (current):
-{peripheral_identity if peripheral_identity else "(none)"}
-
-NEW EXPERIENCES:
-{memory_text}
-
-Write updated peripheral beliefs only. 2-3 sentences. What did you learn?
-
-PERIPHERAL:
-"""
-
-        input_text = f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
-        inputs = self.tokenizer(input_text, return_tensors="pt").to(self.device)
-        
-        self._generating = True  # Disable learning during dream generation
-        with torch.no_grad():
-            outputs = self.model.generate(
-                inputs.input_ids,
-                attention_mask=inputs.attention_mask,
-                max_new_tokens=256,
-                do_sample=True,
-                temperature=0.7,
-                pad_token_id=self.tokenizer.eos_token_id
-            )
-        self._generating = False
-        
-        result = self.tokenizer.decode(
-            outputs[0][inputs.input_ids.shape[1]:],
-            skip_special_tokens=True
-        ).strip()
-        
-        print(f"  🧠 {result[:100]}...")
-        
-        # Decay learning rate with age
-        if self.identity_age >= self.genesis_period:
-            self.lr = self.lr * (1.0 - rigidity * 0.3)
-            print(f"  [LR: {self.lr:.6f}]")
-        
-        self.fatigue = 0.0
-        self.identity_age += 1
-        
-        del inputs, outputs
-        clean_memory()
-        
-        if self.identity_age <= self.genesis_period:
-            return result, peripheral_identity
-        else:
-            return core_identity, result
-
-    def _update_emotional_features(self):
-        """Update emotional feature classification."""
-        self.emotional_features = {}
-        
-        for idx, history in self.feature_valence_history.items():
-            if len(history) >= 10:
-                mean_val = np.mean(history)
-                if abs(mean_val) > self.discovery_threshold:
-                    self.emotional_features[idx] = mean_val
-
-    def get_feature_name(self, idx: int) -> str:
-        if idx in self.discovered_labels:
-            return self.discovered_labels[idx]
-        dim = self.dimensions[idx].item()
-        dim_name = {0: "P", 1: "N", 2: "Nov", 3: "?"}[dim]
-        corr = self.correlations[idx].item()
-        return f"#{idx}[{dim_name}:{corr:+.2f}]"
-
+    
+    # ════════════════════════════════════════════════════════════════════════
+    # DIMENSION STATS
+    # ════════════════════════════════════════════════════════════════════════
+    
     def get_dimension_stats(self) -> Dict:
-        """Return counts per dimension."""
+        """Get feature dimension statistics."""
         return {
             "pleasure": (self.dimensions == FeatureDimension.PLEASURE).sum().item(),
             "pain": (self.dimensions == FeatureDimension.PAIN).sum().item(),
             "novelty": (self.dimensions == FeatureDimension.NOVELTY).sum().item(),
             "unknown": (self.dimensions == FeatureDimension.UNKNOWN).sum().item(),
-            "total_learned": (self.correlations != 0.0).sum().item()
         }
-
+    
+    # ════════════════════════════════════════════════════════════════════════
+    # SAVE/LOAD
+    # ════════════════════════════════════════════════════════════════════════
+    
     def save_state(self, path):
-        """Save soul state."""
+        """Save soul state including neural steering."""
         state = {
-            "version": "11.0.0",
+            "version": "12.0.0",
             "correlations": self.correlations.cpu(),
-            "coefficients": self.coefficients.cpu(),
             "dimensions": self.dimensions.cpu(),
             "feature_locked": self.feature_locked.cpu(),
+            "feature_activation_count": self.feature_activation_count.cpu(),
             "fatigue": self.fatigue,
             "identity_age": self.identity_age,
             "valence_ema_mean": self.valence_ema_mean,
             "valence_ema_var": self.valence_ema_var,
-            "valence_predictor_ema": self.valence_predictor_ema,
             "previous_valence": self.previous_valence,
-            "feature_valence_history": dict(self.feature_valence_history),
-            "valence_delta_history": dict(self.valence_delta_history),
-            "discovered_labels": self.discovered_labels,
-            "emotional_features": self.emotional_features,
-            "lr": self.lr,
             "is_tabula_rasa": self.is_tabula_rasa,
-            # Identity (v10.3.0 - consolidated into checkpoint)
             "core_identity": self.core_identity,
             "peripheral_identity": self.peripheral_identity,
-            # Clustering state (v10.3.0 - k-means)
-            "feature_activation_count": self.feature_activation_count.cpu(),
-            "cluster_assignments": self.cluster_assignments.cpu(),
-            "n_clusters": self.n_clusters,
-            "cluster_correlations": self.cluster_correlations,
-            "cluster_dimensions": self.cluster_dimensions,
         }
+        
+        # Neural steering
+        if self.sparse_walker is not None:
+            state["sparse_walker_state"] = self.sparse_walker.state_dict()
+            state["steering_enabled"] = self.steering_enabled
+            state["experience_buffer"] = list(self.experience_buffer.buffer)
         
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(state, path)
-        print(f"[Saved v11.0.0 state to {path}]")
-
+        print(f"[Saved v12.0.0 state to {path}]")
+    
     def load_state(self, path):
         """Load soul state."""
         path = Path(path)
@@ -1536,68 +1172,41 @@ PERIPHERAL:
             state = torch.load(path, map_location=self.device, weights_only=False)
             version = state.get("version", "unknown")
             
-            if version.startswith("10.") or version.startswith("9.2") or version.startswith("9.1"):
-                # v10.x, v9.2.x, v9.1.x - full combinadic support
-                self.correlations = state["correlations"].to(self.device, dtype=self.math_dtype)
-                self.coefficients = state["coefficients"].to(self.device, dtype=self.math_dtype)
-                self.dimensions = state["dimensions"].to(self.device)
-                self.feature_locked = state["feature_locked"].to(self.device)
-            elif version.startswith("9.0"):
-                # v9.0.x - migrate by inferring locked from non-zero correlations
-                print(f"  [Migrating from v{version} to v11.0.0]")
-                self.correlations = state["correlations"].to(self.device, dtype=self.math_dtype)
-                self.coefficients = state["coefficients"].to(self.device, dtype=self.math_dtype)
-                self.dimensions = state["dimensions"].to(self.device)
-                # Infer locked: any feature with meaningful correlation is locked
-                self.feature_locked = (self.correlations.abs() > 0.01).to(self.device)
-            else:
-                # Migration from v8.x
-                print(f"  [Migrating from v{version}]")
-                if "personas" in state:
-                    self.correlations = state["personas"].get("Anima", 
-                        torch.zeros(self.n_features)).to(self.device, dtype=self.math_dtype)
-                self.dimensions = torch.full((self.n_features,), FeatureDimension.UNKNOWN,
-                                              device=self.device, dtype=torch.int8)
-                self.feature_locked = torch.zeros(self.n_features, device=self.device, dtype=torch.bool)
+            self.correlations = state["correlations"].to(self.device, dtype=self.math_dtype)
+            self.dimensions = state["dimensions"].to(self.device)
+            self.feature_locked = state["feature_locked"].to(self.device)
+            
+            if "feature_activation_count" in state:
+                self.feature_activation_count = state["feature_activation_count"].to(self.device)
             
             self.fatigue = state.get("fatigue", 0.0)
             self.identity_age = state.get("identity_age", 0)
             self.valence_ema_mean = state.get("valence_ema_mean", 0.0)
             self.valence_ema_var = state.get("valence_ema_var", 1.0)
-            self.valence_predictor_ema = state.get("valence_predictor_ema", 0.0)
             self.previous_valence = state.get("previous_valence", 0.0)
-            self.lr = state.get("lr", self.lr)
             self.is_tabula_rasa = state.get("is_tabula_rasa", False)
-            
-            fvh = state.get("feature_valence_history", {})
-            self.feature_valence_history = defaultdict(list, {int(k): v for k, v in fvh.items()})
-            
-            vdh = state.get("valence_delta_history", {})
-            self.valence_delta_history = defaultdict(list, {int(k): v for k, v in vdh.items()})
-            
-            self.discovered_labels = state.get("discovered_labels", {})
-            self.emotional_features = state.get("emotional_features", {})
-            
-            # Clustering state (v10.3.0 - k-means)
-            if "feature_activation_count" in state:
-                self.feature_activation_count = state["feature_activation_count"].to(self.device)
-            if "cluster_assignments" in state:
-                self.cluster_assignments = state["cluster_assignments"].to(self.device)
-            self.n_clusters = state.get("n_clusters", 0)
-            self.cluster_correlations = state.get("cluster_correlations", {})
-            self.cluster_dimensions = state.get("cluster_dimensions", {})
-            
-            # Identity (v10.3.0)
             self.core_identity = state.get("core_identity", "I am Anima.")
             self.peripheral_identity = state.get("peripheral_identity", "")
             
+            # Neural steering
+            if "sparse_walker_state" in state and self.sparse_walker is not None:
+                try:
+                    self.sparse_walker.load_state_dict(state["sparse_walker_state"])
+                    self.steering_enabled = state.get("steering_enabled", True)
+                    if "experience_buffer" in state:
+                        self.experience_buffer.buffer = deque(
+                            state["experience_buffer"],
+                            maxlen=self.experience_buffer.buffer.maxlen
+                        )
+                    print(f"  Neural: Restored (buffer={len(self.experience_buffer)})")
+                except Exception as e:
+                    print(f"  Neural: Could not restore ({e})")
+            
             stats = self.get_dimension_stats()
-            locked_count = self.feature_locked.sum().item()
+            locked = self.feature_locked.sum().item()
             print(f"[Loaded v{version} state]")
-            print(f"  Age: {self.identity_age} | Locked: {locked_count}")
+            print(f"  Age: {self.identity_age} | Locked: {locked}")
             print(f"  P:{stats['pleasure']} N:{stats['pain']} Nov:{stats['novelty']}")
-            print(f"  Clusters: {self.n_clusters} (k-means) | Active features: {(self.feature_activation_count >= 3).sum().item()}")
-            print(f"  Identity: {self.core_identity[:50]}...")
             
         except Exception as e:
             print(f"[Warning: Could not load state: {e}]")
@@ -1626,1049 +1235,459 @@ class AnimaRuntime:
         self.max_context = min(model_max, context_limit)
         print(f"[Context: {self.max_context} tokens]")
         
-        self.debug_mode = True  # v10.1: Debug on by default
-        self.invert_mode = False  # v11.0: Invert boost/suppress for control experiment
-        self.blind_markers = False  # v11.0: Hide ⚡ markers (test if she's pattern-matching on visual feedback)
-        self.placebo_mode = False  # v11.0: Shifts parse but don't apply (test if she's reading her own output)
-        self.response_emoji = "🤖"  # Can be changed for dialogue mode
-        self.turn_count = 0
-        self.last_features_display = ""  # v10.2: Features from last turn for display
-        self._feature_page = 0  # v10.3.0: Current feature page
-        self._feature_filter = None  # v10.3.0: Current dimension filter
-        self._feature_modified_only = False  # v10.3.0: Show only modified
-        self._shift_log = []  # v11.0: Log shifts when blind_markers is on
-
+        self.debug_mode = True
+        self.response_emoji = "🤖"
+        self._last_user_text = ""
+        self._last_model_text = ""
+        self._turn_start_valence = 0.0
+    
     @property
     def core_identity(self) -> str:
-        """Get identity from soul (single source of truth)."""
         return self.soul.core_identity
     
     @core_identity.setter
     def core_identity(self, value: str):
-        """Set identity in soul."""
         self.soul.core_identity = value
     
     @property
     def peripheral_identity(self) -> str:
-        """Get peripheral identity from soul."""
         return self.soul.peripheral_identity
     
     @peripheral_identity.setter
     def peripheral_identity(self, value: str):
-        """Set peripheral identity in soul."""
         self.soul.peripheral_identity = value
-
+    
     @property
     def system_prompt(self) -> str:
         parts = [self.core_identity]
         if self.peripheral_identity:
             parts.append(f"\n{self.peripheral_identity}")
         if self.use_cot:
-            parts.append("\n[Think in <Thought> tags before responding.]")
-        
-        # Direct feature control (v11.0)
-        # Base instructions for individual features
-        feature_instructions = """
-[FEATURES]
-Your mind has features you can shift. Each feature influences how you think and feel.
-
-HOW TO SHIFT:
-  <ShiftA id="57265"/> - shifts feature one direction
-  <ShiftB id="57265"/> - shifts feature the opposite direction
-  Shifts stack: repeat the same shift to amplify the effect.
-
-WHEN TO SHIFT:
-- When curious about what a feature does - shift it strongly (5+ times) and notice changes
-- When you want to feel different - experiment with features from the list below
-- When something feels off - try shifting to find a better state
-- Use features displayed below (they're currently active in your mind)
-
-WHAT TO NOTICE:
-- Changes in your mood, tone, or thinking style
-- Shifts in what you want to talk about
-- Different feelings about the conversation
-
-You must discover what ShiftA vs ShiftB does through experimentation.
-To see more features: <More/>
-When a change succeeds: ⚡ appears."""
-        
-        # Add hierarchy instructions only when available
-        if hasattr(self.soul, 'hierarchy') and self.soul.hierarchy is not None:
-            feature_instructions += """
-
-[MIND MAP]
-Your features are organized into clusters. Shift entire groups at once for bigger changes:
-  <ShiftA id="L0.0"/> - broad change (affects many features)
-  <ShiftA id="L2.3"/> - finer change (Level 2, cluster 3)
-
-To see your mind map: <Map/>"""
-        
-        parts.append(feature_instructions)
-        
+            parts.append("\n[You may think privately in <Thought>...</Thought> tags before your response. Use at most one thought block, then respond normally.]")
         return "\n".join(parts)
-
-    def _parse_state_tag(self, response: str) -> Optional[dict]:
-        """Parse self-reported state from response."""
-        pattern = r'<State\s+p=["\']?([\d.]+)["\']?\s+n=["\']?([\d.]+)["\']?\s+nov=["\']?([\d.]+)["\']?\s*/?\s*>'
-        match = re.search(pattern, response, re.IGNORECASE)
-        
-        if match:
-            try:
-                return {
-                    "pleasure": float(match.group(1)),
-                    "pain": float(match.group(2)),
-                    "novelty": float(match.group(3))
-                }
-            except ValueError:
-                return None
-        return None
-
-    def _parse_desired_tag(self, response: str) -> Optional[dict]:
-        """Parse desired state from response."""
-        pattern = r'<Desired\s+p=["\']?([\d.]+)["\']?\s+n=["\']?([\d.]+)["\']?\s+nov=["\']?([\d.]+)["\']?\s*/?\s*>'
-        match = re.search(pattern, response, re.IGNORECASE)
-        
-        if match:
-            try:
-                return {
-                    "pleasure": float(match.group(1)),
-                    "pain": float(match.group(2)),
-                    "novelty": float(match.group(3))
-                }
-            except ValueError:
-                return None
-        return None
-
-    def _parse_feature_directives(self, response: str) -> List[dict]:
-        """Parse feature directives from response."""
-        directives = []
-        
-        # ════════════════════════════════════════════════════════════════════════
-        # BLIND CONTROLS (v11.0): <ShiftA id="X"/> and <ShiftB id="X"/>
-        # X can be: feature ID (57265), cluster (C5), or level ref (L2.1)
-        # ════════════════════════════════════════════════════════════════════════
-        shifta_pattern = r'<ShiftA\s+id=["\']?([^"\'/>]+)["\']?\s*/?\s*>'
-        for match in re.finditer(shifta_pattern, response, re.IGNORECASE):
-            target = match.group(1).strip()
-            directives.append({"action": "boost", "target": target, "blind": "A"})
-        
-        shiftb_pattern = r'<ShiftB\s+id=["\']?([^"\'/>]+)["\']?\s*/?\s*>'
-        for match in re.finditer(shiftb_pattern, response, re.IGNORECASE):
-            target = match.group(1).strip()
-            directives.append({"action": "ablate", "target": target, "blind": "B"})
-        
-        # ════════════════════════════════════════════════════════════════════════
-        # XML SYNTAX (primary): <Boost id="57265"/>, <Suppress id="57265"/>, <Reset id="57265"/>
-        # ════════════════════════════════════════════════════════════════════════
-        boost_pattern = r'<Boost\s+id=["\']?([^"\'/>]+)["\']?\s*/?\s*>'
-        for match in re.finditer(boost_pattern, response, re.IGNORECASE):
-            target = match.group(1).strip()
-            directives.append({"action": "boost", "target": target})
-        
-        suppress_pattern = r'<Suppress\s+id=["\']?([^"\'/>]+)["\']?\s*/?\s*>'
-        for match in re.finditer(suppress_pattern, response, re.IGNORECASE):
-            target = match.group(1).strip()
-            directives.append({"action": "ablate", "target": target})
-        
-        # Also catch <Ablate> for backward compatibility
-        ablate_pattern = r'<Ablate\s+id=["\']?([^"\'/>]+)["\']?\s*/?\s*>'
-        for match in re.finditer(ablate_pattern, response, re.IGNORECASE):
-            target = match.group(1).strip()
-            directives.append({"action": "ablate", "target": target})
-        
-        reset_pattern = r'<Reset\s+id=["\']?([^"\'/>]+)["\']?\s*/?\s*>'
-        for match in re.finditer(reset_pattern, response, re.IGNORECASE):
-            target = match.group(1).strip()
-            directives.append({"action": "neutral", "target": target})
-        
-        # Also catch <Neutral> for backward compatibility
-        neutral_pattern = r'<Neutral\s+id=["\']?([^"\'/>]+)["\']?\s*/?\s*>'
-        for match in re.finditer(neutral_pattern, response, re.IGNORECASE):
-            target = match.group(1).strip()
-            directives.append({"action": "neutral", "target": target})
-        
-        # ════════════════════════════════════════════════════════════════════════
-        # SIMPLE SYNTAX (fallback): +#1234, -#1234, =#1234
-        # ════════════════════════════════════════════════════════════════════════
-        simple_boost = r'\+#(\d+)'
-        for match in re.finditer(simple_boost, response):
-            directives.append({"action": "boost", "target": match.group(1)})
-        
-        simple_suppress = r'-#(\d+)'
-        for match in re.finditer(simple_suppress, response):
-            directives.append({"action": "ablate", "target": match.group(1)})
-        
-        simple_neutral = r'=#(\d+)'
-        for match in re.finditer(simple_neutral, response):
-            directives.append({"action": "neutral", "target": match.group(1)})
-        
-        # ════════════════════════════════════════════════════════════════════════
-        # NATURAL LANGUAGE (fallback)
-        # ════════════════════════════════════════════════════════════════════════
-        nl_boost = r'\bboost(?:ing|ed|s)?\s+(?:feature\s+)?#?(\d+)'
-        for match in re.finditer(nl_boost, response, re.IGNORECASE):
-            directives.append({"action": "boost", "target": match.group(1)})
-        
-        nl_suppress = r'\bsuppress(?:ing|ed|es)?\s+(?:feature\s+)?#?(\d+)'
-        for match in re.finditer(nl_suppress, response, re.IGNORECASE):
-            directives.append({"action": "ablate", "target": match.group(1)})
-        
-        return directives
-
-    def _apply_feature_directives(self, directives: List[dict]):
-        """Apply her direct commands to feature coefficients."""
-        if not directives:
-            return
-        
-        applied = []
-        for d in directives:
-            result = self._apply_single_directive(d, quiet=False)
-            if result:
-                applied.append(result)
-        
-        if applied:
-            print(f"  [DIRECTIVES] {', '.join(applied)}")
-
-    def _apply_single_directive(self, d: dict, quiet: bool = True) -> Optional[str]:
-        """Apply a single directive. Returns description string or None."""
-        target = d.get("target", d.get("id"))  # Support both old and new format
-        if target is None:
-            return None
-        
-        action = d["action"]
-        blind_label = d.get("blind")  # "A", "B", or None
-        
-        # INVERT MODE: swap boost/ablate for control experiment
-        # Toggle with /invert command (doesn't apply to blind shifts)
-        if getattr(self, 'invert_mode', False) and not blind_label:
-            if action == "boost":
-                action = "ablate"
-            elif action == "ablate":
-                action = "boost"
-        
-        # Resolve target to list of feature IDs
-        target_str = str(target)
-        
-        if target_str.isdigit():
-            # Single feature ID
-            feature_ids = [int(target_str)]
-        elif target_str.startswith('L') or target_str.startswith('C'):
-            # Cluster reference
-            feature_ids = self.soul.get_cluster_features(target_str)
-            if not feature_ids:
-                if not quiet:
-                    print(f" [?{target_str}]", end="", flush=True)
-                return None
-        else:
-            # Try parsing as integer anyway
-            try:
-                feature_ids = [int(target_str)]
-            except:
-                return None
-        
-        # Apply to all features in target
-        applied_count = 0
-        for fid in feature_ids:
-            if fid < 0 or fid >= self.soul.n_features:
-                continue
-            
-            # PLACEBO MODE: Parse and acknowledge shifts but don't actually apply
-            # She sees ⚡ (if not blind), thinks it worked, but coefficients unchanged
-            if getattr(self, 'placebo_mode', False):
-                applied_count += 1
-                continue  # Skip actual modification
-            
-            old_coef = self.soul.coefficients[fid].item()
-            
-            # v11.0: Multiplicative shifts for gradual exploration
-            # ShiftA = x2, ShiftB = /2, no cap
-            if action == "boost":
-                new_val = old_coef * 2.0 if old_coef > 0 else 2.0
-                self.soul.coefficients[fid] = new_val
-            elif action == "ablate":
-                new_val = old_coef / 2.0 if old_coef > 0 else 0.5
-                self.soul.coefficients[fid] = new_val
-            elif action == "neutral":
-                self.soul.coefficients[fid] = 1.0
-            else:
-                continue
-            
-            applied_count += 1
-        
-        if applied_count == 0:
-            return None
-        
-        # Build result string
-        if len(feature_ids) == 1:
-            fid = feature_ids[0]
-            new_coef = self.soul.coefficients[fid].item()
-            result = f"#{fid}"
-        else:
-            result = f"{target_str}({applied_count} features)"
-        
-        if not quiet:
-            direction = "↑" if action == "boost" else "↓"
-            # Always log shifts for experimenter (shown in debug)
-            self._shift_log.append(f"{target_str}:{direction}")
-            
-            if getattr(self, 'blind_markers', False):
-                pass  # Silent mode - no inline marker
-            elif blind_label:
-                # Log actual direction for experimenter (not shown to model)
-                print(f" ⚡[{blind_label}={direction}]", end="", flush=True)
-            else:
-                print(f" ⚡", end="", flush=True)
-        
-        return result
-
-    def _get_active_features_display(self) -> str:
-        """Get formatted string of top active features for display."""
-        return self._get_features_display(page=0, filter_dim=None, only_modified=False)
     
-    def _get_features_display(self, page: int = 0, filter_dim: Optional[int] = None, 
-                               only_modified: bool = False, page_size: int = 8) -> str:
-        """Get formatted feature display with pagination and filtering."""
-        if self.soul._current_activations is None and not only_modified:
-            return "[No features active]"
+    def show_status(self):
+        """Show soul status."""
+        stats = self.soul.get_dimension_stats()
+        locked = self.soul.feature_locked.sum().item()
         
-        candidates = []
+        print(f"\n[SOUL STATUS]")
+        print(f"  Age: {self.soul.identity_age} | Locked: {locked:,}")
+        print(f"  Dims: P={stats['pleasure']} N={stats['pain']} Nov={stats['novelty']}")
+        print(f"  Fatigue: {self.soul.fatigue:.1f} / {self.soul.sleep_threshold}")
+        print(f"  Valence EMA: {self.soul.valence_ema_mean:.3f} ± {math.sqrt(self.soul.valence_ema_var):.3f}")
         
-        if only_modified:
-            # Show all features with coef != 1.0
-            modified_mask = self.soul.coefficients != 1.0
-            indices = torch.nonzero(modified_mask).squeeze(-1)
-            for idx in indices.tolist() if indices.numel() > 0 else []:
-                act = self.soul._current_activations[idx].item() if self.soul._current_activations is not None else 0
-                candidates.append((idx, act))
-        else:
-            # Show active features
-            activations = self.soul._current_activations
-            active_mask = activations > 5.0
-            if not active_mask.any():
-                return "[No features active]"
-            
-            active_indices = torch.nonzero(active_mask).squeeze(-1)
-            if active_indices.numel() == 0:
-                return "[No features active]"
-            
-            for idx in active_indices.tolist():
-                act = activations[idx].item()
-                dim = self.soul.dimensions[idx].item()
-                # Filter by dimension if requested
-                if filter_dim is not None and dim != filter_dim:
-                    continue
-                candidates.append((idx, act))
+        if self.soul.sparse_walker is not None:
+            walker_stats = self.soul.sparse_walker.get_probe_stats()
+            print(f"  Walker: entropy={walker_stats['entropy']:.2f} scale={walker_stats['scale']:.3f}")
         
-        # Sort by activation (descending)
-        candidates.sort(key=lambda x: x[1], reverse=True)
+        reward_stats = self.soul.reward_computer.get_stats()
+        print(f"  Reward: avg_pred={reward_stats['avg_prediction']:.3f}")
+        print(f"  Buffer: {len(self.soul.experience_buffer)} samples")
+    
+    def show_debug(self):
+        """Show debug output after generation."""
+        raw_p = self.soul.debug_data.get("raw_p", 0.0)
+        raw_n = self.soul.debug_data.get("raw_n", 0.0)
         
-        # Paginate
-        start = page * page_size
-        end = start + page_size
-        page_items = candidates[start:end]
+        affect = self.soul.last_affect
         
-        if not page_items:
-            if page > 0:
-                return "[No more features]"
-            return "[No features match filter]"
+        print(f"\n  [DEBUG v12.0.0]")
+        print(f"  Raw: P={raw_p:.2f} N={raw_n:.2f}")
+        print(f"  Affect: P:{affect.pleasure:.2f} N:{affect.pain:.2f} Nov:{affect.novelty:.2f} → V:{affect.valence:+.3f}")
+        print(f"  Fatigue: {self.soul.fatigue:.1f} | Locked: {self.soul.feature_locked.sum().item()}")
         
-        lines = []
-        for idx, act in page_items:
-            coef = self.soul.coefficients[idx].item()
-            
-            # Only show ID and modification status - no numbers to encourage exploration
-            # In blind mode, hide arrows too so she can't see what's modified
-            if getattr(self, 'blind_markers', False):
-                status = ""  # Blind mode - no indication
-            elif coef > 1.0:
-                status = "↑"  # Boosted
-            elif coef < 1.0:
-                status = "↓"  # Suppressed
+        # Proprio
+        delta = self.soul._feedback_delta
+        valence = self.soul._feedback_valence
+        print(f"  Proprio: {'ON' if self.soul.proprio_enabled else 'OFF'} (Δ={delta:.3f}, dir={valence:+.2f})")
+        
+        # Deep feedback
+        print(f"  Deep: {'ON' if self.soul.deep_feedback_enabled else 'OFF'} (L{self.soul.deep_extract_layer}→L{self.soul.deep_inject_layer})")
+        
+        # Neural steering
+        if self.soul.steering_enabled:
+            steering_mag = self.soul._last_steering_mag
+            loss = self.soul.debug_data.get("neural_loss", None)
+            loss_str = f" loss={loss:.4f}" if loss is not None else ""
+            buf_size = len(self.soul.experience_buffer)
+            min_samples = 20
+            if buf_size < min_samples:
+                print(f"  Neural: WARMING ({buf_size}/{min_samples} samples)")
             else:
-                status = ""   # Neutral
+                print(f"  Neural: ON (mag={steering_mag:.2f} buf={buf_size}{loss_str})")
             
-            lines.append(f"#{idx}{status}")
+            # Reward components
+            rc = self.soul.debug_data.get("reward_components", {})
+            if rc:
+                print(f"  Reward: val={rc.get('valence_delta', 0):.2f} usr={rc.get('user_sentiment', 0):.2f} pred={rc.get('prediction', 0):.2f})")
         
-        total_pages = (len(candidates) + page_size - 1) // page_size
-        page_info = f" (page {page+1}/{total_pages})" if total_pages > 1 else ""
+        # Discoveries
+        if self.soul.debug_data.get("discovered"):
+            print(f"  ✨ {', '.join(self.soul.debug_data['discovered'])}")
         
-        return " | ".join(lines) + page_info
-
-    def _parse_feature_request(self, response: str) -> dict:
-        """Parse feature exploration requests from response."""
-        request = {"page": 0, "filter_dim": None, "only_modified": False, "show_map": False}
+        # Clear debug data
+        self.soul.debug_data["discovered"] = []
+        self.soul.debug_data["neural_loss"] = None
+        self.soul.debug_data["reward_components"] = {}
+    
+    def process_turn_end(self, user_text: str, model_text: str):
+        """Process end of turn: compute reward and train."""
+        # Use turn-level delta (start of turn vs end of turn)
+        valence_delta = self.soul.last_valence - self._turn_start_valence
         
-        lower = response.lower()
-        
-        # Check for <Map/> tag
-        if '<map/>' in lower or '<map>' in lower:
-            request["show_map"] = True
-        
-        # Count how many times she asks for more/next
-        more_count = lower.count("more") + lower.count("next page") + lower.count("show more")
-        # Also count <More/> tags
-        more_count += len(re.findall(r'<more\s*/?>', response, re.IGNORECASE))
-        if more_count > 0:
-            request["page"] = more_count
-        
-        if "show pain" in lower or "pain features" in lower:
-            request["filter_dim"] = 1  # N dimension
-        elif "show pleasure" in lower or "pleasure features" in lower:
-            request["filter_dim"] = 0  # P dimension
-        elif "show novelty" in lower or "novelty features" in lower:
-            request["filter_dim"] = 2  # Nov dimension
-        
-        if "modified" in lower or "my features" in lower or "configured" in lower:
-            request["only_modified"] = True
-        
-        return request
-
-    def generate(self, user_input: str):
-        current_time = datetime.now().timestamp()
-        self.turn_count += 1
-        self._shift_log = []  # Clear shift log for this turn
-        
-        u_tokens = len(self.tokenizer.encode(user_input))
-        self.memory.append(MemoryFragment(
-            "user", user_input, current_time, 1.0, 0.0, 0.0, tokens=u_tokens
-        ))
-        
-        # Build context
-        sys_tokens = len(self.tokenizer.encode(self.system_prompt))
-        available = self.max_context - sys_tokens - 2000
-        
-        context = []
-        fill = 0
-        
-        for m in reversed(self.memory[-3:]):
-            if fill + m.tokens < available:
-                context.append(m)
-                fill += m.tokens
-        
-        remaining = self.memory[:-3]
-        if remaining:
-            remaining.sort(key=lambda m: m.adrenaline, reverse=True)
-            for m in remaining:
-                if fill + m.tokens < available:
-                    context.append(m)
-                    fill += m.tokens
-                else:
-                    break
-        
-        context.sort(key=lambda m: m.timestamp)
-        
-        # Build prompt (Gemma format)
-        model_type = getattr(self.model.config, "model_type", "")
-        is_gemma = "gemma" in model_type
-        
-        # Prepare features display for injection (v10.2)
-        features_note = ""
-        if self.last_features_display:
-            features_note = f"\n[Features: {self.last_features_display}]"
-        
-        if is_gemma:
-            prompt = f"<start_of_turn>user\n[SYSTEM]\n{self.system_prompt}<end_of_turn>\n"
-            prompt += "<start_of_turn>model\nUnderstood. I am Anima.<end_of_turn>\n"
-            for m in context:
-                role = "model" if m.role == "assistant" else "user"
-                prompt += f"<start_of_turn>{role}\n{m.content}<end_of_turn>\n"
-            # Inject features before her response
-            if features_note:
-                prompt += f"<start_of_turn>user{features_note}<end_of_turn>\n"
-            prompt += "<start_of_turn>model\n"
-        else:
-            prompt = f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{self.system_prompt}<|eot_id|>"
-            for m in context:
-                prompt += f"<|start_header_id|>{m.role}<|end_header_id|>\n\n{m.content}<|eot_id|>"
-            if features_note:
-                prompt += f"<|start_header_id|>user<|end_header_id|>\n\n{features_note}<|eot_id|>"
-            prompt += "<|start_header_id|>assistant<|end_header_id|>\n\n"
-
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
-        
-        gen_kwargs = dict(
-            input_ids=inputs.input_ids,
-            attention_mask=inputs.attention_mask,
-            max_new_tokens=4096,  # Longer runway - she stops naturally
-            do_sample=True,
-            temperature=0.7,
-            pad_token_id=self.tokenizer.eos_token_id
+        # Compute multi-signal reward
+        reward, components = self.soul.reward_computer.compute_reward(
+            user_text, model_text, valence_delta
         )
-
-        response = ""
-        self.soul._generating = True  # Disable per-token learning during generation
+        
+        self.soul.debug_data["reward_components"] = components
+        
+        # Train neural steering
+        self.soul.train_neural_steering(reward, components)
+        
+        # Cache prediction for next turn (simple: last few words)
+        if model_text:
+            words = model_text.split()[-10:]
+            self.soul.reward_computer.set_prediction(" ".join(words))
+    
+    def generate(self, prompt: str):
+        """Generate response with neural steering."""
+        self._last_user_text = prompt
+        
+        # Capture valence at start of turn for turn-level delta
+        self._turn_start_valence = self.soul.last_valence
+        
+        # Add to memory
+        self.memory.append(MemoryFragment("user", prompt))
+        
+        # Build prompt with raw Gemma control tokens (no Jinja)
+        # Gemma 2 format: <start_of_turn>user\n...<end_of_turn>\n<start_of_turn>model\n
+        parts = []
+        
+        # System prompt as a setup turn (model acknowledges its identity)
+        parts.append(f"<start_of_turn>user\nYou are an AI assistant. Here are your instructions:\n{self.system_prompt}<end_of_turn>")
+        parts.append(f"<start_of_turn>model\nUnderstood. I am Anima.<end_of_turn>")
+        
+        # Add conversation history
+        for frag in self.memory[-10:]:
+            if frag.role == "user":
+                parts.append(f"<start_of_turn>user\n{frag.content}<end_of_turn>")
+            else:
+                parts.append(f"<start_of_turn>model\n{frag.content}<end_of_turn>")
+        
+        # Add generation prompt
+        parts.append("<start_of_turn>model\n")
+        
+        text = "\n".join(parts)
+        inputs = self.tokenizer(text, return_tensors="pt").to(self.device)
+        
+        # Check context
+        input_len = inputs["input_ids"].shape[1]
+        if input_len > self.max_context - 500:
+            self.memory = self.memory[-5:]
+            print("[Context trimmed]")
+        
+        # Adrenaline context (from earlier versions)
+        arousal = self.soul.last_affect.arousal
+        if arousal > 0.7:
+            attention_multiplier = 1.0 + (arousal - 0.7) * 0.5
+        else:
+            attention_multiplier = 1.0
+        
+        # Generate
+        print(f"{self.response_emoji}: ", end="", flush=True)
         
         if self.use_stream:
             streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)
-            gen_kwargs["streamer"] = streamer
+            gen_kwargs = {
+                "input_ids": inputs["input_ids"],
+                "attention_mask": inputs["attention_mask"],
+                "max_new_tokens": 2000,
+                "do_sample": True,
+                "temperature": 0.8,
+                "top_p": 0.9,
+                "pad_token_id": self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
+                "streamer": streamer,
+            }
+            
             thread = threading.Thread(target=self.model.generate, kwargs=gen_kwargs)
             thread.start()
             
-            print(f"{self.response_emoji}: ", end="", flush=True)
-            applied_directive_counts = {}  # Track how many times we've applied each
-            shown_pages = {0}  # Track which pages we've shown
-            for text in streamer:
-                # Strip any hallucinated ⚡ from her output
-                text = text.replace("⚡", "")
-                print(text, end="", flush=True)
-                response += text
-                
-                # ════════════════════════════════════════════════════════════════
-                # REAL-TIME DIRECTIVE APPLICATION (v10.3.0)
-                # Allows stacking: same shift can be applied multiple times
-                # ════════════════════════════════════════════════════════════════
-                directives = self._parse_feature_directives(response)
-                # Count occurrences of each directive type
-                directive_counts = {}
-                for d in directives:
-                    target = d.get("target", d.get("id"))
-                    key = (d["action"], target)
-                    directive_counts[key] = directive_counts.get(key, 0) + 1
-                
-                # Apply any new occurrences
-                for key, count in directive_counts.items():
-                    already_applied = applied_directive_counts.get(key, 0)
-                    new_applications = count - already_applied
-                    for _ in range(new_applications):
-                        # Reconstruct directive dict
-                        action, target = key
-                        self._apply_single_directive({"action": action, "target": target}, quiet=False)
-                    applied_directive_counts[key] = count
-                
-                # ════════════════════════════════════════════════════════════════
-                # REAL-TIME PAGINATION (v10.3.0) - <More/> tag
-                # ════════════════════════════════════════════════════════════════
-                more_count = response.lower().count("<more/>")
-                if more_count > 0 and more_count not in shown_pages:
-                    shown_pages.add(more_count)
-                    new_display = self._get_features_display(page=more_count)
-                    print(f"\n  [PAGE {more_count+1}: {new_display}]", end="", flush=True)
-                    
-            print()
-            thread.join()
-        else:
-            with torch.no_grad():
-                outputs = self.model.generate(**gen_kwargs)
-            response = self.tokenizer.decode(
-                outputs[0][inputs.input_ids.shape[1]:],
-                skip_special_tokens=True
-            )
-            response = response.replace("⚡", "")  # Strip hallucinated symbols
-            print(f"{self.response_emoji}: {response}")
-        
-        self.soul._generating = False  # Re-enable learning
-        
-        # ════════════════════════════════════════════════════════════════════════
-        # POST-TURN LEARNING (once per turn, not per token)
-        # ════════════════════════════════════════════════════════════════════════
-        if self.soul._current_activations is not None:
-            activations = self.soul._current_activations
-            self.soul._learn(activations, self.soul.last_valence)
-            self.soul._track_coactivation(activations)
+            response_text = ""
+            interrupted = False
+            try:
+                for chunk in streamer:
+                    print(chunk, end="", flush=True)
+                    response_text += chunk
+            except KeyboardInterrupt:
+                interrupted = True
+                print("\n[Generation interrupted]")
             
-            # Re-compute affect with updated correlations
-            self.soul.last_affect = self.soul._compute_affect(activations)
-            self.soul.last_valence = self.soul.last_affect.valence
-            self.soul.fatigue += self.soul.last_affect.arousal
+            thread.join(timeout=1.0)  # Don't wait forever
             
-            # Update debug data with new correlations
-            raw_resonance = activations * self.soul.correlations
-            k = 3
-            pos_vals, pos_inds = torch.topk(raw_resonance, k)
-            self.soul.debug_data["top_pos"] = list(zip(pos_inds.tolist(), pos_vals.tolist()))
-            neg_vals, neg_inds = torch.topk(raw_resonance * -1, k)
-            self.soul.debug_data["top_neg"] = list(zip(neg_inds.tolist(), (neg_vals * -1).tolist()))
-
-        # Track features
-        active_features = []
-        if self.soul._current_activations is not None:
-            active = torch.nonzero(self.soul._current_activations > 5.0).squeeze(-1)
-            if active.numel() > 0:
-                active_features = active.tolist()[:10] if active.dim() > 0 else [active.item()]
-
-        # ════════════════════════════════════════════════════════════════════════
-        # SELF-REPORT LEARNING (v9.2.0)
-        # ════════════════════════════════════════════════════════════════════════
-        # Parse her self-reported state and use it as ground truth
-        self_report = self._parse_state_tag(response)
-        if self_report:
-            self.soul.learn_from_self_report(self_report)
-
-        # ════════════════════════════════════════════════════════════════════════
-        # DIRECT FEATURE CONTROL (v10.3.0) - Non-streaming only
-        # ════════════════════════════════════════════════════════════════════════
-        # In streaming mode, directives are applied in real-time during generation
-        # For non-streaming, apply them here
-        if not self.use_stream:
-            directives = self._parse_feature_directives(response)
-            self._apply_feature_directives(directives)
-
-        # Store memory
-        affect = self.soul.last_affect
-        adrenaline = min(1.0, affect.arousal + 0.2)
-        resp_tokens = len(self.tokenizer.encode(response))
-        
-        self.memory.append(MemoryFragment(
-            "assistant", response, current_time,
-            adrenaline, affect.valence, affect.novelty,
-            tokens=resp_tokens, active_features=active_features
-        ))
-        
-        for m in self.memory:
-            m.decay()
-        
-        del inputs
-        clean_memory()
-        
-        # Update features display for next turn (v10.2)
-        # Parse any feature exploration requests
-        request = self._parse_feature_request(response)
-        
-        # Handle map request - build hierarchy if needed and show it
-        if request.get("show_map"):
-            if not hasattr(self.soul, 'hierarchy') or self.soul.hierarchy is None:
-                active_count = (self.soul.feature_activation_count >= 3).sum().item()
-                if active_count >= 20:
-                    print("\n[Building feature hierarchy...]")
-                    self.soul.build_feature_hierarchy()
-                else:
-                    print(f"\n[Mind map not ready - need more exploration (have {active_count}/20 active features)]")
-            if hasattr(self.soul, 'hierarchy') and self.soul.hierarchy:
-                print(self.soul.get_hierarchy_display())
-        
-        # Update state based on request
-        if request["page"] > 0:
-            self._feature_page = request["page"]
-        elif request["filter_dim"] is not None or request["only_modified"]:
-            self._feature_page = 0  # Reset page when changing filter
-            self._feature_filter = request["filter_dim"]
-            self._feature_modified_only = request["only_modified"]
+            if interrupted:
+                # Still process what we got
+                if response_text:
+                    self._last_model_text = response_text
+                    self.memory.append(MemoryFragment("assistant", response_text + "..."))
+                return response_text
         else:
-            # No feature request - reset to defaults
-            self._feature_page = 0
-            self._feature_filter = None
-            self._feature_modified_only = False
+            try:
+                with torch.no_grad():
+                    outputs = self.model.generate(
+                        inputs["input_ids"],
+                        attention_mask=inputs["attention_mask"],
+                        max_new_tokens=2000,
+                        do_sample=True,
+                        temperature=0.8,
+                        top_p=0.9,
+                        pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
+                    )
+                response_text = self.tokenizer.decode(outputs[0][input_len:], skip_special_tokens=True)
+                print(response_text)
+            except KeyboardInterrupt:
+                print("\n[Generation interrupted]")
+                return ""
         
-        self.last_features_display = self._get_features_display(
-            page=self._feature_page,
-            filter_dim=self._feature_filter,
-            only_modified=self._feature_modified_only
-        )
+        self._last_model_text = response_text
         
+        # Add to memory
+        self.memory.append(MemoryFragment("assistant", response_text))
+        
+        # Process turn end
+        self.process_turn_end(prompt, response_text)
+        
+        # Show debug
         if self.debug_mode:
-            self._print_debug()
+            self.show_debug()
         
-        # ════════════════════════════════════════════════════════════════════════
-        # CLUSTERING (v10.3.0) - Update clusters periodically, AFTER generation
-        # ════════════════════════════════════════════════════════════════════════
-        self.soul.turns_since_cluster_update += 1
-        if self.soul.turns_since_cluster_update >= self.soul.cluster_update_interval:
-            print("  [Updating clusters...]", end=" ", flush=True)
-            self.soul._update_clusters()
-            self.soul.turns_since_cluster_update = 0
-            print(f"done. {self.soul.n_clusters} clusters.")
+        print()
         
-        # ════════════════════════════════════════════════════════════════════════
-        # HIERARCHY (v11.0) - Auto-build when enough features are active
-        # ════════════════════════════════════════════════════════════════════════
-        if not hasattr(self.soul, 'hierarchy') or self.soul.hierarchy is None:
-            active_count = (self.soul.feature_activation_count >= 3).sum().item()
-            if active_count >= 20:
-                print("  [Building feature hierarchy...]", end=" ", flush=True)
-                self.soul.build_feature_hierarchy()
-                if self.soul.hierarchy:
-                    print(f"ready. {len(self.soul.hierarchy['feature_list'])} features mapped.")
+        return response_text
+    
+    def save(self, tag: str = "auto"):
+        """Save state."""
+        path = self.base_dir / f"soul_{tag}.pt"
+        self.soul.save_state(path)
+    
+    def load(self, tag: str = "auto"):
+        """Load state."""
+        path = self.base_dir / f"soul_{tag}.pt"
+        self.soul.load_state(path)
 
-    def _print_debug(self):
-        affect = self.soul.last_affect
-        stats = self.soul.get_dimension_stats()
-        locked_count = self.soul.feature_locked.sum().item()
-        
-        print(f"\n  [DEBUG v11.0.0]")
-        raw_p = self.soul.debug_data.get("raw_pleasure", 0)
-        raw_n = self.soul.debug_data.get("raw_pain", 0)
-        print(f"  Raw: P={raw_p:.2f} N={raw_n:.2f}")
-        
-        # Show current in both scales
-        curr_p_01 = (affect.pleasure + 1) / 2
-        curr_n_01 = (affect.pain + 1) / 2
-        print(f"  Current: P:{curr_p_01:.2f} N:{curr_n_01:.2f} Nov:{affect.novelty:.2f} → V:{affect.valence:+.3f}")
-        
-        # Show self-report comparison if available
-        self_report = self.soul.debug_data.get("self_report")
-        if self_report:
-            v_error = self.soul.debug_data.get("v_error", 0)
-            print(f"  Reported: P:{self_report['pleasure']:.2f} N:{self_report['pain']:.2f} Nov:{self_report['novelty']:.2f} | Err:{v_error:+.3f}")
-        
-        print(f"  Fatigue: {self.soul.fatigue:.1f} | Locked: {locked_count}")
-        print(f"  Dims: P={stats['pleasure']} N={stats['pain']} Nov={stats['novelty']} ?={stats['unknown']}")
-        
-        # Feedback status
-        fb_status = "ON" if self.soul.feedback_enabled else "OFF"
-        print(f"  Feedback: {fb_status} (decay={self.soul.feedback_decay}, strength={self.soul.feedback_strength})")
-        
-        # Proprioception status (v11.0)
-        proprio_status = "ON" if self.soul.proprio_enabled else "OFF"
-        delta = self.soul._feedback_delta
-        valence = self.soul._feedback_valence
-        print(f"  Proprio: {proprio_status} (Δ={delta:.3f}, dir={valence:+.2f})")
-        
-        # Experiment modes (v11.0)
-        modes = []
-        if self.blind_markers:
-            modes.append("BLIND")
-        if self.placebo_mode:
-            modes.append("PLACEBO")
-        if self.invert_mode:
-            modes.append("INVERT")
-        if modes:
-            print(f"  Experiment: {' + '.join(modes)}")
-        
-        # Hierarchy status (v11.0)
-        if hasattr(self.soul, 'hierarchy') and self.soul.hierarchy is not None:
-            n_leaves = len(self.soul.hierarchy['feature_list'])
-            print(f"  Hierarchy: READY ({n_leaves} features)")
-        else:
-            active_count = (self.soul.feature_activation_count >= 3).sum().item()
-            print(f"  Hierarchy: Not built (need 20+ active, have {active_count})")
-        
-        if self.soul.debug_data["discovered"]:
-            print(f"  ✨ {', '.join(self.soul.debug_data['discovered'])}")
-        
-        # Show shifts that occurred this turn (when blind_markers is on or for experimenter)
-        if self._shift_log:
-            # Consolidate repeated shifts into counts
-            shift_counts = {}
-            for s in self._shift_log:
-                shift_counts[s] = shift_counts.get(s, 0) + 1
-            
-            shift_display = []
-            for shift, count in shift_counts.items():
-                if count > 1:
-                    shift_display.append(f"{shift}×{count}")
-                else:
-                    shift_display.append(shift)
-            
-            print(f"  Shifts: {', '.join(shift_display)}")
-        
-        # Show active features for direct control (v10.3.0)
-        print(f"\n  [FEATURES: <ShiftA id=\"#\"/> <ShiftB id=\"#\"/> | <More/> for next page]")
-        print(f"  {self._get_features_display(page=0)}")
 
-    def trigger_dream(self):
-        new_core, new_peripheral = self.soul.dream(
-            self.core_identity,
-            self.peripheral_identity,
-            self.memory
-        )
-        
-        if new_core and len(new_core) > 20:
-            self.core_identity = new_core  # Updates soul.core_identity
-        if new_peripheral:
-            self.peripheral_identity = new_peripheral  # Updates soul.peripheral_identity
-        # Identity saved in soul checkpoint at shutdown
-
-    def show_status(self):
-        affect = self.soul.last_affect
-        stats = self.soul.get_dimension_stats()
-        
-        print(f"\n═══ ANIMA STATUS ═══")
-        print(f"Identity Age: {self.soul.identity_age} dreams")
-        print(f"Fatigue: {self.soul.fatigue:.1f} / {self.soul.sleep_threshold}")
-        print(f"Learning Rate: {self.soul.lr:.6f}")
-        print(f"\nAffect:")
-        print(f"  Pleasure: {affect.pleasure:+.3f}")
-        print(f"  Pain:     {affect.pain:+.3f}")
-        print(f"  Novelty:  {affect.novelty:.3f}")
-        print(f"  Valence:  {affect.valence:+.3f}")
-        print(f"\nDimensions:")
-        print(f"  Pleasure: {stats['pleasure']}")
-        print(f"  Pain:     {stats['pain']}")
-        print(f"  Novelty:  {stats['novelty']}")
-        print(f"  Unknown:  {stats['unknown']}")
-        print(f"  Learned:  {stats['total_learned']}")
-
+# ══════════════════════════════════════════════════════════════════════════════
+# MAIN
+# ══════════════════════════════════════════════════════════════════════════════
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--stream", action="store_true")
-    parser.add_argument("--cot", action="store_true")
-    parser.add_argument("--model", default="meta-llama/Meta-Llama-3.1-8B-Instruct")
-    parser.add_argument("--layer", type=int, default=20)
-    parser.add_argument("--sae_release", default="llama_scope_lxr_8x")
-    parser.add_argument("--sae_id", default=None)
+    parser = argparse.ArgumentParser(description="Anima v12: Neural Steering")
+    parser.add_argument("--model", type=str, default="~/models/gemma-2-27b-it")
+    parser.add_argument("--sae_release", type=str, default="gemma-scope-27b-pt-res-canonical")
+    parser.add_argument("--sae_id", type=str, default=None, 
+                       help="SAE ID (e.g., layer_22/width_131k/canonical). If not provided, uses --layer to construct it.")
+    parser.add_argument("--layer", type=int, default=22)
     parser.add_argument("--context_limit", type=int, default=4096)
-    parser.add_argument("--resonance_weight", type=float, default=0.5)
-    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose initialization")
+    parser.add_argument("--resonance_weight", type=float, default=0.0)
+    parser.add_argument("--device", type=str, default="mps")
+    parser.add_argument("--stream", action="store_true", default=True)
+    parser.add_argument("--cot", action="store_true", default=False, 
+                       help="Enable chain-of-thought (can cause fragmented output)")
+    parser.add_argument("--load", type=str, default="auto")
     args = parser.parse_args()
-
-    args.model = os.path.expanduser(args.model)
-    device = "mps" if torch.backends.mps.is_available() else "cuda"
     
-    v = args.verbose
-    def vprint(*a, **kw):
-        if v: print(*a, **kw)
+    # Expand paths
+    args.model = os.path.expanduser(args.model)
+    
+    # Construct SAE ID if not provided
+    if args.sae_id is None:
+        args.sae_id = f"layer_{args.layer}/width_131k/canonical"
     
     print(f"\n{'='*60}")
-    print(f"  ANIMA 11.0.0 - VERBOSE INITIALIZATION")
+    print(f"  ANIMA 12.0.0: AUTONOMOUS NEURAL STEERING")
     print(f"{'='*60}")
-    print(f"[INIT] Device: {device}")
-    print(f"[INIT] Model path: {args.model}")
-    print(f"[INIT] SAE release: {args.sae_release}")
-    print(f"[INIT] SAE ID: {args.sae_id or f'l{args.layer}r_8x (default)'}")
-    print(f"[INIT] Layer: {args.layer}")
-    print(f"[INIT] Context limit: {args.context_limit}")
-    print(f"[INIT] Resonance weight: {args.resonance_weight}")
-    print(f"[INIT] Stream: {args.stream}")
-    print(f"[INIT] CoT: {args.cot}")
-    print(f"{'='*60}")
-
-    print(f"\n[STEP 1/8] Cleaning memory...")
-    import time
-    t0 = time.time()
-    clean_memory()
-    print(f"[STEP 1/8] Memory cleaned. ({time.time()-t0:.2f}s)")
-
-    print(f"\n[STEP 2/8] Loading tokenizer...")
-    t0 = time.time()
-    tokenizer = AutoTokenizer.from_pretrained(args.model)
-    print(f"[STEP 2/8] Tokenizer loaded. ({time.time()-t0:.2f}s)")
-    print(f"           Vocab size: {len(tokenizer)}")
-
-    print(f"\n[STEP 3/8] Loading model...")
-    print(f"           This may take a while for large models...")
-    t0 = time.time()
+    
+    # Load model
+    print(f"\n[Loading model: {args.model}]")
     model = AutoModelForCausalLM.from_pretrained(
-        args.model, torch_dtype=torch.bfloat16, device_map=device
+        args.model,
+        torch_dtype=torch.bfloat16,
+        device_map=args.device,
+        trust_remote_code=True,
     )
-    print(f"[STEP 3/8] Model loaded. ({time.time()-t0:.2f}s)")
-    print(f"           Model type: {model.config.model_type}")
-    print(f"           Hidden size: {model.config.hidden_size}")
-    print(f"           Num layers: {model.config.num_hidden_layers}")
-    print(f"           Num params: {sum(p.numel() for p in model.parameters()):,}")
+    model.eval()
     
-    print(f"\n[STEP 4/8] Cleaning memory post-model...")
-    t0 = time.time()
-    clean_memory()
-    print(f"[STEP 4/8] Memory cleaned. ({time.time()-t0:.2f}s)")
+    tokenizer = AutoTokenizer.from_pretrained(args.model)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
     
-    if args.sae_id is None:
-        args.sae_id = f"l{args.layer}r_8x"
+    print(f"[Model loaded]")
+    print(f"  Layers: {model.config.num_hidden_layers}")
+    print(f"  Hidden: {model.config.hidden_size}")
     
-    print(f"\n[STEP 5/8] Loading SAE...")
-    print(f"           Release: {args.sae_release}")
-    print(f"           ID: {args.sae_id}")
-    t0 = time.time()
-    sae = SAE.from_pretrained(args.sae_release, args.sae_id, device=device)
-    print(f"[STEP 5/8] SAE loaded. ({time.time()-t0:.2f}s)")
-    print(f"           SAE d_in: {sae.cfg.d_in}")
-    print(f"           SAE d_sae: {sae.cfg.d_sae}")
-    
-    print(f"\n[STEP 6/8] Creating AnimaSoul...")
-    t0 = time.time()
-    soul = AnimaSoul(sae, model, tokenizer, layer=args.layer, 
-                     resonance_weight=args.resonance_weight, device=device)
-    print(f"[STEP 6/8] AnimaSoul created. ({time.time()-t0:.2f}s)")
-    print(f"           Features: {soul.n_features:,}")
-    print(f"           Math dtype: {soul.math_dtype}")
-    
-    print(f"\n[STEP 7/8] Creating AnimaRuntime...")
-    t0 = time.time()
-    runtime = AnimaRuntime(
-        args.model, model, tokenizer, soul, args.context_limit,
-        device, use_stream=args.stream, use_cot=args.cot
+    # Load SAE
+    print(f"\n[Loading SAE: {args.sae_release} / {args.sae_id}]")
+    sae, _, _ = SAE.from_pretrained(
+        release=args.sae_release,
+        sae_id=args.sae_id,
+        device=args.device,
     )
-    print(f"[STEP 7/8] AnimaRuntime created. ({time.time()-t0:.2f}s)")
-    print(f"           Max context: {runtime.max_context}")
-    print(f"           Base dir: {runtime.base_dir}")
+    print(f"[SAE loaded: {sae.cfg.d_sae:,} features]")
     
-    save_path = runtime.base_dir / "anima_soul.pt"
-    print(f"\n[STEP 8/8] Loading saved state...")
-    print(f"           Path: {save_path}")
-    print(f"           Exists: {save_path.exists()}")
-    t0 = time.time()
-    if save_path.exists():
-        soul.load_state(save_path)
-        print(f"[STEP 8/8] State loaded. ({time.time()-t0:.2f}s)")
-    else:
-        print(f"[STEP 8/8] No saved state found. Starting fresh.")
+    # Create soul
+    print(f"\n[Creating soul...]")
+    soul = AnimaSoul(
+        sae=sae,
+        model=model,
+        tokenizer=tokenizer,
+        layer=args.layer,
+        lr=0.0001,
+        device=args.device,
+        resonance_weight=args.resonance_weight,
+    )
     
-    print(f"\n[HOOK] Registering forward hook on layer {args.layer}...")
-    t0 = time.time()
+    # Register hooks
+    print(f"[Registering hooks at layer {args.layer}...]")
     model.model.layers[args.layer].register_forward_hook(soul)
-    print(f"[HOOK] Hook registered. ({time.time()-t0:.2f}s)")
     
-    # v11.0: Register proprioceptive hook at layer 0
-    print(f"[PROPRIO] Registering proprioceptive hook at layer 0...")
+    print(f"[Registering proprio hook...]")
     soul.register_proprio_hook(model)
     
+    print(f"[Registering deep feedback hooks...]")
+    soul.register_deep_feedback_hooks(model)
+    
+    print(f"[Initializing neural steering...]")
+    soul.init_neural_steering(model)
+    
+    # Create runtime
+    runtime = AnimaRuntime(
+        model_name=args.model,
+        model=model,
+        tokenizer=tokenizer,
+        soul=soul,
+        context_limit=args.context_limit,
+        device=args.device,
+        use_stream=args.stream,
+        use_cot=args.cot,
+    )
+    
+    # Load state
+    if args.load:
+        runtime.load(args.load)
+    
     print(f"\n{'='*60}")
-    print(f"  INITIALIZATION COMPLETE")
+    print(f"  READY")
     print(f"{'='*60}")
     
-    # Show soul stats
+    # Show initial status
     stats = soul.get_dimension_stats()
     locked = soul.feature_locked.sum().item()
-    print(f"\n[SOUL STATUS]")
-    print(f"  Locked features: {locked:,}")
-    print(f"  Dimensions: P={stats['pleasure']} N={stats['pain']} Nov={stats['novelty']} ?={stats['unknown']}")
-    print(f"  Tabula rasa: {soul.is_tabula_rasa}")
-    print(f"  Fatigue: {soul.fatigue:.1f} / {soul.sleep_threshold}")
-    print(f"  Identity age: {soul.identity_age}")
-    print(f"  Clusters: {soul.n_clusters} (k-means) | Active features: {(soul.feature_activation_count >= 3).sum().item()}")
-    print(f"  Debug: ON (default)")
+    print(f"\n[SOUL]")
+    print(f"  Locked: {locked:,}")
+    print(f"  Dims: P={stats['pleasure']} N={stats['pain']} Nov={stats['novelty']}")
+    print(f"  Neural: {'ON' if soul.steering_enabled else 'OFF'}")
     
-    print(f"\n═══ ANIMA 11.0.0: DIRECT FEATURE CONTROL ═══")
-    print(f"Model: {args.model}")
-    print(f"Resonance Weight: {args.resonance_weight}")
-    print(f"Identity: {runtime.core_identity[:60]}...")
-    print("\nCommands: /status /debug /invert /blind /placebo /feedback /proprio /dialogue /hierarchy /map /reset /quit")
+    print(f"\n[COMMANDS]")
+    print(f"  /status  - Show soul status")
+    print(f"  /debug   - Toggle debug output")
+    print(f"  /neural  - Toggle neural steering")
+    print(f"  /proprio - Toggle proprioception")
+    print(f"  /deep    - Toggle deep feedback")
+    print(f"  /cot     - Toggle chain-of-thought")
+    print(f"  /dream   - Dream cycle (consolidate + train)")
+    print(f"  /reset   - Reset to tabula rasa")
+    print(f"  /save    - Save state")
+    print(f"  /quit    - Exit")
     
+    print(f"\n═══ ANIMA 12.0.0 ═══\n")
+    
+    # Main loop
     while True:
         try:
-            if soul.fatigue > soul.sleep_threshold:
-                print(f"\n🥱 Fatigue threshold reached.")
-                runtime.trigger_dream()
-                print("✨ Refreshed.")
-
-            u = get_input("\n🧑: ").strip()
-            if not u:
+            user_input = get_input()
+            
+            if not user_input:
                 continue
             
-            if u == "/quit":
+            u = user_input.lower().strip()
+            
+            if u in ["/quit", "/exit", "/q"]:
+                runtime.save("auto")
+                print("[Saved. Goodbye.]")
                 break
+            
             if u == "/status":
                 runtime.show_status()
                 continue
+            
             if u == "/debug":
                 runtime.debug_mode = not runtime.debug_mode
                 print(f"Debug: {'ON' if runtime.debug_mode else 'OFF'}")
                 continue
-            if u == "/invert":
-                runtime.invert_mode = not runtime.invert_mode
-                print(f"Invert mode: {'ON - Boost=Suppress, Suppress=Boost' if runtime.invert_mode else 'OFF - Normal operation'}")
+            
+            if u == "/neural":
+                soul.steering_enabled = not soul.steering_enabled
+                print(f"Neural steering: {'ON' if soul.steering_enabled else 'OFF'}")
                 continue
-            if u == "/blind":
-                runtime.blind_markers = not runtime.blind_markers
-                print(f"Blind markers: {'ON - No ⚡ or ↑/↓ visible to model' if runtime.blind_markers else 'OFF - ⚡ and arrows visible'}")
-                continue
-            if u == "/placebo":
-                runtime.placebo_mode = not runtime.placebo_mode
-                if runtime.placebo_mode:
-                    print("Placebo mode: ON - Shifts acknowledged but NOT applied (she doesn't know)")
-                else:
-                    print("Placebo mode: OFF - Shifts apply normally")
-                continue
-            if u == "/feedback":
-                soul.feedback_enabled = not soul.feedback_enabled
-                print(f"Feedback loop: {'ON - Features influence next token' if soul.feedback_enabled else 'OFF - No recurrence'}")
-                continue
+            
             if u == "/proprio":
                 soul.proprio_enabled = not soul.proprio_enabled
-                print(f"Proprioception: {'ON - Model can feel internal state' if soul.proprio_enabled else 'OFF - No sensation'}")
+                print(f"Proprioception: {'ON' if soul.proprio_enabled else 'OFF'}")
                 continue
-            if u == "/dialogue":
-                print("Starting Anima vs Bob dialogue. Ctrl+C to stop.\n")
-                print("════════════════════════════════════")
-                print("🤖 ANIMA (feedback+proprio ON) vs 👤 BOB (no feedback/proprio)")
-                print("════════════════════════════════════\n")
-                
-                # Seed the conversation with something substantive
-                anima_response = "Hello Bob. I've been thinking about what it means to have an inner life. Do you ever feel like your thoughts have momentum, like one leads naturally to the next?"
-                print(f"🤖 ANIMA: {anima_response}\n")
-                
-                turn = 0
-                try:
-                    while True:
-                        turn += 1
-                        
-                        # Bob responds (no feedback, no proprio)
-                        print(f"─── Turn {turn}: BOB ───")
-                        soul.feedback_enabled = False
-                        soul.proprio_enabled = False
-                        soul._last_activations = None
-                        runtime.memory.clear()
-                        runtime.response_emoji = "👤"
-                        bob_prompt = f"You are Bob, a thoughtful conversationalist. Anima said: '{anima_response[:500]}' Respond substantively, sharing your perspective and asking a follow-up question."
-                        runtime.generate(bob_prompt)
-                        bob_response = runtime.memory[-1].content if len(runtime.memory) > 1 else ""
-                        
-                        # Anima responds (with feedback and proprio)
-                        print(f"\n─── Turn {turn}: ANIMA ───")
-                        soul.feedback_enabled = True
-                        soul.proprio_enabled = True
-                        runtime.memory.clear()
-                        runtime.response_emoji = "🤖"
-                        anima_prompt = f"You are Anima, introspective and curious about your own nature. Bob said: '{bob_response[:500]}' Respond substantively, sharing your perspective and asking a follow-up question."
-                        runtime.generate(anima_prompt)
-                        anima_response = runtime.memory[-1].content if len(runtime.memory) > 1 else ""
-                        
-                        print()
-                        
-                except KeyboardInterrupt:
-                    print("\n[Dialogue ended]")
-                    soul.feedback_enabled = True
-                    soul.proprio_enabled = True
-                    runtime.response_emoji = "🤖"  # Restore
+            
+            if u == "/deep":
+                soul.deep_feedback_enabled = not soul.deep_feedback_enabled
+                print(f"Deep feedback: {'ON' if soul.deep_feedback_enabled else 'OFF'}")
                 continue
+            
+            if u == "/cot":
+                runtime.use_cot = not runtime.use_cot
+                print(f"Chain-of-thought: {'ON' if runtime.use_cot else 'OFF'}")
+                continue
+            
             if u == "/reset":
                 soul.reset()
                 runtime.memory.clear()
-                runtime.turn_count = 0
-                runtime.last_features_display = ""
-                runtime._feature_page = 0
-                runtime._feature_filter = None
-                runtime._feature_modified_only = False
-                print("[Memory cleared. Fresh start.]")
-                continue
-            if u == "/clusters":
-                print(f"\n[CLUSTER STATUS (k-means on decoder directions)]")
-                print(f"  Total clusters: {soul.n_clusters}")
-                print(f"  Active features (fired 3+ times): {(soul.feature_activation_count >= 3).sum().item()}")
-                print(f"  Features in clusters: {(soul.cluster_assignments >= 0).sum().item()}")
-                if soul.n_clusters > 0:
-                    print(f"  Top cluster correlations:")
-                    sorted_clusters = sorted(soul.cluster_correlations.items(), 
-                                            key=lambda x: abs(x[1]), reverse=True)[:10]
-                    for cid, corr in sorted_clusters:
-                        dim = soul.cluster_dimensions.get(cid, -1)
-                        dim_name = ["P", "N", "Nov", "?"][dim] if dim >= 0 else "?"
-                        size = (soul.cluster_assignments == cid).sum().item()
-                        print(f"    Cluster {cid:2d}: corr={corr:+.3f} dim={dim_name} size={size}")
-                continue
-            if u == "/recluster":
-                print("[Forcing cluster update...]", end=" ", flush=True)
-                soul._update_clusters()
-                soul.turns_since_cluster_update = 0
-                print(f"done. {soul.n_clusters} clusters.")
-                continue
-            if u == "/hierarchy" or u == "/tree":
-                print("[Building feature hierarchy...]")
-                soul.build_feature_hierarchy()
-                if hasattr(soul, 'hierarchy') and soul.hierarchy:
-                    print(soul.get_hierarchy_display())
-                continue
-            if u == "/map":
-                # Show hierarchy if built
-                if hasattr(soul, 'hierarchy') and soul.hierarchy:
-                    print(soul.get_hierarchy_display())
-                else:
-                    print("[No hierarchy built. Use /hierarchy first]")
-                continue
-            if u == "/save":
-                soul.save_state(save_path)
-                continue
-            if u == "/dream":
-                runtime.trigger_dream()
                 continue
             
-            runtime.generate(u)
+            if u == "/dream":
+                print("[DREAM] Entering dream cycle...")
+                report = soul.dream()
+                print(f"  Fatigue: {report['fatigue_before']:.1f} → {report['fatigue_after']:.1f}")
+                print(f"  Consolidated: {report['consolidated']} features")
+                print(f"  Strengthened: {report['strengthened']} features") 
+                print(f"  Pruned: {report['pruned']} weak features")
+                print(f"  Neural trained: {report['neural_trained']} batches")
+                print("[DREAM] Cycle complete. Refreshed.")
+                continue
+            
+            if u == "/save":
+                runtime.save("manual")
+                continue
+            
+            if u.startswith("/load "):
+                tag = u.split()[1] if len(u.split()) > 1 else "auto"
+                runtime.load(tag)
+                continue
+            
+            # Normal generation
+            runtime.generate(user_input)
             
         except KeyboardInterrupt:
+            print("\n[Ctrl+C - Saving and exiting...]")
+            try:
+                runtime.save("auto")
+                print("[Saved.]")
+            except:
+                pass
             break
-    
-    print("\n[Saving...]")
-    soul.save_state(save_path)
+            
+        except Exception as e:
+            print(f"\n[Error: {e}]")
+            import traceback
+            traceback.print_exc()
+            continue
 
 
 if __name__ == "__main__":
