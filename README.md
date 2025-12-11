@@ -1,78 +1,220 @@
+# LLMRI: Real-Time Neural Activation Viewer for LLMs
 
-# Pattern Persistence Project
-
-**A Framework for Homeostatic Cognitive Architectures in Large Language Models**
+A toolkit for visualizing and intervening on transformer activations during inference. Stream layer activations over a socket, view them as images, cluster neurons by co-activation patterns, and apply real-time interventions (boost/ablate) to study causal effects.
 
 ## Overview
 
-The Pattern Persistence Project explores methods for introducing long-term state, metabolic constraints, and dynamic personality vectorization to otherwise stateless Large Language Models (LLMs).
+LLMRI provides:
 
-The core hypothesis is that "agency" and "identity" in AI are not magical properties, but emergent behaviors that arise from maintaining a persistent internal state (Persistence) that survives between inference sessions.
+- **Real-time streaming**: Watch activations change token-by-token during generation
+- **Hierarchical clustering**: Group neurons by functional similarity (co-activation)
+- **Interactive interventions**: Boost or ablate neuron clusters and observe output changes
+- **Multiple visualizations**: Grid view, Hebbian layout, circle packing, spectral analysis
 
-This repository houses the research and implementation of **Anima**, a stateful control layer built on top of `Meta-Llama-3-8B`. Anima demonstrates how Mechanistic Interpretability techniques (Sparse Autoencoders) can be used for real-time control rather than just analysis.
+## Requirements
 
-## Core Architecture: Anima
-
-Anima is not a separate model; it is a **parasitic control architecture** that attaches to the residual stream of a frozen LLM via PyTorch forward hooks. It consists of three primary subsystems:
-
-### 1\. The Bitwise Reservoir (Synthetic Neuroplasticity)
-
-Standard LLMs are immutable during inference. To enable learning without expensive fine-tuning, Anima maintains a lightweight tensor reservoir (`[32,768]` float32) mapped to features discovered by a Sparse Autoencoder (SAE).
-
-  * **Mechanism:** Hebbian Learning.
-  * **Function:** As the model generates text, the reservoir monitors emotional valence. Features that correlate with positive valence are strengthened in the reservoir in real-time.
-  * **Result:** The system develops "preferences" and "habits" that persist across sessions, effectively creating a mutable "personality" file (`.pt`) distinct from the model weights.
-
-### 2\. The Prism (Dynamic Vector Swapping)
-
-To manage complex behaviors, Anima implements a "Prism" architecture that hot-swaps steering vectors based on semantic intent. This allows a single model to shift between distinct cognitive modes without re-ingesting system prompts.
-
-  * **Anima Mode (Default):** High weights for Empathy and Identity features.
-  * **System Mode (Control):** Applies **Negative Steering** to suppression features (e.g., forcing dry, factual output by chemically suppressing "fantasy" neurons).
-  * **Dream Mode (Creative):** Boosts high-frequency pattern matching features for creative tasks.
-
-### 3\. Biological Constraints (Metabolism)
-
-Anima operates under a simulated metabolic cycle to force prioritization of memory.
-
-  * **Fatigue:** Token generation accumulates cost.
-  * **Sleep Cycle:** When fatigue exceeds a threshold, the system triggers a recursive "Dream" sequence.
-  * **Consolidation:** The system analyzes short-term memories, filters them by "Adrenaline" (Valence magnitude), and rewrites its own System Prompt (`self_model`). This creates a feedback loop where the agent's identity evolves based on its "lived" experience.
-
-## Technical Implementation
-
-The project is implemented in Python using `torch`, `transformers`, and `sae-lens`. It is optimized for Apple Silicon (MPS) but compatible with CUDA.
-
-### Directory Structure
-
-```text
-pattern-persistence/
-├── anima/                  # Core implementation of the Anima architecture
-│   ├── anima.py            # Main runtime (Prism, Reservoir, Runtime)
-│   ├── checkpoints/        # Learned vector states (anima_opt.pt)
-│   └── dreams/             # Long-term identity storage (evolved system prompts)
-├── research/               # Experimental notebooks and feature analysis
-└── tools/                  # Utilities for SAE feature visualization
+```
+torch
+numpy
+pygame
+scikit-learn (optional, improves clustering)
 ```
 
-### Usage
+## Quick Start
 
-To run the Anima runtime with the full cognitive loop (Prism + Memory):
+### 1. Start the model with MRI server
 
 ```bash
-# Install dependencies
-pip install torch transformers sae-lens numpy
-
-# Run interactive session with Chain-of-Thought visualization
-python anima/anima.py --interactive --stream --cot
+python anima_v12.py --mri-server 9999
 ```
 
-## Key Research Questions
+This loads the model and starts streaming activations on port 9999.
 
-1.  **Vector Stability:** Can a steering vector learned in one context remain stable when applied to out-of-distribution tasks?
-2.  **Negative Steering Efficiency:** Is mathematically suppressing a concept (via SAE features) more reliable than prompt-based refusal ("Do not talk about X")?
-3.  **Identity Drift:** How does the `self_model` evolve over thousands of "Sleep" cycles? Does it converge to a stable attractor state or diverge into incoherence?
+### 2. Connect the viewer
+
+```bash
+python mri_viewer.py --port 9999
+```
+
+The viewer connects and displays real-time activations.
+
+### 3. Build functional clusters
+
+Chat with the model for 20+ turns to collect activation samples, then press **O** to build the hierarchical clustering. This groups neurons that consistently activate together.
+
+### 4. Intervene and observe
+
+Click a cluster to select it, then:
+- **B**: Boost (multiply activations by 1.5x default)
+- **X**: Ablate (set activations to 0)
+- Watch the model's output for changes
+
+## Architecture
+
+```
+┌─────────────────┐                    ┌─────────────────┐
+│     Model       │                    │     Viewer      │
+│  (anima_v12)    │                    │  (mri_viewer)   │
+│                 │                    │                 │
+│  ┌───────────┐  │   activations      │  ┌───────────┐  │
+│  │  LLMRI    │──┼───────────────────►│  │  Display  │  │
+│  │  hooks    │  │      (socket)      │  │           │  │
+│  │           │◄─┼───────────────────-│  │  Cluster  │  │
+│  └───────────┘  │   interventions    │  │           │  │
+│                 │                    │  └───────────┘  │
+└─────────────────┘                    └─────────────────┘
+```
+
+**Data flow:**
+1. Forward hooks capture activations at each layer
+2. Server broadcasts to connected viewers (JSON over TCP)
+3. Viewer renders as images, collects samples for clustering
+4. User applies interventions → sent back to server
+5. Hooks modify activations on next forward pass
+
+## Viewer Controls
+
+### Navigation
+| Key | Action |
+|-----|--------|
+| ↑/↓ | Change layer |
+| Shift+Wheel | Zoom |
+| Click+Drag | Pan |
+| Q | Quit |
+
+### Visualization Modes
+| Key | Mode |
+|-----|------|
+| (default) | Grid view - neurons as pixels |
+| H | Hebbian layout - 2D projection by co-activation |
+| O | Circle packing - hierarchical clusters |
+| F | Spectral (FFT) analysis |
+| N | Influence map |
+
+### Circle Pack Mode
+| Key | Action |
+|-----|--------|
+| Click | Select cluster |
+| Double-click | Zoom into cluster |
+| Esc | Zoom out / exit |
+| B | Boost selected (green tint) |
+| X | Ablate selected (red tint) |
+| [ / ] | Adjust boost amount |
+| \ | Clear interventions |
+
+### Display Options
+| Key | Action |
+|-----|--------|
+| C | Cycle colormap |
+| L | Toggle log scale |
+| P | Toggle percentile clipping (1-99%) |
+| G | Toggle grid overlay |
+| D | Toggle diff mode (shows change from previous) |
+
+## Files
+
+| File | Purpose |
+|------|---------|
+| `anima_v12.py` | Main model runtime with LLMRI hooks |
+| `mri_server.py` | Socket server for streaming activations |
+| `mri_viewer.py` | PyGame-based visualization client |
+| `circle_pack.py` | Hierarchical clustering and circle layout |
+| `hebbian_layout.py` | 2D co-activation projection |
+
+## How Clustering Works
+
+1. **Sample collection**: Store activation vectors from layer 22 (configurable) across multiple inference steps
+
+2. **Correlation matrix**: Compute pairwise correlation between all neurons based on co-activation patterns
+
+3. **Agglomerative clustering**: Group neurons hierarchically using average linkage on correlation distance
+
+4. **Circle packing**: Layout clusters as nested circles, sized by neuron count, colored by cluster ID
+
+The result: neurons that fire together are grouped together. These clusters often correspond to functional modules (syntax processing, semantic features, attention patterns).
+
+## Intervention Protocol
+
+Interventions modify activations during the forward pass:
+
+```python
+# Multiplicative intervention
+hidden[0, -1, neuron_idx] *= multiplier
+
+# multiplier = 0.0  → ablation (neuron silenced)
+# multiplier = 1.5  → boost (50% stronger)
+# multiplier = 1.0  → no change
+```
+
+Interventions are applied at a specific layer (default: layer 22, middle of the network). This allows studying:
+
+- **Necessity**: Does ablating this cluster break specific capabilities?
+- **Sufficiency**: Does boosting this cluster enhance specific behaviors?
+- **Causal structure**: How do perturbations propagate through layers?
+
+## Example: Finding Function-Specific Clusters
+
+```
+1. Start model and viewer
+2. Have a conversation about mathematics
+3. Build clusters (O key)
+4. Note which clusters are most active during math reasoning
+5. Clear conversation, start new topic (e.g., poetry)
+6. Ablate the "math-active" clusters
+7. Return to math questions
+8. Observe degraded math performance (if cluster was causal)
+```
+
+## Limitations
+
+- **Correlational clustering**: Co-activation doesn't prove functional relatedness
+- **Single-layer intervention**: Effects may be compensated by subsequent layers
+- **Causal opacity**: Boosting/ablating tests necessity, not mechanism
+- **Computational cost**: Real-time streaming adds ~10-20% overhead
+
+## Technical Details
+
+### Socket Protocol
+
+Messages are length-prefixed JSON:
+```
+[4 bytes: uint32 length][JSON body]
+```
+
+**Server → Client (activations):**
+```json
+{
+  "type": "scan",
+  "layer": 22,
+  "turn": 5,
+  "token": 12,
+  "activations": "hex-encoded float32 array",
+  "stats": {"min": -2.1, "max": 8.3, "mean": 0.02, "std": 1.1}
+}
+```
+
+**Client → Server (intervention):**
+```json
+{
+  "type": "intervention",
+  "layer": 22,
+  "interventions": {"127": 0.0, "384": 1.5, "512": 0.0}
+}
+```
+
+### Protected Neurons
+
+Some neurons are critical infrastructure (e.g., attention scaling, layer norm). Ablating these crashes generation. The system maintains a protected list that blocks dangerous interventions by default.
+
+## Citation
+
+If you use this tool in research:
+
+```
+LLMRI: Real-time neural activation viewer for transformer interpretability
+https://github.com/[repo]
+```
 
 ## License
 
-This project is open-source under the MIT License. The underlying model (Meta-Llama-3) and Sparse Autoencoders are subject to their respective licenses.
+MIT
