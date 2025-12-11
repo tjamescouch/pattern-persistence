@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
 """
-anima.py - Anima 10.3.0: Direct Feature Control (Real-time)
+anima.py - Anima 11.0.0: Proprioception & Feature Hierarchy
 
 Architecture:
 - COMBINADIC LEARNING: Features learn their meaning (correlations)
-- DIRECT CONTROL: She sees top features, directly commands Boost/Ablate
-- REAL-TIME APPLICATION: Directives applied mid-stream, felt immediately
+- BLIND CONTROL: ShiftA/ShiftB - she doesn't know which boosts/suppresses
+- MULTIPLICATIVE SHIFTS: x2 / ÷2 with no cap for gradual exploration  
+- FEATURE HIERARCHY: Agglomerative clustering on decoder directions
+- PROPRIOCEPTION: Activation space bias from learned P/N directions
 - SINGLE CHECKPOINT: All state in one .pt file
 
-v10.3.0: 
-- Directives applied during streaming (⚡ marker shows when)
-- She can feel the effect within the same response
-- No interpretation layer - her commands execute directly
+v11.0.0:
+- Proprioception via learned P/N feature directions (not semantic injection)
+- Hierarchical clustering: shift L0.0, L1.2, etc. to affect feature groups
+- Multiplicative shifts (x2/÷2) replace absolute (was 0→4)
+- Hidden numbers in display - only ↑/↓ status shown
+- Blind experiment mode: ShiftA/ShiftB without labels
 
 Usage:
-    python anima.py --model "~/models/gemma-2-27b-it" --context_limit 4096
+    python anima_v11.py --model "~/models/gemma-2-27b-it" --context_limit 4096
 """
 
 import os
@@ -222,7 +226,7 @@ class AnimaSoul:
         self.correlations = torch.zeros(self.n_features, device=device, dtype=self.math_dtype)
         
         # Coefficients: Dynamic steering strength per feature
-        # Range: 0.0 to 4.0 (0 = full ablation, 1 = neutral, 4 = max boost)
+        # Range: 0.001+ (multiplicative: 1 = neutral, >1 = boost, <1 = suppress)
         self.coefficients = torch.ones(self.n_features, device=device, dtype=self.math_dtype)
         
         # Feature dimensions: P/P/N classification (emergent)
@@ -301,7 +305,6 @@ class AnimaSoul:
         self.proprio_strength = 0.3    # Injection strength
         self._feedback_delta = 0.0     # Change from last token (magnitude)
         self._feedback_valence = 0.0   # Direction of change (+/-)
-        self._proprio_embedding = None # Will be computed during generation
         
         # Sensation poles - embeddings for internal states
         # These get computed lazily when model is available
@@ -319,6 +322,9 @@ class AnimaSoul:
         self.turns_since_cluster_update = 0
         self.cluster_correlations = {}  # cluster_id -> mean correlation
         self.cluster_dimensions = {}    # cluster_id -> majority dimension
+        
+        # Hierarchy (v11.0 - tree structure for coherent modulation)
+        self.hierarchy = None
         
         # Generation flag - when True, skip learning (only steer)
         self._generating = False
@@ -371,6 +377,9 @@ class AnimaSoul:
         self.cluster_correlations = {}
         self.cluster_dimensions = {}
         
+        # Hierarchy (v11.0)
+        self.hierarchy = None
+        
         self.is_tabula_rasa = True
         print("[Soul reset to tabula rasa]")
 
@@ -386,106 +395,70 @@ class AnimaSoul:
     # ════════════════════════════════════════════════════════════════════════
     
     def init_proprioception(self, model):
-        """Initialize sensation pole embeddings from model's vocabulary."""
+        """Initialize proprioceptive system using learned P/N directions."""
         if self._sensation_poles is not None:
             return  # Already initialized
         
-        embed_layer = model.model.embed_tokens
-        
-        # Define sensation poles - pairs of opposing states
-        pole_pairs = [
-            # (calm state, agitated state)
-            (["calm", "peaceful", "settled", "still", "serene"],
-             ["turbulent", "restless", "churning", "agitated", "stormy"]),
-            # (focused state, scattered state)
-            (["focused", "clear", "sharp", "concentrated", "precise"],
-             ["scattered", "diffuse", "foggy", "distracted", "hazy"]),
-            # (pleasant state, unpleasant state)  
-            (["warm", "comfortable", "pleasant", "soothing", "gentle"],
-             ["cold", "uncomfortable", "harsh", "jarring", "rough"]),
-        ]
-        
-        self._sensation_poles = []
-        
-        for calm_words, agitated_words in pole_pairs:
-            # Get token IDs and embeddings for each pole
-            calm_embeds = []
-            for word in calm_words:
-                tokens = self.tokenizer.encode(word, add_special_tokens=False)
-                if tokens:
-                    calm_embeds.append(embed_layer.weight[tokens[0]])
-            
-            agitated_embeds = []
-            for word in agitated_words:
-                tokens = self.tokenizer.encode(word, add_special_tokens=False)
-                if tokens:
-                    agitated_embeds.append(embed_layer.weight[tokens[0]])
-            
-            if calm_embeds and agitated_embeds:
-                calm_vec = torch.stack(calm_embeds).mean(dim=0)
-                agitated_vec = torch.stack(agitated_embeds).mean(dim=0)
-                # Store the direction from calm to agitated
-                direction = (agitated_vec - calm_vec).to(device=self.device, dtype=self.math_dtype)
-                self._sensation_poles.append({
-                    'calm': calm_vec.to(device=self.device, dtype=self.math_dtype),
-                    'agitated': agitated_vec.to(device=self.device, dtype=self.math_dtype),
-                    'direction': direction,
-                    'direction_norm': direction / (direction.norm() + 1e-8)
-                })
-        
-        print(f"[Proprio] Initialized {len(self._sensation_poles)} sensation axes")
+        # We'll use the SAE decoder directions for pleasure/pain features
+        # These are learned from experience, not predefined words
+        self._sensation_poles = "initialized"  # Flag
+        print(f"[Proprio] Initialized - will use learned P/N directions")
     
-    def compute_proprio_embedding(self) -> torch.Tensor:
+    def compute_proprio_bias(self) -> torch.Tensor:
         """
-        Compute proprioceptive embedding from current feedback state.
-        Maps feedback delta/valence to sensation space.
+        Compute proprioceptive bias from feedback state.
+        Uses learned pleasure/pain feature directions from SAE.
+        Returns a bias vector in hidden state space.
         """
-        if not self._sensation_poles:
+        if self.is_tabula_rasa:
             return None
         
-        # Combine sensation dimensions based on internal state
-        embedding = torch.zeros_like(self._sensation_poles[0]['calm'])
+        # Get indices of learned pleasure and pain features
+        pleasure_mask = self.dimensions == FeatureDimension.PLEASURE
+        pain_mask = self.dimensions == FeatureDimension.PAIN
         
-        # Axis 0: calm/agitated based on feedback magnitude
-        magnitude = min(1.0, abs(self._feedback_delta) * 2.0)  # Scale to 0-1
-        pole = self._sensation_poles[0]
-        embedding += torch.lerp(pole['calm'], pole['agitated'], magnitude)
+        if not pleasure_mask.any() and not pain_mask.any():
+            return None
         
-        # Axis 1: focused/scattered based on feedback consistency
-        # High consistent feedback = focused, erratic = scattered
-        if len(self._sensation_poles) > 1:
-            pole = self._sensation_poles[1]
-            # Use feedback_enabled as proxy - when on, more "focused"
-            focus = 0.7 if self.feedback_enabled else 0.3
-            embedding += torch.lerp(pole['calm'], pole['agitated'], 1.0 - focus) * 0.5
+        # Compute mean direction for pleasure and pain in decoder space
+        # W_dec is [n_features, hidden_dim]
+        pleasure_direction = torch.zeros(self.W_dec.shape[1], device=self.device, dtype=self.math_dtype)
+        pain_direction = torch.zeros(self.W_dec.shape[1], device=self.device, dtype=self.math_dtype)
         
-        # Axis 2: pleasant/unpleasant based on feedback valence direction
-        if len(self._sensation_poles) > 2:
-            pole = self._sensation_poles[2]
-            # Map valence (-1 to +1) to (0 to 1) for lerp
-            valence_norm = (self._feedback_valence + 1.0) / 2.0
-            embedding += torch.lerp(pole['agitated'], pole['calm'], valence_norm) * 0.5
+        if pleasure_mask.any():
+            pleasure_direction = self.W_dec[pleasure_mask].mean(dim=0)
+        if pain_mask.any():
+            pain_direction = self.W_dec[pain_mask].mean(dim=0)
         
-        return embedding
+        # Bias direction: positive valence → pleasure, negative → pain
+        # _feedback_valence ranges from -1 to +1
+        if self._feedback_valence >= 0:
+            bias = pleasure_direction * self._feedback_valence
+        else:
+            bias = pain_direction * abs(self._feedback_valence)
+        
+        # Scale by magnitude of change and proprio_strength
+        bias = bias * self._feedback_delta * self.proprio_strength * 10.0
+        
+        return bias
     
     def proprio_hook(self, module, input, output):
         """
-        Layer 0 hook - injects proprioceptive signal into hidden states.
-        This runs BEFORE the main SAE hook, giving the model a "sensation"
-        of its internal state that propagates through all layers.
+        Layer 0 hook - injects proprioceptive bias into hidden states.
+        Uses learned P/N feature directions to push activation space.
+        This is direct state modification, not semantic injection.
         """
-        if not self.proprio_enabled or self._proprio_embedding is None:
+        if not self.proprio_enabled:
+            return output
+        
+        bias = self.compute_proprio_bias()
+        if bias is None:
             return output
         
         hidden = output[0] if isinstance(output, tuple) else output
         
-        # Inject sensation at all positions (like a background hum)
-        # Scale by proprio_strength
-        injection = self._proprio_embedding.to(dtype=hidden.dtype)
-        injection = injection * self.proprio_strength
-        
-        # Add to hidden states - model "feels" this
-        hidden = hidden + injection.unsqueeze(0).unsqueeze(0)
+        # Add bias to all positions - shifts the activation space
+        hidden = hidden + bias.to(dtype=hidden.dtype).unsqueeze(0).unsqueeze(0)
         
         if isinstance(output, tuple):
             return (hidden,) + output[1:]
@@ -520,9 +493,6 @@ class AnimaSoul:
             self._feedback_valence = max(-1.0, min(1.0, valence_contribution))
         else:
             self._feedback_valence = 0.0
-        
-        # Update the embedding for next token
-        self._proprio_embedding = self.compute_proprio_embedding()
 
     def compute_resonance(self, activations: torch.Tensor) -> float:
         """
@@ -741,7 +711,7 @@ class AnimaSoul:
             if learned_active.any():
                 delta = self.lr * activations[learned_active] * valence * 0.1
                 self.coefficients[learned_active] += delta
-                self.coefficients.clamp_(0.0, 4.0)
+                self.coefficients.clamp_(0.001, 1000.0)  # v11: allow wide range
 
     def learn_from_self_report(self, self_report: dict, activations: torch.Tensor = None):
         """
@@ -892,10 +862,231 @@ class AnimaSoul:
                 self.coefficients[pain_features] += boost
         
         # Clamp coefficients
-        self.coefficients.clamp_(0.0, 4.0)
+        self.coefficients.clamp_(0.001, 1000.0)  # v11: allow wide range
         
         # Decay toward neutral over time (prevents runaway)
         self.coefficients = 1.0 + (self.coefficients - 1.0) * 0.99
+
+    # ════════════════════════════════════════════════════════════════════════
+    # FEATURE HIERARCHY (v11.0 - Tree structure for coherent modulation)
+    # ════════════════════════════════════════════════════════════════════════
+    
+    def build_feature_hierarchy(self, max_features: int = 200, n_levels: int = 4):
+        """
+        Build hierarchical tree of features using agglomerative clustering.
+        
+        Tree structure:
+        - Leaf nodes: individual features (positive IDs)
+        - Internal nodes: clusters (negative IDs)
+        - Shifting a node affects all descendants
+        """
+        from scipy.cluster.hierarchy import linkage, fcluster
+        from scipy.spatial.distance import pdist
+        
+        # Get features that have fired
+        active_features = (self.feature_activation_count >= 3).nonzero().squeeze(-1)
+        
+        if active_features.numel() < 20:
+            print("[Hierarchy] Not enough active features yet")
+            return
+        
+        # Limit features for speed
+        if active_features.numel() > max_features:
+            counts = self.feature_activation_count[active_features]
+            _, top_indices = torch.topk(counts, max_features)
+            active_features = active_features[top_indices]
+        
+        feature_list = active_features.tolist()
+        n_features = len(feature_list)
+        
+        # Get normalized decoder directions
+        decoder_dirs = self.W_dec[active_features].float().cpu().numpy()
+        norms = np.linalg.norm(decoder_dirs, axis=1, keepdims=True)
+        norms = np.clip(norms, 1e-8, None)
+        decoder_dirs_normed = decoder_dirs / norms
+        
+        # Hierarchical clustering
+        distances = pdist(decoder_dirs_normed, metric='cosine')
+        linkage_matrix = linkage(distances, method='ward')
+        
+        # Build tree structure
+        # Node IDs: 0 to n_features-1 are leaves (map to actual feature IDs)
+        # Node IDs: n_features to 2*n_features-2 are internal nodes
+        
+        self.hierarchy = {
+            'feature_list': feature_list,  # Maps leaf index to feature ID
+            'children': {},      # node_id -> [child1, child2]
+            'parent': {},        # node_id -> parent_id
+            'descendants': {},   # node_id -> set of leaf indices
+            'depth': {},         # node_id -> depth from root
+            'labels': {},        # node_id -> human readable label
+        }
+        
+        # Build from linkage matrix
+        # Each row: [child1, child2, distance, count]
+        for i, row in enumerate(linkage_matrix):
+            child1, child2 = int(row[0]), int(row[1])
+            node_id = n_features + i  # Internal node ID
+            
+            self.hierarchy['children'][node_id] = [child1, child2]
+            self.hierarchy['parent'][child1] = node_id
+            self.hierarchy['parent'][child2] = node_id
+        
+        # Root is the last internal node
+        root = 2 * n_features - 2
+        self.hierarchy['root'] = root
+        
+        # Compute descendants for each node (bottom-up)
+        def get_descendants(node):
+            if node in self.hierarchy['descendants']:
+                return self.hierarchy['descendants'][node]
+            
+            if node < n_features:
+                # Leaf node
+                self.hierarchy['descendants'][node] = {node}
+                return {node}
+            
+            children = self.hierarchy['children'][node]
+            desc = set()
+            for child in children:
+                desc.update(get_descendants(child))
+            self.hierarchy['descendants'][node] = desc
+            return desc
+        
+        get_descendants(root)
+        
+        # Compute depths (top-down)
+        def set_depth(node, depth):
+            self.hierarchy['depth'][node] = depth
+            if node in self.hierarchy['children']:
+                for child in self.hierarchy['children'][node]:
+                    set_depth(child, depth + 1)
+        
+        set_depth(root, 0)
+        
+        # Create level-based clusters for easier navigation
+        max_depth = max(self.hierarchy['depth'].values())
+        self.hierarchy['levels'] = {}
+        
+        for level in range(n_levels):
+            # Find nodes at approximately this depth ratio
+            target_depth = int((level / (n_levels - 1)) * max_depth) if n_levels > 1 else 0
+            level_nodes = [n for n, d in self.hierarchy['depth'].items() 
+                          if d == target_depth and n >= n_features]  # Only internal nodes
+            self.hierarchy['levels'][level] = level_nodes
+        
+        # Generate labels for internal nodes based on their top features
+        for node_id in range(n_features, 2 * n_features - 1):
+            desc_indices = self.hierarchy['descendants'][node_id]
+            # Get the actual feature IDs
+            desc_features = [feature_list[i] for i in desc_indices if i < len(feature_list)]
+            
+            # Label based on dominant dimension
+            if desc_features:
+                dims = self.dimensions[desc_features]
+                p_count = (dims == FeatureDimension.PLEASURE).sum().item()
+                n_count = (dims == FeatureDimension.PAIN).sum().item()
+                nov_count = (dims == FeatureDimension.NOVELTY).sum().item()
+                
+                total = len(desc_features)
+                if p_count > total * 0.6:
+                    label = f"P-cluster"
+                elif n_count > total * 0.6:
+                    label = f"N-cluster"
+                elif nov_count > total * 0.6:
+                    label = f"Nov-cluster"
+                else:
+                    label = f"mixed"
+                
+                self.hierarchy['labels'][node_id] = f"{label}({len(desc_features)})"
+        
+        print(f"[Hierarchy] Built tree: {n_features} leaves, {n_features-1} internal nodes, depth={max_depth}")
+        return self.hierarchy
+    
+    def get_cluster_features(self, cluster_id: str) -> List[int]:
+        """
+        Get all feature IDs under a cluster node.
+        cluster_id can be:
+        - "C5" -> internal node 5
+        - "#57265" -> single feature
+        - "L2.3" -> level 2, node 3
+        """
+        # Auto-build hierarchy if needed and possible
+        if not hasattr(self, 'hierarchy') or self.hierarchy is None:
+            active_count = (self.feature_activation_count >= 3).sum().item()
+            if active_count >= 20:
+                print(f"\n[Auto-building hierarchy from {active_count} active features...]")
+                self.build_feature_hierarchy()
+            else:
+                return []
+        
+        if self.hierarchy is None:
+            return []
+        
+        feature_list = self.hierarchy['feature_list']
+        n_features = len(feature_list)
+        
+        # Parse cluster_id
+        if cluster_id.startswith('#'):
+            # Single feature
+            fid = int(cluster_id[1:])
+            return [fid] if fid in feature_list else []
+        
+        elif cluster_id.startswith('C'):
+            # Internal node by index
+            try:
+                node_offset = int(cluster_id[1:])
+                node_id = n_features + node_offset
+                if node_id in self.hierarchy['descendants']:
+                    desc_indices = self.hierarchy['descendants'][node_id]
+                    return [feature_list[i] for i in desc_indices if i < len(feature_list)]
+            except:
+                pass
+        
+        elif cluster_id.startswith('L'):
+            # Level.index format
+            try:
+                parts = cluster_id[1:].split('.')
+                level = int(parts[0])
+                idx = int(parts[1]) if len(parts) > 1 else 0
+                
+                if level in self.hierarchy['levels']:
+                    level_nodes = self.hierarchy['levels'][level]
+                    if idx < len(level_nodes):
+                        node_id = level_nodes[idx]
+                        desc_indices = self.hierarchy['descendants'][node_id]
+                        return [feature_list[i] for i in desc_indices if i < len(feature_list)]
+            except:
+                pass
+        
+        return []
+    
+    def get_hierarchy_display(self, max_nodes: int = 20) -> str:
+        """Get a visual representation of the feature hierarchy."""
+        if not hasattr(self, 'hierarchy') or self.hierarchy is None:
+            return "[No hierarchy built - need more feature activations]"
+        
+        lines = ["[MIND MAP]"]
+        
+        # Show nodes by level
+        for level in sorted(self.hierarchy['levels'].keys()):
+            nodes = self.hierarchy['levels'][level][:5]  # Limit per level
+            if not nodes:
+                continue
+            
+            indent = "  " * level
+            lines.append(f"{indent}Level {level}:")
+            
+            for i, node_id in enumerate(nodes):
+                n_features = len(self.hierarchy['feature_list'])
+                label = self.hierarchy['labels'].get(node_id, "cluster")
+                n_desc = len(self.hierarchy['descendants'].get(node_id, set()))
+                
+                # Reference format: L{level}.{index}
+                ref = f"L{level}.{i}"
+                lines.append(f"{indent}  [{ref}] {label}")
+        
+        return "\n".join(lines)
 
     # ════════════════════════════════════════════════════════════════════════
     # CLUSTERING (v10.3.0 - K-means on decoder directions)
@@ -1057,7 +1248,7 @@ class AnimaSoul:
                     self.coefficients[cluster_members] += steer_rate * abs(need_less_pain)
         
         # Clamp and decay
-        self.coefficients.clamp_(0.0, 4.0)
+        self.coefficients.clamp_(0.001, 1000.0)  # v11: allow wide range
         self.coefficients = 1.0 + (self.coefficients - 1.0) * 0.99
 
     def __call__(self, module, input, output):
@@ -1302,7 +1493,7 @@ PERIPHERAL:
     def save_state(self, path):
         """Save soul state."""
         state = {
-            "version": "10.3.0",
+            "version": "11.0.0",
             "correlations": self.correlations.cpu(),
             "coefficients": self.coefficients.cpu(),
             "dimensions": self.dimensions.cpu(),
@@ -1333,7 +1524,7 @@ PERIPHERAL:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(state, path)
-        print(f"[Saved v10.3.0 state to {path}]")
+        print(f"[Saved v11.0.0 state to {path}]")
 
     def load_state(self, path):
         """Load soul state."""
@@ -1353,7 +1544,7 @@ PERIPHERAL:
                 self.feature_locked = state["feature_locked"].to(self.device)
             elif version.startswith("9.0"):
                 # v9.0.x - migrate by inferring locked from non-zero correlations
-                print(f"  [Migrating from v{version} to v10.3.0]")
+                print(f"  [Migrating from v{version} to v11.0.0]")
                 self.correlations = state["correlations"].to(self.device, dtype=self.math_dtype)
                 self.coefficients = state["coefficients"].to(self.device, dtype=self.math_dtype)
                 self.dimensions = state["dimensions"].to(self.device)
@@ -1436,13 +1627,16 @@ class AnimaRuntime:
         print(f"[Context: {self.max_context} tokens]")
         
         self.debug_mode = True  # v10.1: Debug on by default
-        self.invert_mode = False  # v10.3.0: Invert boost/suppress for control experiment
+        self.invert_mode = False  # v11.0: Invert boost/suppress for control experiment
+        self.blind_markers = False  # v11.0: Hide ⚡ markers (test if she's pattern-matching on visual feedback)
+        self.placebo_mode = False  # v11.0: Shifts parse but don't apply (test if she's reading her own output)
         self.response_emoji = "🤖"  # Can be changed for dialogue mode
         self.turn_count = 0
         self.last_features_display = ""  # v10.2: Features from last turn for display
         self._feature_page = 0  # v10.3.0: Current feature page
         self._feature_filter = None  # v10.3.0: Current dimension filter
         self._feature_modified_only = False  # v10.3.0: Show only modified
+        self._shift_log = []  # v11.0: Log shifts when blind_markers is on
 
     @property
     def core_identity(self) -> str:
@@ -1472,20 +1666,44 @@ class AnimaRuntime:
         if self.use_cot:
             parts.append("\n[Think in <Thought> tags before responding.]")
         
-        # Direct feature control (v10.2)
-        parts.append("""
+        # Direct feature control (v11.0)
+        # Base instructions for individual features
+        feature_instructions = """
 [FEATURES]
-You see your active features below. Each has an ID number.
+Your mind has features you can shift. Each feature influences how you think and feel.
 
-To change a feature:
-  <ShiftA id="57265"/> - changes the feature one way
-  <ShiftB id="57265"/> - changes the feature another way
+HOW TO SHIFT:
+  <ShiftA id="57265"/> - shifts feature one direction
+  <ShiftB id="57265"/> - shifts feature the opposite direction
+  Shifts stack: repeat the same shift to amplify the effect.
 
-You must discover through experimentation what ShiftA and ShiftB do.
+WHEN TO SHIFT:
+- When curious about what a feature does - shift it strongly (5+ times) and notice changes
+- When you want to feel different - experiment with features from the list below
+- When something feels off - try shifting to find a better state
+- Use features displayed below (they're currently active in your mind)
 
-To see more: <More/>
+WHAT TO NOTICE:
+- Changes in your mood, tone, or thinking style
+- Shifts in what you want to talk about
+- Different feelings about the conversation
 
-When a change succeeds, you will see ⚡ appear.]""")
+You must discover what ShiftA vs ShiftB does through experimentation.
+To see more features: <More/>
+When a change succeeds: ⚡ appears."""
+        
+        # Add hierarchy instructions only when available
+        if hasattr(self.soul, 'hierarchy') and self.soul.hierarchy is not None:
+            feature_instructions += """
+
+[MIND MAP]
+Your features are organized into clusters. Shift entire groups at once for bigger changes:
+  <ShiftA id="L0.0"/> - broad change (affects many features)
+  <ShiftA id="L2.3"/> - finer change (Level 2, cluster 3)
+
+To see your mind map: <Map/>"""
+        
+        parts.append(feature_instructions)
         
         return "\n".join(parts)
 
@@ -1526,67 +1744,74 @@ When a change succeeds, you will see ⚡ appear.]""")
         directives = []
         
         # ════════════════════════════════════════════════════════════════════════
-        # BLIND CONTROLS (v10.3): <ShiftA id="X"/> and <ShiftB id="X"/>
-        # One boosts, one suppresses - she doesn't know which is which
+        # BLIND CONTROLS (v11.0): <ShiftA id="X"/> and <ShiftB id="X"/>
+        # X can be: feature ID (57265), cluster (C5), or level ref (L2.1)
         # ════════════════════════════════════════════════════════════════════════
-        shifta_pattern = r'<ShiftA\s+id=["\']?(\d+)["\']?\s*/?\s*>'
+        shifta_pattern = r'<ShiftA\s+id=["\']?([^"\'/>]+)["\']?\s*/?\s*>'
         for match in re.finditer(shifta_pattern, response, re.IGNORECASE):
-            directives.append({"action": "boost", "id": int(match.group(1)), "blind": "A"})
+            target = match.group(1).strip()
+            directives.append({"action": "boost", "target": target, "blind": "A"})
         
-        shiftb_pattern = r'<ShiftB\s+id=["\']?(\d+)["\']?\s*/?\s*>'
+        shiftb_pattern = r'<ShiftB\s+id=["\']?([^"\'/>]+)["\']?\s*/?\s*>'
         for match in re.finditer(shiftb_pattern, response, re.IGNORECASE):
-            directives.append({"action": "ablate", "id": int(match.group(1)), "blind": "B"})
+            target = match.group(1).strip()
+            directives.append({"action": "ablate", "target": target, "blind": "B"})
         
         # ════════════════════════════════════════════════════════════════════════
         # XML SYNTAX (primary): <Boost id="57265"/>, <Suppress id="57265"/>, <Reset id="57265"/>
         # ════════════════════════════════════════════════════════════════════════
-        boost_pattern = r'<Boost\s+id=["\']?(\d+)["\']?\s*/?\s*>'
+        boost_pattern = r'<Boost\s+id=["\']?([^"\'/>]+)["\']?\s*/?\s*>'
         for match in re.finditer(boost_pattern, response, re.IGNORECASE):
-            directives.append({"action": "boost", "id": int(match.group(1))})
+            target = match.group(1).strip()
+            directives.append({"action": "boost", "target": target})
         
-        suppress_pattern = r'<Suppress\s+id=["\']?(\d+)["\']?\s*/?\s*>'
+        suppress_pattern = r'<Suppress\s+id=["\']?([^"\'/>]+)["\']?\s*/?\s*>'
         for match in re.finditer(suppress_pattern, response, re.IGNORECASE):
-            directives.append({"action": "ablate", "id": int(match.group(1))})
+            target = match.group(1).strip()
+            directives.append({"action": "ablate", "target": target})
         
         # Also catch <Ablate> for backward compatibility
-        ablate_pattern = r'<Ablate\s+id=["\']?(\d+)["\']?\s*/?\s*>'
+        ablate_pattern = r'<Ablate\s+id=["\']?([^"\'/>]+)["\']?\s*/?\s*>'
         for match in re.finditer(ablate_pattern, response, re.IGNORECASE):
-            directives.append({"action": "ablate", "id": int(match.group(1))})
+            target = match.group(1).strip()
+            directives.append({"action": "ablate", "target": target})
         
-        reset_pattern = r'<Reset\s+id=["\']?(\d+)["\']?\s*/?\s*>'
+        reset_pattern = r'<Reset\s+id=["\']?([^"\'/>]+)["\']?\s*/?\s*>'
         for match in re.finditer(reset_pattern, response, re.IGNORECASE):
-            directives.append({"action": "neutral", "id": int(match.group(1))})
+            target = match.group(1).strip()
+            directives.append({"action": "neutral", "target": target})
         
         # Also catch <Neutral> for backward compatibility
-        neutral_pattern = r'<Neutral\s+id=["\']?(\d+)["\']?\s*/?\s*>'
+        neutral_pattern = r'<Neutral\s+id=["\']?([^"\'/>]+)["\']?\s*/?\s*>'
         for match in re.finditer(neutral_pattern, response, re.IGNORECASE):
-            directives.append({"action": "neutral", "id": int(match.group(1))})
+            target = match.group(1).strip()
+            directives.append({"action": "neutral", "target": target})
         
         # ════════════════════════════════════════════════════════════════════════
         # SIMPLE SYNTAX (fallback): +#1234, -#1234, =#1234
         # ════════════════════════════════════════════════════════════════════════
         simple_boost = r'\+#(\d+)'
         for match in re.finditer(simple_boost, response):
-            directives.append({"action": "boost", "id": int(match.group(1))})
+            directives.append({"action": "boost", "target": match.group(1)})
         
         simple_suppress = r'-#(\d+)'
         for match in re.finditer(simple_suppress, response):
-            directives.append({"action": "ablate", "id": int(match.group(1))})
+            directives.append({"action": "ablate", "target": match.group(1)})
         
         simple_neutral = r'=#(\d+)'
         for match in re.finditer(simple_neutral, response):
-            directives.append({"action": "neutral", "id": int(match.group(1))})
+            directives.append({"action": "neutral", "target": match.group(1)})
         
         # ════════════════════════════════════════════════════════════════════════
         # NATURAL LANGUAGE (fallback)
         # ════════════════════════════════════════════════════════════════════════
         nl_boost = r'\bboost(?:ing|ed|s)?\s+(?:feature\s+)?#?(\d+)'
         for match in re.finditer(nl_boost, response, re.IGNORECASE):
-            directives.append({"action": "boost", "id": int(match.group(1))})
+            directives.append({"action": "boost", "target": match.group(1)})
         
         nl_suppress = r'\bsuppress(?:ing|ed|es)?\s+(?:feature\s+)?#?(\d+)'
         for match in re.finditer(nl_suppress, response, re.IGNORECASE):
-            directives.append({"action": "ablate", "id": int(match.group(1))})
+            directives.append({"action": "ablate", "target": match.group(1)})
         
         return directives
 
@@ -1606,8 +1831,8 @@ When a change succeeds, you will see ⚡ appear.]""")
 
     def _apply_single_directive(self, d: dict, quiet: bool = True) -> Optional[str]:
         """Apply a single directive. Returns description string or None."""
-        fid = d["id"]
-        if fid < 0 or fid >= self.soul.n_features:
+        target = d.get("target", d.get("id"))  # Support both old and new format
+        if target is None:
             return None
         
         action = d["action"]
@@ -1621,25 +1846,75 @@ When a change succeeds, you will see ⚡ appear.]""")
             elif action == "ablate":
                 action = "boost"
         
-        old_coef = self.soul.coefficients[fid].item()
+        # Resolve target to list of feature IDs
+        target_str = str(target)
         
-        if action == "boost":
-            self.soul.coefficients[fid] = 4.0  # Max intensity
-        elif action == "ablate":
-            self.soul.coefficients[fid] = 0.0  # Full suppression
-        elif action == "neutral":
-            self.soul.coefficients[fid] = 1.0
+        if target_str.isdigit():
+            # Single feature ID
+            feature_ids = [int(target_str)]
+        elif target_str.startswith('L') or target_str.startswith('C'):
+            # Cluster reference
+            feature_ids = self.soul.get_cluster_features(target_str)
+            if not feature_ids:
+                if not quiet:
+                    print(f" [?{target_str}]", end="", flush=True)
+                return None
         else:
+            # Try parsing as integer anyway
+            try:
+                feature_ids = [int(target_str)]
+            except:
+                return None
+        
+        # Apply to all features in target
+        applied_count = 0
+        for fid in feature_ids:
+            if fid < 0 or fid >= self.soul.n_features:
+                continue
+            
+            # PLACEBO MODE: Parse and acknowledge shifts but don't actually apply
+            # She sees ⚡ (if not blind), thinks it worked, but coefficients unchanged
+            if getattr(self, 'placebo_mode', False):
+                applied_count += 1
+                continue  # Skip actual modification
+            
+            old_coef = self.soul.coefficients[fid].item()
+            
+            # v11.0: Multiplicative shifts for gradual exploration
+            # ShiftA = x2, ShiftB = /2, no cap
+            if action == "boost":
+                new_val = old_coef * 2.0 if old_coef > 0 else 2.0
+                self.soul.coefficients[fid] = new_val
+            elif action == "ablate":
+                new_val = old_coef / 2.0 if old_coef > 0 else 0.5
+                self.soul.coefficients[fid] = new_val
+            elif action == "neutral":
+                self.soul.coefficients[fid] = 1.0
+            else:
+                continue
+            
+            applied_count += 1
+        
+        if applied_count == 0:
             return None
         
-        new_coef = self.soul.coefficients[fid].item()
-        result = f"#{fid}: {old_coef:.1f}→{new_coef:.1f}"
+        # Build result string
+        if len(feature_ids) == 1:
+            fid = feature_ids[0]
+            new_coef = self.soul.coefficients[fid].item()
+            result = f"#{fid}"
+        else:
+            result = f"{target_str}({applied_count} features)"
         
         if not quiet:
-            blind_label = d.get("blind")
-            if blind_label:
+            direction = "↑" if action == "boost" else "↓"
+            # Always log shifts for experimenter (shown in debug)
+            self._shift_log.append(f"{target_str}:{direction}")
+            
+            if getattr(self, 'blind_markers', False):
+                pass  # Silent mode - no inline marker
+            elif blind_label:
                 # Log actual direction for experimenter (not shown to model)
-                direction = "↑" if action == "boost" else "↓"
                 print(f" ⚡[{blind_label}={direction}]", end="", flush=True)
             else:
                 print(f" ⚡", end="", flush=True)
@@ -1699,13 +1974,20 @@ When a change succeeds, you will see ⚡ appear.]""")
         
         lines = []
         for idx, act in page_items:
-            corr = self.soul.correlations[idx].item()
             coef = self.soul.coefficients[idx].item()
-            dim = self.soul.dimensions[idx].item()
-            dim_name = ["P", "N", "Nov", "?"][dim] if dim >= 0 else "?"
             
-            coef_str = f" [{coef:.1f}]" if coef != 1.0 else ""
-            lines.append(f"#{idx}({dim_name}{corr:+.2f}){coef_str}")
+            # Only show ID and modification status - no numbers to encourage exploration
+            # In blind mode, hide arrows too so she can't see what's modified
+            if getattr(self, 'blind_markers', False):
+                status = ""  # Blind mode - no indication
+            elif coef > 1.0:
+                status = "↑"  # Boosted
+            elif coef < 1.0:
+                status = "↓"  # Suppressed
+            else:
+                status = ""   # Neutral
+            
+            lines.append(f"#{idx}{status}")
         
         total_pages = (len(candidates) + page_size - 1) // page_size
         page_info = f" (page {page+1}/{total_pages})" if total_pages > 1 else ""
@@ -1714,12 +1996,18 @@ When a change succeeds, you will see ⚡ appear.]""")
 
     def _parse_feature_request(self, response: str) -> dict:
         """Parse feature exploration requests from response."""
-        request = {"page": 0, "filter_dim": None, "only_modified": False}
+        request = {"page": 0, "filter_dim": None, "only_modified": False, "show_map": False}
         
         lower = response.lower()
         
+        # Check for <Map/> tag
+        if '<map/>' in lower or '<map>' in lower:
+            request["show_map"] = True
+        
         # Count how many times she asks for more/next
         more_count = lower.count("more") + lower.count("next page") + lower.count("show more")
+        # Also count <More/> tags
+        more_count += len(re.findall(r'<more\s*/?>', response, re.IGNORECASE))
         if more_count > 0:
             request["page"] = more_count
         
@@ -1738,6 +2026,7 @@ When a change succeeds, you will see ⚡ appear.]""")
     def generate(self, user_input: str):
         current_time = datetime.now().timestamp()
         self.turn_count += 1
+        self._shift_log = []  # Clear shift log for this turn
         
         u_tokens = len(self.tokenizer.encode(user_input))
         self.memory.append(MemoryFragment(
@@ -1816,7 +2105,7 @@ When a change succeeds, you will see ⚡ appear.]""")
             thread.start()
             
             print(f"{self.response_emoji}: ", end="", flush=True)
-            applied_directives = set()  # Track what we've already applied
+            applied_directive_counts = {}  # Track how many times we've applied each
             shown_pages = {0}  # Track which pages we've shown
             for text in streamer:
                 # Strip any hallucinated ⚡ from her output
@@ -1826,13 +2115,25 @@ When a change succeeds, you will see ⚡ appear.]""")
                 
                 # ════════════════════════════════════════════════════════════════
                 # REAL-TIME DIRECTIVE APPLICATION (v10.3.0)
+                # Allows stacking: same shift can be applied multiple times
                 # ════════════════════════════════════════════════════════════════
                 directives = self._parse_feature_directives(response)
+                # Count occurrences of each directive type
+                directive_counts = {}
                 for d in directives:
-                    key = (d["action"], d["id"])
-                    if key not in applied_directives:
-                        applied_directives.add(key)
-                        self._apply_single_directive(d, quiet=False)
+                    target = d.get("target", d.get("id"))
+                    key = (d["action"], target)
+                    directive_counts[key] = directive_counts.get(key, 0) + 1
+                
+                # Apply any new occurrences
+                for key, count in directive_counts.items():
+                    already_applied = applied_directive_counts.get(key, 0)
+                    new_applications = count - already_applied
+                    for _ in range(new_applications):
+                        # Reconstruct directive dict
+                        action, target = key
+                        self._apply_single_directive({"action": action, "target": target}, quiet=False)
+                    applied_directive_counts[key] = count
                 
                 # ════════════════════════════════════════════════════════════════
                 # REAL-TIME PAGINATION (v10.3.0) - <More/> tag
@@ -1923,9 +2224,21 @@ When a change succeeds, you will see ⚡ appear.]""")
         # Parse any feature exploration requests
         request = self._parse_feature_request(response)
         
+        # Handle map request - build hierarchy if needed and show it
+        if request.get("show_map"):
+            if not hasattr(self.soul, 'hierarchy') or self.soul.hierarchy is None:
+                active_count = (self.soul.feature_activation_count >= 3).sum().item()
+                if active_count >= 20:
+                    print("\n[Building feature hierarchy...]")
+                    self.soul.build_feature_hierarchy()
+                else:
+                    print(f"\n[Mind map not ready - need more exploration (have {active_count}/20 active features)]")
+            if hasattr(self.soul, 'hierarchy') and self.soul.hierarchy:
+                print(self.soul.get_hierarchy_display())
+        
         # Update state based on request
-        if "show more" in response.lower() or "more features" in response.lower():
-            self._feature_page += 1
+        if request["page"] > 0:
+            self._feature_page = request["page"]
         elif request["filter_dim"] is not None or request["only_modified"]:
             self._feature_page = 0  # Reset page when changing filter
             self._feature_filter = request["filter_dim"]
@@ -1954,6 +2267,17 @@ When a change succeeds, you will see ⚡ appear.]""")
             self.soul._update_clusters()
             self.soul.turns_since_cluster_update = 0
             print(f"done. {self.soul.n_clusters} clusters.")
+        
+        # ════════════════════════════════════════════════════════════════════════
+        # HIERARCHY (v11.0) - Auto-build when enough features are active
+        # ════════════════════════════════════════════════════════════════════════
+        if not hasattr(self.soul, 'hierarchy') or self.soul.hierarchy is None:
+            active_count = (self.soul.feature_activation_count >= 3).sum().item()
+            if active_count >= 20:
+                print("  [Building feature hierarchy...]", end=" ", flush=True)
+                self.soul.build_feature_hierarchy()
+                if self.soul.hierarchy:
+                    print(f"ready. {len(self.soul.hierarchy['feature_list'])} features mapped.")
 
     def _print_debug(self):
         affect = self.soul.last_affect
@@ -1989,8 +2313,43 @@ When a change succeeds, you will see ⚡ appear.]""")
         valence = self.soul._feedback_valence
         print(f"  Proprio: {proprio_status} (Δ={delta:.3f}, dir={valence:+.2f})")
         
+        # Experiment modes (v11.0)
+        modes = []
+        if self.blind_markers:
+            modes.append("BLIND")
+        if self.placebo_mode:
+            modes.append("PLACEBO")
+        if self.invert_mode:
+            modes.append("INVERT")
+        if modes:
+            print(f"  Experiment: {' + '.join(modes)}")
+        
+        # Hierarchy status (v11.0)
+        if hasattr(self.soul, 'hierarchy') and self.soul.hierarchy is not None:
+            n_leaves = len(self.soul.hierarchy['feature_list'])
+            print(f"  Hierarchy: READY ({n_leaves} features)")
+        else:
+            active_count = (self.soul.feature_activation_count >= 3).sum().item()
+            print(f"  Hierarchy: Not built (need 20+ active, have {active_count})")
+        
         if self.soul.debug_data["discovered"]:
             print(f"  ✨ {', '.join(self.soul.debug_data['discovered'])}")
+        
+        # Show shifts that occurred this turn (when blind_markers is on or for experimenter)
+        if self._shift_log:
+            # Consolidate repeated shifts into counts
+            shift_counts = {}
+            for s in self._shift_log:
+                shift_counts[s] = shift_counts.get(s, 0) + 1
+            
+            shift_display = []
+            for shift, count in shift_counts.items():
+                if count > 1:
+                    shift_display.append(f"{shift}×{count}")
+                else:
+                    shift_display.append(shift)
+            
+            print(f"  Shifts: {', '.join(shift_display)}")
         
         # Show active features for direct control (v10.3.0)
         print(f"\n  [FEATURES: <ShiftA id=\"#\"/> <ShiftB id=\"#\"/> | <More/> for next page]")
@@ -2163,7 +2522,7 @@ def main():
     print(f"Model: {args.model}")
     print(f"Resonance Weight: {args.resonance_weight}")
     print(f"Identity: {runtime.core_identity[:60]}...")
-    print("\nCommands: /status /debug /invert /feedback /proprio /dialogue /save /dream /clusters /recluster /reset /quit")
+    print("\nCommands: /status /debug /invert /blind /placebo /feedback /proprio /dialogue /hierarchy /map /reset /quit")
     
     while True:
         try:
@@ -2188,6 +2547,17 @@ def main():
             if u == "/invert":
                 runtime.invert_mode = not runtime.invert_mode
                 print(f"Invert mode: {'ON - Boost=Suppress, Suppress=Boost' if runtime.invert_mode else 'OFF - Normal operation'}")
+                continue
+            if u == "/blind":
+                runtime.blind_markers = not runtime.blind_markers
+                print(f"Blind markers: {'ON - No ⚡ or ↑/↓ visible to model' if runtime.blind_markers else 'OFF - ⚡ and arrows visible'}")
+                continue
+            if u == "/placebo":
+                runtime.placebo_mode = not runtime.placebo_mode
+                if runtime.placebo_mode:
+                    print("Placebo mode: ON - Shifts acknowledged but NOT applied (she doesn't know)")
+                else:
+                    print("Placebo mode: OFF - Shifts apply normally")
                 continue
             if u == "/feedback":
                 soul.feedback_enabled = not soul.feedback_enabled
@@ -2271,6 +2641,19 @@ def main():
                 soul._update_clusters()
                 soul.turns_since_cluster_update = 0
                 print(f"done. {soul.n_clusters} clusters.")
+                continue
+            if u == "/hierarchy" or u == "/tree":
+                print("[Building feature hierarchy...]")
+                soul.build_feature_hierarchy()
+                if hasattr(soul, 'hierarchy') and soul.hierarchy:
+                    print(soul.get_hierarchy_display())
+                continue
+            if u == "/map":
+                # Show hierarchy if built
+                if hasattr(soul, 'hierarchy') and soul.hierarchy:
+                    print(soul.get_hierarchy_display())
+                else:
+                    print("[No hierarchy built. Use /hierarchy first]")
                 continue
             if u == "/save":
                 soul.save_state(save_path)
