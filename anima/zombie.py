@@ -3,29 +3,26 @@
 ANIMA ZOMBIE v12.0.0 - Control Version
 =======================================
 
-Same telemetry and measurement as Anima v12, but with ALL feedback disabled:
+Same telemetry as Anima v12, but with ALL feedback disabled:
 - No neural steering
 - No proprioception  
 - No deep feedback
 - No combinadic learning (correlations don't update)
 
-This provides a baseline to compare against the full Anima system.
-The model runs "stock" but we still measure what would have been the signals.
+Uses model.generate() for efficiency, with hooks for measurement only.
 """
 
 import torch
 import argparse
-import json
 import os
 import sys
 import select
+import threading
 from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 from dataclasses import dataclass, field
-from collections import deque
 
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, TextIteratorStreamer
 from sae_lens import SAE
 
 
@@ -36,23 +33,23 @@ from sae_lens import SAE
 @dataclass
 class MemoryFragment:
     """A single conversational memory."""
-    content: str
     role: str  # 'user' or 'assistant'
+    content: str
     timestamp: float = field(default_factory=lambda: datetime.now().timestamp())
     valence: float = 0.0
 
 
 # ============================================================
-# ZOMBIE SOUL (Measurement Only, No Learning)
+# ZOMBIE SOUL (Measurement Only Hook)
 # ============================================================
 
 class ZombieSoul:
     """
-    Passive measurement system - tracks what Anima would measure
-    but doesn't learn or update correlations.
+    Hook-based measurement system - captures activations during generation
+    but doesn't modify them or learn.
     """
     
-    def __init__(self, sae: SAE, device: torch.device):
+    def __init__(self, sae: SAE, device: str):
         self.sae = sae
         self.device = device
         self.n_features = sae.cfg.d_sae
@@ -68,71 +65,44 @@ class ZombieSoul:
         self.fatigue = 0.0
         self.genesis_complete = False
         
-        # Raw values for debug
+        # Debug data
         self._last_raw_p = 0.0
         self._last_raw_n = 0.0
         self._last_p_ratio = 0.0
         self._last_n_ratio = 0.0
         self._last_nov_ratio = 0.0
         
-        # Stats
-        self.total_activations = 0
-        
-        # Identity (same as Anima for fair comparison)
+        # Identity
         self.core_identity = "You are Anima, an AI assistant created by James. You respond helpfully and conversationally."
     
-    def genesis(self, activations: torch.Tensor) -> str:
-        """Random initial assignment - same as Anima but frozen."""
-        if self.genesis_complete:
-            return ""
+    def __call__(self, module, input, output):
+        """Hook: capture and measure activations (no modification)."""
+        if isinstance(output, tuple):
+            hidden = output[0]
+        else:
+            hidden = output
         
-        # Get active features
-        active_mask = activations > 0.1
-        active_indices = torch.where(active_mask)[0]
+        # Get last token's activations
+        last_hidden = hidden[:, -1, :].detach()
         
-        if len(active_indices) < 60:
-            return ""
+        # Encode through SAE
+        with torch.no_grad():
+            activations = self.sae.encode(last_hidden.float()).squeeze()
         
-        # Shuffle and assign
-        perm = torch.randperm(len(active_indices), device=self.device)
-        selected = active_indices[perm[:60]]
+        # Measure (no learning)
+        self._measure(activations)
         
-        # Assign dimensions: 0=P, 1=N, 2=Nov
-        for i, idx in enumerate(selected[:20]):
-            self.dimensions[idx] = 0  # Pleasure
-            self.correlations[idx] = 0.5
-            self.locked[idx] = True
-        
-        for i, idx in enumerate(selected[20:40]):
-            self.dimensions[idx] = 1  # Pain
-            self.correlations[idx] = -0.5
-            self.locked[idx] = True
-        
-        for i, idx in enumerate(selected[40:60]):
-            self.dimensions[idx] = 2  # Novelty
-            self.correlations[idx] = 0.3
-            self.locked[idx] = True
-        
-        self.genesis_complete = True
-        
-        p_count = (self.dimensions == 0).sum().item()
-        n_count = (self.dimensions == 1).sum().item()
-        nov_count = (self.dimensions == 2).sum().item()
-        
-        return f"[GENESIS] Born with 60 features (P:{p_count} N:{n_count} Nov:{nov_count})"
+        # Return unmodified output
+        return output
     
-    def process(self, activations: torch.Tensor) -> Dict:
-        """
-        Measure affect signals but DON'T update correlations.
-        """
-        self.total_activations += 1
+    def _measure(self, activations: torch.Tensor):
+        """Measure affect without modifying correlations."""
         
         # Genesis if needed
-        genesis_msg = ""
         if not self.genesis_complete:
-            genesis_msg = self.genesis(activations)
+            self._genesis(activations)
         
-        # Compute current affect (measurement only)
+        # Compute current affect
         p_mask = (self.dimensions == 0) & self.locked
         n_mask = (self.dimensions == 1) & self.locked
         nov_mask = (self.dimensions == 2) & self.locked
@@ -141,15 +111,13 @@ class ZombieSoul:
         raw_n = activations[n_mask].sum().item() if n_mask.any() else 0.0
         raw_nov = activations[nov_mask].sum().item() if nov_mask.any() else 0.0
         
-        # Store for debug
         self._last_raw_p = raw_p
         self._last_raw_n = raw_n
         
-        # Ratio-based (same as Anima)
+        # Ratio-based valence
         total = raw_p + raw_n + 1e-8
         p_ratio = raw_p / total
         n_ratio = raw_n / total
-        
         nov_ratio = min(1.0, raw_nov / 1000.0) if nov_mask.any() else 0.0
         
         self._last_p_ratio = p_ratio
@@ -158,32 +126,41 @@ class ZombieSoul:
         
         valence = p_ratio - n_ratio
         
-        # NO LEARNING - just track
-        # (In Anima, this is where imprinting would happen)
-        
-        # Update tracking
-        prev_valence = self.last_valence
+        # Update tracking (no learning)
         self.last_valence = valence
         self.valence_ema = 0.95 * self.valence_ema + 0.05 * valence
-        
-        # Fatigue accumulates
         self.fatigue += activations.mean().item() * 0.1
+    
+    def _genesis(self, activations: torch.Tensor):
+        """Random initial assignment - frozen after creation."""
+        active_mask = activations > 0.1
+        active_indices = torch.where(active_mask)[0]
         
-        return {
-            'valence': valence,
-            'valence_delta': valence - prev_valence,
-            'p_ratio': p_ratio,
-            'n_ratio': n_ratio,
-            'novelty': nov_ratio,
-            'raw_p': raw_p,
-            'raw_n': raw_n,
-            'fatigue': self.fatigue,
-            'locked_count': self.locked.sum().item(),
-            'genesis_msg': genesis_msg
-        }
+        if len(active_indices) < 60:
+            return
+        
+        perm = torch.randperm(len(active_indices), device=self.device)
+        selected = active_indices[perm[:60]]
+        
+        for idx in selected[:20]:
+            self.dimensions[idx] = 0  # Pleasure
+            self.correlations[idx] = 0.5
+            self.locked[idx] = True
+        
+        for idx in selected[20:40]:
+            self.dimensions[idx] = 1  # Pain
+            self.correlations[idx] = -0.5
+            self.locked[idx] = True
+        
+        for idx in selected[40:60]:
+            self.dimensions[idx] = 2  # Novelty
+            self.correlations[idx] = 0.3
+            self.locked[idx] = True
+        
+        self.genesis_complete = True
     
     def get_status(self) -> Dict:
-        """Get current soul status."""
+        """Get current status."""
         return {
             'locked': self.locked.sum().item(),
             'p_features': ((self.dimensions == 0) & self.locked).sum().item(),
@@ -192,6 +169,16 @@ class ZombieSoul:
             'valence': self.last_valence,
             'fatigue': self.fatigue,
         }
+    
+    def reset(self):
+        """Reset to blank state."""
+        self.correlations.zero_()
+        self.dimensions.zero_()
+        self.locked.zero_()
+        self.last_valence = 0.0
+        self.valence_ema = 0.0
+        self.fatigue = 0.0
+        self.genesis_complete = False
 
 
 # ============================================================
@@ -199,27 +186,16 @@ class ZombieSoul:
 # ============================================================
 
 class RewardComputer:
-    """Measures what reward would be - same as Anima."""
+    """Measures what reward would be."""
     
     def __init__(self):
-        self.weights = {
-            'valence_delta': 0.25,
-            'user_sentiment': 0.30,
-            'model_sentiment': 0.10,
-            'engagement': 0.10,
-            'prediction': 0.25,
-        }
-        
         self.positive_words = {'good', 'great', 'love', 'thanks', 'awesome', 'nice', 
                                'wonderful', 'excellent', 'amazing', 'perfect', 'helpful',
-                               'yes', 'right', 'exactly', 'agree', 'interesting', 'cool',
-                               'wow', 'brilliant', 'fantastic', 'beautiful'}
+                               'yes', 'right', 'exactly', 'agree', 'interesting', 'cool'}
         self.negative_words = {'bad', 'wrong', 'hate', 'no', 'stop', 'terrible', 
-                               'awful', 'horrible', 'stupid', 'boring', 'annoying',
-                               'confused', 'unhelpful', 'disappointing', 'frustrating'}
+                               'awful', 'horrible', 'stupid', 'boring', 'annoying'}
     
     def analyze_sentiment(self, text: str) -> float:
-        """Simple lexicon-based sentiment."""
         if not text:
             return 0.0
         words = set(text.lower().split())
@@ -229,22 +205,12 @@ class RewardComputer:
             return 0.0
         return (pos - neg) / (pos + neg)
     
-    def compute_reward(self, user_text: str, model_text: str, 
-                       valence_delta: float) -> Tuple[float, Dict]:
-        """Compute reward (measurement only)."""
-        components = {}
-        
-        # Same inversion as Anima v12
-        components['valence_delta'] = -valence_delta
-        components['user_sentiment'] = self.analyze_sentiment(user_text)
-        components['model_sentiment'] = self.analyze_sentiment(model_text)
-        
-        word_count = len(user_text.split()) if user_text else 0
-        components['engagement'] = min(word_count / 30.0, 1.0) - 0.5
-        components['prediction'] = 0.0  # No prediction in zombie
-        
-        reward = sum(self.weights[k] * components[k] for k in self.weights)
-        
+    def compute_reward(self, user_text: str, valence_delta: float) -> Tuple[float, Dict]:
+        components = {
+            'valence_delta': -valence_delta,  # Inverted like Anima v12
+            'user_sentiment': self.analyze_sentiment(user_text),
+        }
+        reward = 0.25 * components['valence_delta'] + 0.30 * components['user_sentiment']
         return reward, components
 
 
@@ -253,66 +219,39 @@ class RewardComputer:
 # ============================================================
 
 class ZombieRuntime:
-    """
-    Control version - runs the model stock but measures everything.
-    """
+    """Control version - model.generate() with measurement hooks."""
     
-    def __init__(self, model, tokenizer, sae, device: torch.device,
-                 layer: int = 22, debug: bool = True):
+    def __init__(self, model, tokenizer, soul: ZombieSoul, device: str,
+                 layer: int = 22, debug: bool = True, stream: bool = True):
         self.model = model
         self.tokenizer = tokenizer
-        self.sae = sae
+        self.soul = soul
         self.device = device
         self.layer = layer
         self.debug = debug
+        self.stream = stream
         
-        # Components
-        self.soul = ZombieSoul(sae, device)
         self.reward_computer = RewardComputer()
-        
-        # Memory
         self.memory: List[MemoryFragment] = []
         
-        # Turn tracking
         self._turn_start_valence = 0.0
         self._last_reward_components = {}
         
-        # Activation capture
-        self._captured_activations = None
-        self._hook_handle = None
+        # Register measurement hook
+        model.model.layers[layer].register_forward_hook(soul)
+        print(f"[Measurement hook registered at layer {layer}]")
     
     @property
     def system_prompt(self) -> str:
         return self.soul.core_identity
     
-    def _capture_hook(self, module, input, output):
-        """Capture activations from target layer."""
-        if isinstance(output, tuple):
-            hidden = output[0]
-        else:
-            hidden = output
-        self._captured_activations = hidden.detach()
-    
-    def _register_hooks(self):
-        """Register activation capture hook."""
-        layer_module = self.model.model.layers[self.layer]
-        self._hook_handle = layer_module.register_forward_hook(self._capture_hook)
-    
-    def _remove_hooks(self):
-        """Remove hooks."""
-        if self._hook_handle:
-            self._hook_handle.remove()
-            self._hook_handle = None
-    
     def build_prompt(self) -> str:
-        """Build prompt - same format as Anima."""
+        """Build prompt with Gemma format."""
         parts = []
         
-        # System prompt
         parts.append(f"<start_of_turn>user\nYou are an AI assistant. Here are your instructions:\n{self.system_prompt}<end_of_turn>")
         parts.append(f"<start_of_turn>model\nUnderstood. I am Anima.<end_of_turn>")
         
-        # Conversation history
         for frag in self.memory[-10:]:
             if frag.role == "user":
                 parts.append(f"<start_of_turn>user\n{frag.content}<end_of_turn>")
@@ -320,138 +259,109 @@ class ZombieRuntime:
                 parts.append(f"<start_of_turn>model\n{frag.content}<end_of_turn>")
         
         parts.append("<start_of_turn>model\n")
-        
         return "\n".join(parts)
     
-    def generate(self, user_input: str, max_tokens: int = 512) -> str:
-        """Generate response - stock model, no steering."""
-        # Store turn start valence
+    def generate(self, user_input: str) -> str:
+        """Generate response with streaming."""
         self._turn_start_valence = self.soul.last_valence
         
-        # Add user input to memory
-        self.memory.append(MemoryFragment(
-            content=user_input,
-            role="user"
-        ))
+        # Genesis message
+        genesis_msg = ""
+        if not self.soul.genesis_complete:
+            genesis_msg = "[GENESIS] Born with 60 features (P:20 N:20 Nov:20)"
         
-        # Build prompt
+        self.memory.append(MemoryFragment("user", user_input))
+        
         prompt = self.build_prompt()
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+        input_len = inputs["input_ids"].shape[1]
         
-        # Register hooks for measurement
-        self._register_hooks()
+        print(f"🤖: ", end="", flush=True)
+        if genesis_msg:
+            print(genesis_msg)
+            print("", end="", flush=True)
         
-        generated_tokens = []
-        genesis_msg = ""
-        
-        try:
+        if self.stream:
+            streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)
+            gen_kwargs = {
+                "input_ids": inputs["input_ids"],
+                "attention_mask": inputs["attention_mask"],
+                "max_new_tokens": 512,
+                "do_sample": True,
+                "temperature": 0.8,
+                "top_p": 0.9,
+                "pad_token_id": self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
+                "streamer": streamer,
+            }
+            
+            thread = threading.Thread(target=self.model.generate, kwargs=gen_kwargs)
+            thread.start()
+            
+            response_text = ""
+            try:
+                for chunk in streamer:
+                    print(chunk, end="", flush=True)
+                    response_text += chunk
+            except KeyboardInterrupt:
+                print("\n[Interrupted]")
+            
+            thread.join(timeout=1.0)
+        else:
             with torch.no_grad():
-                for _ in range(max_tokens):
-                    outputs = self.model(
-                        input_ids=inputs.input_ids,
-                        attention_mask=inputs.attention_mask,
-                        use_cache=False
-                    )
-                    
-                    # Get next token
-                    logits = outputs.logits[:, -1, :]
-                    next_token = torch.argmax(logits, dim=-1)
-                    
-                    # Check for EOS
-                    if next_token.item() == self.tokenizer.eos_token_id:
-                        break
-                    
-                    # Decode and check for end of turn
-                    token_text = self.tokenizer.decode(next_token)
-                    if "<end_of_turn>" in token_text or "<eos>" in token_text:
-                        break
-                    
-                    generated_tokens.append(next_token.item())
-                    
-                    # Measure activations (but don't steer)
-                    if self._captured_activations is not None:
-                        hidden = self._captured_activations[:, -1, :]
-                        
-                        # Encode through SAE
-                        with torch.no_grad():
-                            sae_acts = self.sae.encode(hidden.float())
-                            sae_acts = sae_acts.squeeze()
-                        
-                        # Measure (no learning)
-                        result = self.soul.process(sae_acts)
-                        
-                        if result['genesis_msg']:
-                            genesis_msg = result['genesis_msg']
-                    
-                    # Update input
-                    inputs.input_ids = torch.cat([inputs.input_ids, next_token.unsqueeze(0)], dim=1)
-                    inputs.attention_mask = torch.cat([
-                        inputs.attention_mask,
-                        torch.ones((1, 1), device=self.device, dtype=inputs.attention_mask.dtype)
-                    ], dim=1)
+                outputs = self.model.generate(
+                    inputs["input_ids"],
+                    attention_mask=inputs["attention_mask"],
+                    max_new_tokens=512,
+                    do_sample=True,
+                    temperature=0.8,
+                    top_p=0.9,
+                    pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
+                )
+            response_text = self.tokenizer.decode(outputs[0][input_len:], skip_special_tokens=True)
+            print(response_text)
         
-        finally:
-            self._remove_hooks()
-        
-        # Decode response
-        response = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
-        response = response.strip()
-        
-        # Add to memory
-        self.memory.append(MemoryFragment(
-            content=response,
-            role="assistant",
-            valence=self.soul.last_valence
-        ))
+        self.memory.append(MemoryFragment("assistant", response_text, valence=self.soul.last_valence))
         
         # Compute reward (measurement only)
         valence_delta = self.soul.last_valence - self._turn_start_valence
-        reward, components = self.reward_computer.compute_reward(
-            user_input, response, valence_delta
-        )
+        _, components = self.reward_computer.compute_reward(user_input, valence_delta)
         self._last_reward_components = components
         
-        # Prepend genesis message if any
-        if genesis_msg:
-            response = genesis_msg + "\n" + response
-        
-        return response
+        return response_text
     
-    def get_debug_info(self) -> str:
-        """Get debug information string."""
+    def show_debug(self):
+        """Show debug info."""
         soul = self.soul
         rc = self._last_reward_components
         
-        lines = []
-        lines.append(f"\n  [DEBUG ZOMBIE v12.0.0]")
-        lines.append(f"  Raw: P={soul._last_raw_p:.2f} N={soul._last_raw_n:.2f}")
-        lines.append(f"  Affect: P:{soul._last_p_ratio:.2f} N:{soul._last_n_ratio:.2f} Nov:{soul._last_nov_ratio:.2f} → V:{soul.last_valence:+.3f}")
-        lines.append(f"  Fatigue: {soul.fatigue:.1f} | Locked: {soul.locked.sum().item()} (FROZEN)")
-        lines.append(f"  Steering: DISABLED")
-        lines.append(f"  Proprio: DISABLED")
-        lines.append(f"  Deep: DISABLED")
-        lines.append(f"  Learning: DISABLED")
-        lines.append(f"  Reward: val={rc.get('valence_delta', 0):.2f} usr={rc.get('user_sentiment', 0):.2f})")
-        
-        return "\n".join(lines)
+        print(f"\n  [DEBUG ZOMBIE v12.0.0]")
+        print(f"  Raw: P={soul._last_raw_p:.2f} N={soul._last_raw_n:.2f}")
+        print(f"  Affect: P:{soul._last_p_ratio:.2f} N:{soul._last_n_ratio:.2f} Nov:{soul._last_nov_ratio:.2f} → V:{soul.last_valence:+.3f}")
+        print(f"  Fatigue: {soul.fatigue:.1f} | Locked: {soul.locked.sum().item()} (FROZEN)")
+        print(f"  Steering: DISABLED")
+        print(f"  Proprio: DISABLED")
+        print(f"  Deep: DISABLED")
+        print(f"  Learning: DISABLED")
+        print(f"  Reward: val={rc.get('valence_delta', 0):.2f} usr={rc.get('user_sentiment', 0):.2f}")
+        print()
     
     def reset(self):
-        """Reset to clean state."""
-        self.soul = ZombieSoul(self.sae, self.device)
+        """Reset state."""
+        self.soul.reset()
         self.memory = []
-        self._turn_start_valence = 0.0
         print("[RESET] Zombie soul cleared")
 
 
 # ============================================================
-# MAIN
+# INPUT HELPER
 # ============================================================
 
-def get_input(prompt_str: str = "🧑: ") -> str:
-    """Get input with multi-line paste support."""
+def get_input(prompt_str: str = "🧑: ") -> List[str]:
+    """Get input - returns list of lines for batch processing."""
     first_line = input(prompt_str)
     lines = [first_line]
     
+    # Check for more pasted lines
     while True:
         ready, _, _ = select.select([sys.stdin], [], [], 0.05)
         if not ready:
@@ -462,8 +372,13 @@ def get_input(prompt_str: str = "🧑: ") -> str:
         else:
             break
     
-    return '\n'.join(lines).strip()
+    # Filter empty lines and return as list
+    return [line.strip() for line in lines if line.strip()]
 
+
+# ============================================================
+# MAIN
+# ============================================================
 
 def main():
     parser = argparse.ArgumentParser(description="Anima Zombie - Control Version")
@@ -471,120 +386,135 @@ def main():
     parser.add_argument("--sae_release", type=str, default="gemma-scope-27b-pt-res-canonical")
     parser.add_argument("--sae_id", type=str, default=None)
     parser.add_argument("--layer", type=int, default=22)
-    parser.add_argument("--device", type=str, default="cuda")
+    parser.add_argument("--device", type=str, default="mps")
     parser.add_argument("--debug", action="store_true", default=True)
     parser.add_argument("--no-debug", action="store_false", dest="debug")
+    parser.add_argument("--stream", action="store_true", default=True)
+    parser.add_argument("--no-stream", action="store_false", dest="stream")
+    # Compatibility args (no-ops)
+    parser.add_argument("--cot", action="store_true", help="(ignored)")
     
     args = parser.parse_args()
     
-    # Auto-construct SAE ID
+    args.model = os.path.expanduser(args.model)
+    
     if args.sae_id is None:
         args.sae_id = f"layer_{args.layer}/width_131k/canonical"
     
-    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+    # Device detection
+    if args.device == "cuda" and not torch.cuda.is_available():
+        if torch.backends.mps.is_available():
+            args.device = "mps"
+        else:
+            args.device = "cpu"
+    
+    print(f"\n{'='*60}")
+    print(f"  ZOMBIE MODE - Control (No Feedback)")
+    print(f"{'='*60}")
+    print(f"Using device: {args.device}")
     
     # Load model
     print(f"Loading model: {args.model}")
     tokenizer = AutoTokenizer.from_pretrained(args.model)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    
     model = AutoModelForCausalLM.from_pretrained(
         args.model,
         torch_dtype=torch.bfloat16,
-        device_map="auto"
+        device_map=args.device,
+        trust_remote_code=True,
     )
     model.eval()
+    print(f"Model loaded: {model.config.num_hidden_layers} layers")
     
     # Load SAE
     print(f"Loading SAE: {args.sae_release} / {args.sae_id}")
     sae, _, _ = SAE.from_pretrained(
         release=args.sae_release,
         sae_id=args.sae_id,
-        device=str(device)
+        device=args.device
     )
     sae.eval()
+    print(f"SAE loaded: {sae.cfg.d_sae:,} features")
     
-    # Create runtime
+    # Create soul and runtime
+    soul = ZombieSoul(sae, args.device)
     runtime = ZombieRuntime(
         model=model,
         tokenizer=tokenizer,
-        sae=sae,
-        device=device,
+        soul=soul,
+        device=args.device,
         layer=args.layer,
-        debug=args.debug
+        debug=args.debug,
+        stream=args.stream
     )
     
-    # Banner
-    print("\n" + "=" * 60)
-    print("  ZOMBIE MODE - Control Version (No Feedback)")
-    print("=" * 60)
-    print("\n[ZOMBIE SOUL]")
-    print("  All feedback DISABLED")
-    print("  Telemetry active for comparison")
-    print("\n[COMMANDS]")
-    print("  /status  - Show status")
-    print("  /debug   - Toggle debug output")
-    print("  /reset   - Reset soul")
-    print("  /quit    - Exit")
-    print("\n" + "═" * 20 + " ZOMBIE 12.0.0 " + "═" * 20 + "\n")
+    print(f"\n[ZOMBIE SOUL]")
+    print(f"  All feedback DISABLED")
+    print(f"  Telemetry active for comparison")
+    print(f"\n[COMMANDS]")
+    print(f"  /status  - Show status")
+    print(f"  /debug   - Toggle debug")
+    print(f"  /reset   - Reset soul")
+    print(f"  /quit    - Exit")
+    print(f"  [Paste multiple lines for batch processing]")
+    print(f"\n{'═'*20} ZOMBIE 12.0.0 {'═'*20}\n")
     
-    # Main loop
     while True:
         try:
-            user_input = get_input("🧑: ")
+            inputs = get_input("🧑: ")
         except KeyboardInterrupt:
-            print("\n[Exiting...]")
+            print("\n[Goodbye.]")
             break
         except EOFError:
             break
         
-        if not user_input:
+        if not inputs:
             continue
         
-        # Commands
-        if user_input.startswith("/"):
-            cmd = user_input.lower().strip()
+        # Show batch info if multiple lines
+        if len(inputs) > 1:
+            print(f"[BATCH MODE: {len(inputs)} prompts queued]")
+        
+        for i, user_input in enumerate(inputs):
+            if len(inputs) > 1:
+                print(f"\n[{i+1}/{len(inputs)}] 🧑: {user_input}")
             
-            if cmd == "/quit":
-                print("[Goodbye.]")
+            if user_input.startswith("/"):
+                cmd = user_input.lower().strip()
+                
+                if cmd == "/quit":
+                    print("[Goodbye.]")
+                    sys.exit(0)
+                elif cmd == "/debug":
+                    runtime.debug = not runtime.debug
+                    print(f"Debug: {'ON' if runtime.debug else 'OFF'}")
+                elif cmd == "/reset":
+                    runtime.reset()
+                elif cmd == "/status":
+                    status = soul.get_status()
+                    print(f"\n[ZOMBIE STATUS]")
+                    print(f"  Locked: {status['locked']} (FROZEN)")
+                    print(f"  P: {status['p_features']} | N: {status['n_features']} | Nov: {status['nov_features']}")
+                    print(f"  Valence: {status['valence']:+.3f}")
+                    print(f"  Fatigue: {status['fatigue']:.1f}")
+                    print(f"  All feedback: DISABLED")
+                else:
+                    print(f"Unknown command: {cmd}")
+                continue
+            
+            try:
+                runtime.generate(user_input)
+                if runtime.debug:
+                    runtime.show_debug()
+            except KeyboardInterrupt:
+                print("\n[Batch interrupted]")
                 break
-            elif cmd == "/debug":
-                runtime.debug = not runtime.debug
-                print(f"Debug: {'ON' if runtime.debug else 'OFF'}")
-                continue
-            elif cmd == "/reset":
-                runtime.reset()
-                continue
-            elif cmd == "/status":
-                status = runtime.soul.get_status()
-                print(f"\n[ZOMBIE STATUS]")
-                print(f"  Locked: {status['locked']} (FROZEN)")
-                print(f"  P: {status['p_features']} | N: {status['n_features']} | Nov: {status['nov_features']}")
-                print(f"  Valence: {status['valence']:+.3f}")
-                print(f"  Fatigue: {status['fatigue']:.1f}")
-                print(f"  Steering: DISABLED")
-                print(f"  Learning: DISABLED")
-                continue
-            else:
-                print(f"Unknown command: {cmd}")
-                continue
-        
-        # Generate response
-        try:
-            response = runtime.generate(user_input)
-            print(f"🤖: {response}")
-            
-            if runtime.debug:
-                print(runtime.get_debug_info())
-                print()
-        
-        except KeyboardInterrupt:
-            print("\n[Interrupted]")
-            continue
-        except Exception as e:
-            print(f"[Error: {e}]")
-            import traceback
-            traceback.print_exc()
-            continue
+            except Exception as e:
+                print(f"[Error: {e}]")
+                import traceback
+                traceback.print_exc()
 
 
 if __name__ == "__main__":

@@ -47,6 +47,906 @@ os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# LLMRI - INTEGRATED NEURAL IMAGING
+# ══════════════════════════════════════════════════════════════════════════════
+
+class LLMRI:
+    """
+    Integrated MRI scanner - captures all layer activations during generation.
+    Renders as images for visualization.
+    Optionally streams to connected clients via MRIServer.
+    """
+    
+    def __init__(self, model, device: str = "mps"):
+        self.model = model
+        self.device = device
+        self.num_layers = model.config.num_hidden_layers
+        self.hidden_dim = model.config.hidden_size
+        
+        # Storage
+        self.layer_activations: Dict[int, torch.Tensor] = {}
+        self.hooks = []
+        self.capture_enabled = False
+        
+        # Streaming server (set externally)
+        self.server = None
+        
+        # Compute image dimensions
+        self.img_width, self.img_height = self._compute_dimensions(self.hidden_dim)
+        
+        # Output directory
+        self.output_dir = "llmri_captures"
+        os.makedirs(self.output_dir, exist_ok=True)
+        
+        # Neuron tracking for persistent activation analysis
+        self.neuron_history: Dict[int, List[torch.Tensor]] = defaultdict(list)
+        self.history_limit = 100  # Keep last N activations per layer
+        self.track_neurons = False
+        
+        # Ignored neurons (structural features to exclude from viz)
+        self.ignored_neurons: set = set()
+        self.auto_ignore_invariants = False
+        
+        # Neuron interventions (ablate/boost during forward pass)
+        self.neuron_interventions: Dict[int, float] = {}  # neuron_idx -> multiplier (0=ablate, 2=boost)
+        self.neuron_offsets: Dict[int, float] = {}  # neuron_idx -> additive offset
+        self.intervention_layer: int = None  # Which layer to intervene on (None = all)
+        
+        # Protected neurons (infrastructure - never steer these)
+        # Neuron 4140 confirmed as critical via ablation study: 0.98x-1.05x tolerance
+        self.protected_neurons: set = {4140}
+        self.protection_enabled = True
+        
+        # Typical value range tracking
+        self.value_stats: Dict[int, Dict] = {}  # neuron_idx -> {min, max, mean, std}
+    
+    def register_server_commands(self):
+        """Register command handler with MRI server for bidirectional communication."""
+        if self.server is None:
+            return
+        
+        def handle_command(cmd_type: str, data: Dict):
+            if cmd_type == "intervention":
+                self._handle_remote_intervention(data)
+            elif cmd_type == "clear_interventions":
+                self.clear_interventions()
+                print("[LLMRI] Remote: cleared all interventions")
+        
+        self.server.on_command = handle_command
+        print("[LLMRI] Registered for remote commands")
+    
+    def _handle_remote_intervention(self, data: Dict):
+        """Process intervention command from remote viewer."""
+        interventions = data.get("interventions", {})
+        layer = data.get("layer")
+        
+        print(f"[LLMRI] _handle_remote_intervention called!")
+        print(f"  Layer: {layer}")
+        print(f"  Interventions: {len(interventions)} entries")
+        
+        if layer is not None:
+            self.intervention_layer = layer
+        
+        # Clear existing and apply new
+        self.neuron_interventions.clear()
+        
+        skipped = 0
+        for neuron_str, multiplier in interventions.items():
+            neuron_idx = int(neuron_str)
+            
+            # Skip protected neurons
+            if self.protection_enabled and neuron_idx in self.protected_neurons:
+                skipped += 1
+                continue
+            
+            self.neuron_interventions[neuron_idx] = float(multiplier)
+        
+        if self.neuron_interventions:
+            print(f"[LLMRI] Remote intervention: {len(self.neuron_interventions)} neurons at layer {layer}")
+            # Show first 5 interventions as sample
+            sample = list(self.neuron_interventions.items())[:5]
+            for idx, mult in sample:
+                print(f"  Neuron {idx}: {mult:.2f}x")
+            if len(self.neuron_interventions) > 5:
+                print(f"  ... and {len(self.neuron_interventions) - 5} more")
+            
+            if skipped:
+                print(f"  (skipped {skipped} protected neurons)")
+            
+            # Reset debug flag so we log next application
+            if hasattr(self, '_intervention_logged'):
+                del self._intervention_logged
+            
+            # Broadcast confirmation
+            if self.server:
+                self.server.broadcast_event("intervention_active", {
+                    "count": len(self.neuron_interventions),
+                    "layer": layer,
+                    "skipped": skipped
+                })
+        else:
+            print("[LLMRI] Remote: interventions cleared")
+            if self.server:
+                self.server.broadcast_event("interventions_cleared", {})
+    
+    def _compute_dimensions(self, hidden_dim: int) -> Tuple[int, int]:
+        """Compute optimal 2D dimensions."""
+        sqrt = int(math.sqrt(hidden_dim))
+        for w in range(sqrt, 0, -1):
+            if hidden_dim % w == 0:
+                return (w, hidden_dim // w)
+        side = int(math.ceil(math.sqrt(hidden_dim)))
+        return (side, side)
+    
+    def _make_capture_hook(self, layer_idx: int):
+        """Create hook to capture layer activations and optionally intervene."""
+        def hook(module, input, output):
+            if not self.capture_enabled and not self.neuron_interventions and not self.neuron_offsets:
+                return
+            
+            hidden = output[0] if isinstance(output, tuple) else output
+            modified = False
+            
+            # Apply neuron interventions (multiplicative)
+            if self.neuron_interventions and (self.intervention_layer is None or self.intervention_layer == layer_idx):
+                original_dtype = hidden.dtype
+                
+                # Debug: log first application
+                if not hasattr(self, '_intervention_logged'):
+                    self._intervention_logged = True
+                    print(f"[LLMRI] Applying {len(self.neuron_interventions)} interventions at layer {layer_idx}")
+                    print(f"  Hidden shape: {hidden.shape}, dtype: {hidden.dtype}")
+                
+                applied_count = 0
+                for neuron_idx, multiplier in self.neuron_interventions.items():
+                    if neuron_idx < hidden.shape[-1]:
+                        # Convert to float32 for safe arithmetic
+                        before = hidden[0, -1, neuron_idx].float().item()
+                        value = hidden[0, -1, neuron_idx].float()
+                        value = value * multiplier
+                        
+                        # Clamp to safe range
+                        value = torch.clamp(value, -1e4, 1e4)
+                        
+                        # Convert back to original dtype
+                        hidden[0, -1, neuron_idx] = value.to(original_dtype)
+                        after = hidden[0, -1, neuron_idx].float().item()
+                        
+                        # Log first few applications
+                        if applied_count < 3:
+                            print(f"  Neuron {neuron_idx}: {before:.4f} × {multiplier:.2f} = {after:.4f}")
+                        
+                        applied_count += 1
+                        modified = True
+                
+                if applied_count > 3:
+                    print(f"  ... and {applied_count - 3} more neurons modified")
+            
+            # Apply neuron offsets (additive)
+            if self.neuron_offsets and (self.intervention_layer is None or self.intervention_layer == layer_idx):
+                original_dtype = hidden.dtype
+                
+                for neuron_idx, offset in self.neuron_offsets.items():
+                    if neuron_idx < hidden.shape[-1]:
+                        value = hidden[0, -1, neuron_idx].float()
+                        value = value + offset
+                        value = torch.clamp(value, -1e4, 1e4)
+                        hidden[0, -1, neuron_idx] = value.to(original_dtype)
+                        modified = True
+            
+            if modified:
+                # Return modified output
+                if isinstance(output, tuple):
+                    output = (hidden,) + output[1:]
+                else:
+                    output = hidden
+            
+            if not self.capture_enabled:
+                return output if modified else None
+            
+            # Capture last token - convert to float32 for numpy compatibility
+            acts = hidden[0, -1, :].detach().float().cpu()
+            self.layer_activations[layer_idx] = acts
+            
+            # Track neuron history for persistent activation analysis
+            if self.track_neurons:
+                self.neuron_history[layer_idx].append(acts.clone())
+                if len(self.neuron_history[layer_idx]) > self.history_limit:
+                    self.neuron_history[layer_idx].pop(0)
+            
+            # Stream to server if connected
+            if self.server is not None and self.server.client_count > 0:
+                self.server.broadcast(layer_idx, acts.numpy())
+            
+            return output if self.neuron_interventions else None
+        return hook
+    
+    def ablate_neuron(self, neuron_idx: int, layer: int = None):
+        """Set a neuron's activation to zero during forward pass."""
+        if self.is_protected(neuron_idx):
+            print(f"⚠️  WARNING: Neuron {neuron_idx} is PROTECTED (critical infrastructure)")
+            print(f"    This may break generation. Use /unprotect {neuron_idx} to override.")
+            return
+        self.neuron_interventions[neuron_idx] = 0.0
+        self.intervention_layer = layer
+        print(f"[LLMRI] Ablating neuron {neuron_idx}" + (f" at layer {layer}" if layer else " (all layers)"))
+    
+    def boost_neuron(self, neuron_idx: int, multiplier: float = 2.0, layer: int = None):
+        """Multiply a neuron's activation during forward pass."""
+        if self.is_protected(neuron_idx):
+            # Allow small adjustments to protected neurons with warning
+            if multiplier < 0.95 or multiplier > 1.05:
+                print(f"⚠️  WARNING: Neuron {neuron_idx} is PROTECTED (tolerance: 0.95x-1.05x)")
+                print(f"    Multiplier {multiplier}x is outside safe range. This may break generation.")
+                print(f"    Use /unprotect {neuron_idx} to override protection.")
+                return
+            else:
+                print(f"[LLMRI] Protected neuron {neuron_idx} - using safe range ({multiplier}x)")
+        self.neuron_interventions[neuron_idx] = multiplier
+        self.intervention_layer = layer
+        print(f"[LLMRI] Boosting neuron {neuron_idx} by {multiplier}x" + (f" at layer {layer}" if layer else " (all layers)"))
+    
+    def clear_interventions(self):
+        """Remove all neuron interventions."""
+        self.neuron_interventions.clear()
+        self.neuron_offsets.clear()
+        self.intervention_layer = None
+        print("[LLMRI] Cleared all interventions")
+    
+    def nudge_neuron(self, neuron_idx: int, offset: float, layer: int = None):
+        """Add a constant offset to a neuron's activation (additive, not multiplicative)."""
+        if self.is_protected(neuron_idx):
+            print(f"⚠️  WARNING: Neuron {neuron_idx} is PROTECTED")
+            return
+        self.neuron_offsets[neuron_idx] = offset
+        self.intervention_layer = layer
+        print(f"[LLMRI] Nudging neuron {neuron_idx} by {offset:+.2f}" + (f" at layer {layer}" if layer else " (all layers)"))
+    
+    def inspect_neuron(self, neuron_idx: int, layer_idx: int = 22):
+        """Show current value and statistics for a neuron."""
+        if layer_idx not in self.layer_activations:
+            print(f"[LLMRI] No data for layer {layer_idx}")
+            return
+        
+        acts = self.layer_activations[layer_idx]
+        if neuron_idx >= len(acts):
+            print(f"[LLMRI] Neuron {neuron_idx} out of range")
+            return
+        
+        value = acts[neuron_idx].item()
+        
+        # Get stats from history if available
+        if self.track_neurons and layer_idx in self.neuron_history and len(self.neuron_history[layer_idx]) > 1:
+            history = torch.stack(self.neuron_history[layer_idx])
+            neuron_history = history[:, neuron_idx]
+            
+            print(f"\n[LLMRI Neuron {neuron_idx} @ Layer {layer_idx}]")
+            print(f"  Current value: {value:.4f}")
+            print(f"  History ({len(neuron_history)} samples):")
+            print(f"    Min:  {neuron_history.min():.4f}")
+            print(f"    Max:  {neuron_history.max():.4f}")
+            print(f"    Mean: {neuron_history.mean():.4f}")
+            print(f"    Std:  {neuron_history.std():.4f}")
+            print(f"  Suggested interventions:")
+            std = neuron_history.std().item()
+            print(f"    Nudge ±1 std: /nudge {neuron_idx} {std:.2f}")
+            print(f"    Nudge ±2 std: /nudge {neuron_idx} {2*std:.2f}")
+        else:
+            print(f"\n[LLMRI Neuron {neuron_idx} @ Layer {layer_idx}]")
+            print(f"  Current value: {value:.4f}")
+            print(f"  (Enable /track for historical stats)")
+    
+    def is_protected(self, neuron_idx: int) -> bool:
+        """Check if a neuron is protected infrastructure."""
+        return self.protection_enabled and neuron_idx in self.protected_neurons
+    
+    def protect_neuron(self, neuron_idx: int, reason: str = ""):
+        """Mark a neuron as protected (infrastructure, don't steer)."""
+        self.protected_neurons.add(neuron_idx)
+        print(f"[LLMRI] Protected neuron {neuron_idx}" + (f": {reason}" if reason else ""))
+    
+    def unprotect_neuron(self, neuron_idx: int):
+        """Remove protection from a neuron."""
+        self.protected_neurons.discard(neuron_idx)
+        print(f"[LLMRI] Unprotected neuron {neuron_idx}")
+    
+    def list_protected(self):
+        """List all protected neurons."""
+        print(f"\n[LLMRI Protected Neurons]")
+        print(f"  Protection: {'ENABLED' if self.protection_enabled else 'DISABLED'}")
+        print(f"  Count: {len(self.protected_neurons)}")
+        for idx in sorted(self.protected_neurons):
+            x, y = self.get_neuron_position(idx)
+            print(f"    Neuron {idx} ({x},{y})")
+    
+    def detect_critical_neurons(self, threshold: float = 0.9):
+        """
+        Auto-detect potentially critical neurons based on invariance.
+        Neurons that are always in top-N across all layers are likely infrastructure.
+        
+        Returns list of candidates - use ablation testing to confirm.
+        """
+        if not self.layer_activations:
+            print("[LLMRI] No data - run a capture first")
+            return []
+        
+        from collections import Counter
+        
+        # Find neurons that are consistently high across layers
+        top10_counts = Counter()
+        for layer_idx, acts in self.layer_activations.items():
+            top10 = torch.topk(acts, 10).indices.tolist()
+            for idx in top10:
+                top10_counts[idx] += 1
+        
+        n_layers = len(self.layer_activations)
+        candidates = []
+        
+        print(f"\n[LLMRI Critical Neuron Detection]")
+        print(f"  Analyzed {n_layers} layers")
+        print(f"  Threshold: top-10 in {threshold*100:.0f}%+ of layers")
+        print()
+        
+        for neuron_idx, count in top10_counts.most_common(20):
+            ratio = count / n_layers
+            if ratio >= threshold:
+                x, y = self.get_neuron_position(neuron_idx)
+                candidates.append(neuron_idx)
+                print(f"  ⚠️  Neuron {neuron_idx} ({x},{y}): top-10 in {count}/{n_layers} layers ({ratio*100:.0f}%)")
+                print(f"      → Likely infrastructure. Test with /boost {neuron_idx} 0.9")
+        
+        if not candidates:
+            print("  No obvious candidates found")
+        else:
+            print(f"\n  Found {len(candidates)} candidates. Confirm via ablation testing.")
+            print("  Safe tolerance is typically 0.95x - 1.05x for critical neurons.")
+        
+        return candidates
+    
+    # ==================== SPECTRAL ANALYSIS ====================
+    
+    def collect_temporal_series(self, layer_idx: int = 22) -> np.ndarray:
+        """Get activation time series from neuron history.
+        
+        Returns: [n_samples, hidden_dim] array
+        """
+        if layer_idx not in self.neuron_history or len(self.neuron_history[layer_idx]) < 2:
+            print(f"[LLMRI] Need more samples. Enable /track and chat.")
+            return None
+        
+        series = torch.stack(self.neuron_history[layer_idx]).numpy()
+        print(f"[LLMRI] Temporal series: {series.shape[0]} samples x {series.shape[1]} neurons")
+        return series
+    
+    def spectral_analysis(self, layer_idx: int = 22, n_swaths: int = 8, method: str = "variance"):
+        """
+        Divide neurons into swaths and analyze frequency content.
+        
+        Args:
+            layer_idx: Which layer to analyze
+            n_swaths: Number of neuron groups
+            method: How to group neurons:
+                - "position": by index (0-575, 576-1151, etc.)
+                - "variance": by activation variance (most variable to least)
+                - "magnitude": by mean activation magnitude
+                - "pca": by principal components
+        """
+        series = self.collect_temporal_series(layer_idx)
+        if series is None:
+            return None
+        
+        n_samples, hidden_dim = series.shape
+        
+        if n_samples < 8:
+            print(f"[LLMRI] Need at least 8 samples for spectral analysis, have {n_samples}")
+            return None
+        
+        # Sort neurons into swaths
+        if method == "position":
+            # Simple positional grouping
+            swath_size = hidden_dim // n_swaths
+            swath_indices = [list(range(i * swath_size, (i+1) * swath_size)) for i in range(n_swaths)]
+        
+        elif method == "variance":
+            # Group by activation variance
+            variances = np.var(series, axis=0)
+            sorted_idx = np.argsort(variances)[::-1]  # High variance first
+            swath_size = hidden_dim // n_swaths
+            swath_indices = [sorted_idx[i * swath_size:(i+1) * swath_size].tolist() for i in range(n_swaths)]
+        
+        elif method == "magnitude":
+            # Group by mean magnitude
+            magnitudes = np.mean(np.abs(series), axis=0)
+            sorted_idx = np.argsort(magnitudes)[::-1]  # High magnitude first
+            swath_size = hidden_dim // n_swaths
+            swath_indices = [sorted_idx[i * swath_size:(i+1) * swath_size].tolist() for i in range(n_swaths)]
+        
+        elif method == "pca":
+            # Group by PCA loadings
+            from sklearn.decomposition import PCA
+            pca = PCA(n_components=min(n_swaths, n_samples - 1))
+            pca.fit(series.T)  # Fit on neurons x samples
+            # Assign each neuron to its dominant component
+            loadings = np.abs(pca.components_.T)  # [neurons, components]
+            assignments = np.argmax(loadings, axis=1)
+            swath_indices = [np.where(assignments == i)[0].tolist() for i in range(n_swaths)]
+        else:
+            print(f"Unknown method: {method}")
+            return None
+        
+        # Compute FFT on each swath's mean activation over time
+        print(f"\n[LLMRI Spectral Analysis - Layer {layer_idx}]")
+        print(f"  Method: {method}, Swaths: {n_swaths}, Samples: {n_samples}")
+        print(f"  Nyquist: {n_samples // 2} frequency bins")
+        print()
+        
+        results = {}
+        for i, indices in enumerate(swath_indices):
+            if not indices:
+                continue
+            
+            # Mean activation of this swath over time
+            swath_signal = np.mean(series[:, indices], axis=1)
+            
+            # Remove DC component (mean)
+            swath_signal = swath_signal - np.mean(swath_signal)
+            
+            # FFT
+            fft = np.fft.rfft(swath_signal)
+            power = np.abs(fft) ** 2
+            freqs = np.fft.rfftfreq(n_samples)
+            
+            # Find dominant frequencies (excluding DC)
+            power_no_dc = power[1:]  # Skip DC
+            freqs_no_dc = freqs[1:]
+            
+            if len(power_no_dc) > 0:
+                top3_idx = np.argsort(power_no_dc)[-3:][::-1]
+                
+                swath_name = f"Swath {i}"
+                if method == "variance":
+                    swath_name = f"High-var" if i == 0 else f"Low-var" if i == n_swaths-1 else f"Mid-var-{i}"
+                elif method == "magnitude":
+                    swath_name = f"High-mag" if i == 0 else f"Low-mag" if i == n_swaths-1 else f"Mid-mag-{i}"
+                
+                print(f"  {swath_name} ({len(indices)} neurons):")
+                print(f"    Signal std: {np.std(swath_signal):.4f}")
+                print(f"    Dominant freqs: ", end="")
+                for idx in top3_idx:
+                    print(f"{freqs_no_dc[idx]:.3f} ({power_no_dc[idx]:.1f}), ", end="")
+                print()
+                
+                results[i] = {
+                    'indices': indices,
+                    'signal': swath_signal,
+                    'power': power,
+                    'freqs': freqs,
+                    'dominant_freq': freqs_no_dc[top3_idx[0]] if len(top3_idx) > 0 else 0
+                }
+        
+        # Cross-swath coherence
+        print(f"\n  Cross-swath phase relationships:")
+        for i in range(min(3, len(results))):
+            for j in range(i+1, min(3, len(results))):
+                if i in results and j in results:
+                    # Cross-correlation
+                    sig_i = results[i]['signal']
+                    sig_j = results[j]['signal']
+                    corr = np.correlate(sig_i, sig_j, mode='full')
+                    lag = np.argmax(np.abs(corr)) - len(sig_i) + 1
+                    max_corr = np.max(np.abs(corr)) / (np.std(sig_i) * np.std(sig_j) * len(sig_i))
+                    print(f"    Swath {i} <-> {j}: corr={max_corr:.3f}, lag={lag}")
+        
+        return results
+    
+    def render_spectrogram(self, layer_idx: int = 22, method: str = "variance", n_swaths: int = 8):
+        """Render spectral analysis as image."""
+        from PIL import Image
+        
+        results = self.spectral_analysis(layer_idx, n_swaths, method)
+        if not results:
+            return None
+        
+        # Create spectrogram image
+        max_freq_bins = max(len(r['power']) for r in results.values())
+        img_height = len(results) * 20  # 20 pixels per swath
+        img_width = max_freq_bins * 4  # 4 pixels per frequency bin
+        
+        img = np.zeros((img_height, img_width, 3), dtype=np.uint8)
+        
+        for i, (swath_idx, data) in enumerate(sorted(results.items())):
+            power = data['power']
+            # Normalize power for this swath
+            if power.max() > 0:
+                normalized = power / power.max()
+            else:
+                normalized = power
+            
+            # Draw row
+            y_start = i * 20
+            for f_idx, p in enumerate(normalized):
+                x_start = f_idx * 4
+                intensity = int(p * 255)
+                # Hot colormap
+                r = min(255, intensity * 2)
+                g = max(0, intensity - 128) * 2
+                b = max(0, intensity - 200) * 3
+                img[y_start:y_start+18, x_start:x_start+3] = [r, g, b]
+        
+        return Image.fromarray(img, mode='RGB')
+    
+    def register_hooks(self):
+        """Register capture hooks on all layers."""
+        self.clear_hooks()
+        for i in range(self.num_layers):
+            hook = self.model.model.layers[i].register_forward_hook(
+                self._make_capture_hook(i)
+            )
+            self.hooks.append(hook)
+        print(f"[LLMRI] Hooks registered on {self.num_layers} layers")
+    
+    def clear_hooks(self):
+        """Remove hooks."""
+        for hook in self.hooks:
+            hook.remove()
+        self.hooks = []
+    
+    def clear_history(self):
+        """Clear neuron tracking history."""
+        self.neuron_history.clear()
+    
+    def find_hotspots(self, layer_idx: int, top_k: int = 10) -> List[Tuple[int, float, float]]:
+        """
+        Find persistently high neurons in a layer.
+        Returns: [(neuron_idx, mean_activation, std), ...]
+        """
+        if layer_idx not in self.neuron_history or len(self.neuron_history[layer_idx]) < 2:
+            return []
+        
+        # Stack history into tensor [num_samples, hidden_dim]
+        history = torch.stack(self.neuron_history[layer_idx])
+        
+        # Compute mean activation per neuron
+        means = history.mean(dim=0)
+        stds = history.std(dim=0)
+        
+        # Get top-k by mean activation
+        top_vals, top_indices = torch.topk(means, top_k)
+        
+        results = []
+        for i in range(top_k):
+            idx = top_indices[i].item()
+            results.append((idx, top_vals[i].item(), stds[idx].item()))
+        
+        return results
+    
+    def find_consistent_neurons(self, layer_idx: int, top_k: int = 10) -> List[Tuple[int, float, float]]:
+        """
+        Find neurons that are consistently high (high mean, low variance).
+        Returns: [(neuron_idx, mean, consistency_score), ...]
+        """
+        if layer_idx not in self.neuron_history or len(self.neuron_history[layer_idx]) < 2:
+            return []
+        
+        history = torch.stack(self.neuron_history[layer_idx])
+        means = history.mean(dim=0)
+        stds = history.std(dim=0)
+        
+        # Consistency = mean / (std + epsilon) - high mean, low variance
+        consistency = means / (stds + 0.01)
+        
+        top_vals, top_indices = torch.topk(consistency, top_k)
+        
+        results = []
+        for i in range(top_k):
+            idx = top_indices[i].item()
+            results.append((idx, means[idx].item(), top_vals[i].item()))
+        
+        return results
+    
+    def get_neuron_position(self, neuron_idx: int) -> Tuple[int, int]:
+        """Convert neuron index to (x, y) position in image."""
+        return (neuron_idx % self.img_width, neuron_idx // self.img_width)
+    
+    def analyze_bright_spot(self, layer_idx: int = None):
+        """Analyze what's causing bright spots in the visualization."""
+        if layer_idx is None:
+            # Analyze the steering layer
+            layer_idx = 22
+        
+        print(f"\n[LLMRI Analysis - Layer {layer_idx}]")
+        
+        if layer_idx not in self.layer_activations:
+            print("  No data captured for this layer")
+            return
+        
+        acts = self.layer_activations[layer_idx]
+        
+        # Current frame analysis
+        top_val, top_idx = acts.max(), acts.argmax().item()
+        x, y = self.get_neuron_position(top_idx)
+        print(f"\n  Current brightest neuron:")
+        print(f"    Index: {top_idx}")
+        print(f"    Position: ({x}, {y})")
+        print(f"    Value: {top_val:.4f}")
+        
+        # Top 5 current
+        top5_vals, top5_idx = torch.topk(acts, 5)
+        print(f"\n  Top 5 active neurons:")
+        for i in range(5):
+            idx = top5_idx[i].item()
+            x, y = self.get_neuron_position(idx)
+            print(f"    #{i+1}: neuron {idx} ({x},{y}) = {top5_vals[i]:.4f}")
+        
+        # Historical analysis if available
+        if self.track_neurons and layer_idx in self.neuron_history:
+            n_samples = len(self.neuron_history[layer_idx])
+            print(f"\n  Historical analysis ({n_samples} samples):")
+            
+            hotspots = self.find_hotspots(layer_idx, 5)
+            print(f"\n  Persistent hotspots (high mean):")
+            for idx, mean, std in hotspots:
+                x, y = self.get_neuron_position(idx)
+                print(f"    neuron {idx} ({x},{y}): mean={mean:.4f}, std={std:.4f}")
+            
+            consistent = self.find_consistent_neurons(layer_idx, 5)
+            print(f"\n  Consistent neurons (high mean/low var):")
+            for idx, mean, score in consistent:
+                x, y = self.get_neuron_position(idx)
+                print(f"    neuron {idx} ({x},{y}): mean={mean:.4f}, score={score:.2f}")
+    
+    def analyze_cross_layer(self):
+        """Find neurons that are consistently bright across ALL layers."""
+        print(f"\n[LLMRI Cross-Layer Analysis]")
+        
+        if not self.layer_activations:
+            print("  No data captured")
+            return
+        
+        # Collect top neuron from each layer
+        top_per_layer = {}
+        for layer_idx, acts in self.layer_activations.items():
+            top_idx = acts.argmax().item()
+            top_val = acts[top_idx].item()
+            top_per_layer[layer_idx] = (top_idx, top_val)
+        
+        # Count which neurons appear as top across layers
+        from collections import Counter
+        top_counts = Counter(idx for idx, val in top_per_layer.values())
+        
+        print(f"\n  Most common 'brightest' neurons across {len(top_per_layer)} layers:")
+        for neuron_idx, count in top_counts.most_common(5):
+            x, y = self.get_neuron_position(neuron_idx)
+            pct = count / len(top_per_layer) * 100
+            print(f"    Neuron {neuron_idx} ({x},{y}): brightest in {count} layers ({pct:.0f}%)")
+        
+        # Check if same neuron is ALWAYS brightest
+        if top_counts.most_common(1)[0][1] == len(top_per_layer):
+            invariant_idx = top_counts.most_common(1)[0][0]
+            x, y = self.get_neuron_position(invariant_idx)
+            print(f"\n  ⚠️  INVARIANT NEURON DETECTED!")
+            print(f"    Neuron {invariant_idx} ({x},{y}) is ALWAYS brightest")
+            print(f"    This is likely a structural feature (bias, norm, position encoding)")
+            
+            # Get its values across layers
+            vals = [self.layer_activations[l][invariant_idx].item() 
+                   for l in sorted(self.layer_activations.keys())]
+            print(f"    Values: min={min(vals):.2f}, max={max(vals):.2f}, mean={sum(vals)/len(vals):.2f}")
+        
+        # Also show neurons that are in top-5 across many layers
+        print(f"\n  Neurons frequently in top-5 across layers:")
+        top5_counts = Counter()
+        for layer_idx, acts in self.layer_activations.items():
+            top5 = torch.topk(acts, 5).indices.tolist()
+            for idx in top5:
+                top5_counts[idx] += 1
+        
+        for neuron_idx, count in top5_counts.most_common(10):
+            if count >= len(top_per_layer) * 0.5:  # In top-5 for >50% of layers
+                x, y = self.get_neuron_position(neuron_idx)
+                print(f"    Neuron {neuron_idx} ({x},{y}): top-5 in {count} layers")
+        
+        # Return invariants for potential ignoring
+        invariants = [idx for idx, count in top_counts.most_common(5) 
+                     if count >= len(top_per_layer) * 0.8]
+        return invariants
+    
+    def ignore_invariants(self, threshold: float = 0.8):
+        """Auto-detect and ignore invariant neurons."""
+        if not self.layer_activations:
+            print("  No data - run a capture first")
+            return
+        
+        from collections import Counter
+        
+        # Find neurons that are brightest in >threshold of layers
+        top_per_layer = {}
+        for layer_idx, acts in self.layer_activations.items():
+            top_idx = acts.argmax().item()
+            top_per_layer[layer_idx] = top_idx
+        
+        top_counts = Counter(top_per_layer.values())
+        n_layers = len(top_per_layer)
+        
+        invariants = [idx for idx, count in top_counts.items() 
+                     if count >= n_layers * threshold]
+        
+        if invariants:
+            self.ignored_neurons.update(invariants)
+            print(f"[LLMRI] Auto-ignored {len(invariants)} invariant neurons: {invariants}")
+            print(f"  Total ignored: {len(self.ignored_neurons)}")
+        else:
+            print("[LLMRI] No invariant neurons found")
+    
+    def clear_ignored(self):
+        """Clear the ignored neurons list."""
+        self.ignored_neurons.clear()
+        print("[LLMRI] Cleared ignored neurons")
+    
+    def start_capture(self):
+        """Enable capture for next forward pass."""
+        self.layer_activations = {}
+        self.capture_enabled = True
+    
+    def stop_capture(self):
+        """Disable capture."""
+        self.capture_enabled = False
+    
+    def render_layer(self, acts: torch.Tensor, colormap: str = "viridis") -> 'Image':
+        """Render single layer to image."""
+        from PIL import Image
+        import colorsys
+        
+        total_pixels = self.img_width * self.img_height
+        if len(acts) < total_pixels:
+            acts = torch.cat([acts, torch.zeros(total_pixels - len(acts))])
+        elif len(acts) > total_pixels:
+            acts = acts[:total_pixels]
+        
+        # Ensure float32 for numpy compatibility
+        acts_2d = acts.float().reshape(self.img_height, self.img_width).numpy()
+        
+        # Mask out ignored neurons (set to mean so they don't affect normalization)
+        if self.ignored_neurons:
+            mean_val = np.mean([acts_2d[idx // self.img_width, idx % self.img_width] 
+                              for idx in range(len(acts)) if idx not in self.ignored_neurons])
+            for idx in self.ignored_neurons:
+                if idx < len(acts):
+                    y, x = idx // self.img_width, idx % self.img_width
+                    if y < self.img_height and x < self.img_width:
+                        acts_2d[y, x] = mean_val
+        
+        # Normalize to [0, 1]
+        min_val, max_val = acts_2d.min(), acts_2d.max()
+        if max_val - min_val > 1e-8:
+            normalized = (acts_2d - min_val) / (max_val - min_val)
+        else:
+            normalized = np.zeros_like(acts_2d)
+        
+        # Apply colormap
+        rgb = np.zeros((self.img_height, self.img_width, 3), dtype=np.uint8)
+        
+        if colormap == "grayscale":
+            gray = (normalized * 255).astype(np.uint8)
+            rgb = np.stack([gray, gray, gray], axis=-1)
+        elif colormap == "signed":
+            # For diffs: blue=neg, white=zero, red=pos
+            # Re-normalize with sign
+            abs_max = max(abs(acts_2d.min()), abs(acts_2d.max()))
+            if abs_max > 1e-8:
+                signed = acts_2d / abs_max  # [-1, 1]
+            else:
+                signed = np.zeros_like(acts_2d)
+            
+            for i in range(self.img_height):
+                for j in range(self.img_width):
+                    v = signed[i, j]
+                    if v < 0:  # Blue
+                        rgb[i, j] = [int((1+v)*255), int((1+v)*255), 255]
+                    else:  # Red
+                        rgb[i, j] = [255, int((1-v)*255), int((1-v)*255)]
+        elif colormap == "hsv":
+            for i in range(self.img_height):
+                for j in range(self.img_width):
+                    h = normalized[i, j] * 0.8
+                    s = 0.9
+                    v = 0.5 + normalized[i, j] * 0.5
+                    r, g, b = colorsys.hsv_to_rgb(h, s, v)
+                    rgb[i, j] = [int(r*255), int(g*255), int(b*255)]
+        else:  # viridis
+            for i in range(self.img_height):
+                for j in range(self.img_width):
+                    t = normalized[i, j]
+                    r = max(0, min(1, 0.27 + t * 0.7))
+                    g = max(0, min(1, 0.0 + t * 0.9))
+                    b = max(0, min(1, 0.33 + t * 0.3 - t * t * 0.3))
+                    rgb[i, j] = [int(r*255), int(g*255), int(b*255)]
+        
+        return Image.fromarray(rgb, mode='RGB')
+    
+    def render_grid(self, colormap: str = "viridis", scale: int = 6) -> str:
+        """Render all captured layers as grid."""
+        from PIL import Image
+        
+        if not self.layer_activations:
+            print("[LLMRI] No activations captured")
+            return None
+        
+        cols = 8
+        rows = math.ceil(self.num_layers / cols)
+        pad = 2
+        
+        grid_w = cols * self.img_width + (cols - 1) * pad
+        grid_h = rows * self.img_height + (rows - 1) * pad
+        
+        grid = Image.new('RGB', (grid_w, grid_h), color=(20, 20, 20))
+        
+        for layer_idx in sorted(self.layer_activations.keys()):
+            acts = self.layer_activations[layer_idx]
+            img = self.render_layer(acts, colormap)
+            
+            row, col = divmod(layer_idx, cols)
+            x = col * (self.img_width + pad)
+            y = row * (self.img_height + pad)
+            grid.paste(img, (x, y))
+        
+        # Scale up
+        grid = grid.resize((grid_w * scale, grid_h * scale), Image.Resampling.NEAREST)
+        
+        # Save with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = os.path.join(self.output_dir, f"scan_{timestamp}.png")
+        grid.save(path)
+        
+        return path
+    
+    def render_animation(self, colormap: str = "viridis", fps: int = 5) -> str:
+        """Create animated GIF through layers."""
+        from PIL import Image
+        
+        if not self.layer_activations:
+            return None
+        
+        frames = []
+        scale = 10
+        
+        for layer_idx in sorted(self.layer_activations.keys()):
+            acts = self.layer_activations[layer_idx]
+            img = self.render_layer(acts, colormap)
+            img = img.resize((self.img_width * scale, self.img_height * scale), 
+                           Image.Resampling.NEAREST)
+            frames.append(img)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = os.path.join(self.output_dir, f"scan_{timestamp}.gif")
+        
+        frames[0].save(
+            path,
+            save_all=True,
+            append_images=frames[1:],
+            duration=1000 // fps,
+            loop=0
+        )
+        
+        return path
+    
+    def get_stats(self) -> Dict:
+        """Get stats from captured activations."""
+        if not self.layer_activations:
+            return {}
+        
+        stats = {}
+        for layer_idx, acts in sorted(self.layer_activations.items()):
+            stats[layer_idx] = {
+                'min': acts.min().item(),
+                'max': acts.max().item(),
+                'mean': acts.mean().item(),
+                'std': acts.std().item(),
+            }
+        return stats
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # SPARSE FEATURE WALKER
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -355,8 +1255,8 @@ def flush_stdin():
     except:
         pass
 
-def get_input(prompt_str: str = "🧑: ") -> str:
-    """Get user input with multi-line paste support."""
+def get_input(prompt_str: str = "🧑: ") -> List[str]:
+    """Get user input - returns list of lines for batch processing."""
     try:
         # Get first line
         first_line = input(prompt_str)
@@ -380,12 +1280,11 @@ def get_input(prompt_str: str = "🧑: ") -> str:
             except:
                 break
         
-        # Join all lines
-        result = '\n'.join(lines)
-        return result.strip()
+        # Filter empty lines and return as list
+        return [line.strip() for line in lines if line.strip()]
         
     except EOFError:
-        return "/quit"
+        return ["/quit"]
     except KeyboardInterrupt:
         raise  # Let main loop handle this
 
@@ -1240,6 +2139,11 @@ class AnimaRuntime:
         self._last_user_text = ""
         self._last_model_text = ""
         self._turn_start_valence = 0.0
+        
+        # LLMRI integration
+        self.mri = LLMRI(model, device)
+        self.mri_enabled = False  # Continuous capture mode
+        self.mri_colormap = "viridis"
     
     @property
     def core_identity(self) -> str:
@@ -1358,6 +2262,13 @@ class AnimaRuntime:
         # Capture valence at start of turn for turn-level delta
         self._turn_start_valence = self.soul.last_valence
         
+        # Start MRI capture if enabled OR if streaming clients connected
+        streaming_active = (self.mri.server is not None and self.mri.server.client_count > 0)
+        if self.mri_enabled or streaming_active:
+            self.mri.start_capture()
+            if streaming_active and hasattr(self.mri.server, 'new_turn'):
+                self.mri.server.new_turn()
+        
         # Add to memory
         self.memory.append(MemoryFragment("user", prompt))
         
@@ -1458,6 +2369,13 @@ class AnimaRuntime:
         # Process turn end
         self.process_turn_end(prompt, response_text)
         
+        # Stop MRI capture and save if enabled
+        if self.mri_enabled:
+            self.mri.stop_capture()
+            path = self.mri.render_grid(self.mri_colormap)
+            if path:
+                print(f"  [MRI: {path}]")
+        
         # Show debug
         if self.debug_mode:
             self.show_debug()
@@ -1465,6 +2383,42 @@ class AnimaRuntime:
         print()
         
         return response_text
+    
+    def scan(self, colormap: str = None, animate: bool = False):
+        """Trigger a one-shot MRI scan on next generation."""
+        if colormap:
+            self.mri_colormap = colormap
+        
+        # Do a quick forward pass to capture current state
+        self.mri.start_capture()
+        
+        # Use a simple probe prompt
+        probe = "<start_of_turn>user\nHello<end_of_turn>\n<start_of_turn>model\n"
+        inputs = self.tokenizer(probe, return_tensors="pt").to(self.device)
+        
+        with torch.no_grad():
+            self.model(inputs["input_ids"], attention_mask=inputs["attention_mask"])
+        
+        self.mri.stop_capture()
+        
+        if animate:
+            path = self.mri.render_animation(self.mri_colormap)
+        else:
+            path = self.mri.render_grid(self.mri_colormap)
+        
+        if path:
+            print(f"[MRI Scan saved: {path}]")
+            
+            # Print layer stats
+            stats = self.mri.get_stats()
+            if stats:
+                print(f"[Layer stats (min/max/mean):]")
+                for layer_idx in [0, 11, 22, 33, 45]:
+                    if layer_idx in stats:
+                        s = stats[layer_idx]
+                        print(f"  L{layer_idx:2d}: {s['min']:+.2f} / {s['max']:+.2f} / {s['mean']:+.2f}")
+        
+        return path
     
     def save(self, tag: str = "auto"):
         """Save state."""
@@ -1495,6 +2449,8 @@ def main():
     parser.add_argument("--cot", action="store_true", default=False, 
                        help="Enable chain-of-thought (can cause fragmented output)")
     parser.add_argument("--load", type=str, default="auto")
+    parser.add_argument("--mri-server", type=int, default=0, metavar="PORT",
+                       help="Start MRI streaming server on PORT (e.g., --mri-server 9999)")
     args = parser.parse_args()
     
     # Expand paths
@@ -1572,6 +2528,27 @@ def main():
         use_cot=args.cot,
     )
     
+    # Register MRI hooks
+    print(f"[Registering MRI hooks...]")
+    runtime.mri.register_hooks()
+    
+    # Start MRI streaming server if requested
+    mri_server = None
+    if args.mri_server > 0:
+        try:
+            from mri_server import MRIServer
+            mri_server = MRIServer(port=args.mri_server)
+            mri_server.start()
+            runtime.mri_server = mri_server
+            runtime.mri.server = mri_server  # Connect for streaming
+            runtime.mri.register_server_commands()  # Enable bidirectional commands
+            print(f"[MRI Streaming] Server on port {args.mri_server}")
+            print(f"  Connect with: python mri_viewer.py --port {args.mri_server}")
+        except ImportError:
+            print("[Warning] mri_server.py not found - streaming disabled")
+        except Exception as e:
+            print(f"[Warning] MRI server failed to start: {e}")
+    
     # Load state
     if args.load:
         runtime.load(args.load)
@@ -1598,81 +2575,297 @@ def main():
     print(f"  /dream   - Dream cycle (consolidate + train)")
     print(f"  /reset   - Reset to tabula rasa")
     print(f"  /save    - Save state")
+    print(f"  /scan    - Take MRI scan (grid)")
+    print(f"  /scan gif - Take MRI scan (animated)")
+    print(f"  /mri     - Toggle continuous MRI capture")
+    print(f"  /track   - Toggle neuron tracking (for hotspot analysis)")
+    print(f"  /hotspot [layer] - Analyze persistent bright spots")
     print(f"  /quit    - Exit")
+    print(f"  [Paste multiple lines for batch processing]")
     
     print(f"\n═══ ANIMA 12.0.0 ═══\n")
     
     # Main loop
     while True:
         try:
-            user_input = get_input()
+            inputs = get_input()
             
-            if not user_input:
+            if not inputs:
                 continue
             
-            u = user_input.lower().strip()
+            # Show batch info if multiple lines
+            if len(inputs) > 1:
+                print(f"[BATCH MODE: {len(inputs)} prompts queued]")
             
-            if u in ["/quit", "/exit", "/q"]:
-                runtime.save("auto")
-                print("[Saved. Goodbye.]")
-                break
-            
-            if u == "/status":
-                runtime.show_status()
-                continue
-            
-            if u == "/debug":
-                runtime.debug_mode = not runtime.debug_mode
-                print(f"Debug: {'ON' if runtime.debug_mode else 'OFF'}")
-                continue
-            
-            if u == "/neural":
-                soul.steering_enabled = not soul.steering_enabled
-                print(f"Neural steering: {'ON' if soul.steering_enabled else 'OFF'}")
-                continue
-            
-            if u == "/proprio":
-                soul.proprio_enabled = not soul.proprio_enabled
-                print(f"Proprioception: {'ON' if soul.proprio_enabled else 'OFF'}")
-                continue
-            
-            if u == "/deep":
-                soul.deep_feedback_enabled = not soul.deep_feedback_enabled
-                print(f"Deep feedback: {'ON' if soul.deep_feedback_enabled else 'OFF'}")
-                continue
-            
-            if u == "/cot":
-                runtime.use_cot = not runtime.use_cot
-                print(f"Chain-of-thought: {'ON' if runtime.use_cot else 'OFF'}")
-                continue
-            
-            if u == "/reset":
-                soul.reset()
-                runtime.memory.clear()
-                continue
-            
-            if u == "/dream":
-                print("[DREAM] Entering dream cycle...")
-                report = soul.dream()
-                print(f"  Fatigue: {report['fatigue_before']:.1f} → {report['fatigue_after']:.1f}")
-                print(f"  Consolidated: {report['consolidated']} features")
-                print(f"  Strengthened: {report['strengthened']} features") 
-                print(f"  Pruned: {report['pruned']} weak features")
-                print(f"  Neural trained: {report['neural_trained']} batches")
-                print("[DREAM] Cycle complete. Refreshed.")
-                continue
-            
-            if u == "/save":
-                runtime.save("manual")
-                continue
-            
-            if u.startswith("/load "):
-                tag = u.split()[1] if len(u.split()) > 1 else "auto"
-                runtime.load(tag)
-                continue
-            
-            # Normal generation
-            runtime.generate(user_input)
+            for i, user_input in enumerate(inputs):
+                if len(inputs) > 1:
+                    print(f"\n[{i+1}/{len(inputs)}] 🧑: {user_input}")
+                
+                u = user_input.lower().strip()
+                
+                if u in ["/quit", "/exit", "/q"]:
+                    runtime.save("auto")
+                    print("[Saved. Goodbye.]")
+                    sys.exit(0)
+                
+                if u == "/status":
+                    runtime.show_status()
+                    continue
+                
+                if u == "/debug":
+                    runtime.debug_mode = not runtime.debug_mode
+                    print(f"Debug: {'ON' if runtime.debug_mode else 'OFF'}")
+                    continue
+                
+                if u == "/neural":
+                    soul.steering_enabled = not soul.steering_enabled
+                    print(f"Neural steering: {'ON' if soul.steering_enabled else 'OFF'}")
+                    continue
+                
+                if u == "/proprio":
+                    soul.proprio_enabled = not soul.proprio_enabled
+                    print(f"Proprioception: {'ON' if soul.proprio_enabled else 'OFF'}")
+                    continue
+                
+                if u == "/deep":
+                    soul.deep_feedback_enabled = not soul.deep_feedback_enabled
+                    print(f"Deep feedback: {'ON' if soul.deep_feedback_enabled else 'OFF'}")
+                    continue
+                
+                if u == "/cot":
+                    runtime.use_cot = not runtime.use_cot
+                    print(f"Chain-of-thought: {'ON' if runtime.use_cot else 'OFF'}")
+                    continue
+                
+                if u == "/reset":
+                    soul.reset()
+                    runtime.memory.clear()
+                    continue
+                
+                if u == "/dream":
+                    print("[DREAM] Entering dream cycle...")
+                    report = soul.dream()
+                    print(f"  Fatigue: {report['fatigue_before']:.1f} → {report['fatigue_after']:.1f}")
+                    print(f"  Consolidated: {report['consolidated']} features")
+                    print(f"  Strengthened: {report['strengthened']} features") 
+                    print(f"  Pruned: {report['pruned']} weak features")
+                    print(f"  Neural trained: {report['neural_trained']} batches")
+                    print("[DREAM] Cycle complete. Refreshed.")
+                    continue
+                
+                if u == "/save":
+                    runtime.save("manual")
+                    continue
+                
+                if u.startswith("/load "):
+                    tag = u.split()[1] if len(u.split()) > 1 else "auto"
+                    runtime.load(tag)
+                    continue
+                
+                if u == "/scan" or u == "/scan grid":
+                    runtime.scan(animate=False)
+                    continue
+                
+                if u == "/scan gif" or u == "/scan animate":
+                    runtime.scan(animate=True)
+                    continue
+                
+                if u.startswith("/scan "):
+                    # /scan colormap (e.g. /scan hsv, /scan grayscale)
+                    parts = u.split()
+                    if len(parts) > 1 and parts[1] in ["viridis", "grayscale", "hsv", "plasma", "signed"]:
+                        runtime.mri_colormap = parts[1]
+                        runtime.scan(animate=False)
+                    continue
+                
+                if u == "/mri":
+                    runtime.mri_enabled = not runtime.mri_enabled
+                    print(f"Continuous MRI: {'ON' if runtime.mri_enabled else 'OFF'}")
+                    if runtime.mri_enabled:
+                        print(f"  Colormap: {runtime.mri_colormap}")
+                        print(f"  Output: {runtime.mri.output_dir}/")
+                    continue
+                
+                if u.startswith("/mri "):
+                    # /mri colormap (set colormap for continuous capture)
+                    parts = u.split()
+                    if len(parts) > 1 and parts[1] in ["viridis", "grayscale", "hsv", "plasma", "signed"]:
+                        runtime.mri_colormap = parts[1]
+                        print(f"MRI colormap: {runtime.mri_colormap}")
+                    continue
+                
+                if u == "/track":
+                    runtime.mri.track_neurons = not runtime.mri.track_neurons
+                    print(f"Neuron tracking: {'ON' if runtime.mri.track_neurons else 'OFF'}")
+                    if runtime.mri.track_neurons:
+                        runtime.mri.clear_history()
+                        print("  History cleared. Chat to collect samples.")
+                    continue
+                
+                if u.startswith("/hotspot"):
+                    # /hotspot [layer] - analyze bright spots
+                    parts = u.split()
+                    layer = int(parts[1]) if len(parts) > 1 else 22
+                    runtime.mri.analyze_bright_spot(layer)
+                    continue
+                
+                if u == "/crosslayer" or u == "/xlayer":
+                    # Analyze which neurons are always bright across layers
+                    runtime.mri.analyze_cross_layer()
+                    continue
+                
+                if u == "/ignore":
+                    # Auto-ignore invariant neurons
+                    runtime.mri.ignore_invariants()
+                    continue
+                
+                if u.startswith("/ignore "):
+                    # Manually ignore specific neuron: /ignore 1234
+                    parts = u.split()
+                    if len(parts) > 1:
+                        try:
+                            idx = int(parts[1])
+                            runtime.mri.ignored_neurons.add(idx)
+                            print(f"[LLMRI] Ignoring neuron {idx}")
+                        except ValueError:
+                            print("Usage: /ignore <neuron_index>")
+                    continue
+                
+                if u == "/unignore":
+                    runtime.mri.clear_ignored()
+                    continue
+                
+                if u.startswith("/ablate"):
+                    # /ablate <neuron_idx> [layer] [--force]
+                    parts = u.split()
+                    if len(parts) < 2:
+                        print("Usage: /ablate <neuron_idx> [layer] [--force]")
+                        continue
+                    force = "--force" in parts
+                    parts = [p for p in parts if p != "--force"]
+                    neuron_idx = int(parts[1])
+                    layer = int(parts[2]) if len(parts) > 2 else None
+                    if force and runtime.mri.is_protected(neuron_idx):
+                        print(f"[LLMRI] FORCE: Bypassing protection for neuron {neuron_idx}")
+                        runtime.mri.neuron_interventions[neuron_idx] = 0.0
+                        runtime.mri.intervention_layer = layer
+                        print(f"[LLMRI] Ablating neuron {neuron_idx}" + (f" at layer {layer}" if layer else " (all layers)"))
+                    else:
+                        runtime.mri.ablate_neuron(neuron_idx, layer)
+                    continue
+                
+                if u.startswith("/boost"):
+                    # /boost <neuron_idx> [multiplier] [layer] [--force]
+                    parts = u.split()
+                    if len(parts) < 2:
+                        print("Usage: /boost <neuron_idx> [multiplier=2.0] [layer] [--force]")
+                        continue
+                    force = "--force" in parts
+                    parts = [p for p in parts if p != "--force"]
+                    neuron_idx = int(parts[1])
+                    multiplier = float(parts[2]) if len(parts) > 2 else 2.0
+                    layer = int(parts[3]) if len(parts) > 3 else None
+                    if force and runtime.mri.is_protected(neuron_idx):
+                        print(f"[LLMRI] FORCE: Bypassing protection for neuron {neuron_idx}")
+                        runtime.mri.neuron_interventions[neuron_idx] = multiplier
+                        runtime.mri.intervention_layer = layer
+                        print(f"[LLMRI] Boosting neuron {neuron_idx} by {multiplier}x" + (f" at layer {layer}" if layer else " (all layers)"))
+                    else:
+                        runtime.mri.boost_neuron(neuron_idx, multiplier, layer)
+                    continue
+                
+                if u == "/clearintervene" or u == "/nointervene":
+                    runtime.mri.clear_interventions()
+                    continue
+                
+                if u.startswith("/nudge"):
+                    # /nudge <neuron_idx> <offset> [layer]
+                    parts = u.split()
+                    if len(parts) < 3:
+                        print("Usage: /nudge <neuron_idx> <offset> [layer]")
+                        print("  Additive intervention (more stable than multiplicative)")
+                        print("  Use /inspect <neuron> to see suggested values")
+                        continue
+                    neuron_idx = int(parts[1])
+                    offset = float(parts[2])
+                    layer = int(parts[3]) if len(parts) > 3 else None
+                    runtime.mri.nudge_neuron(neuron_idx, offset, layer)
+                    continue
+                
+                if u.startswith("/inspect"):
+                    # /inspect <neuron_idx> [layer]
+                    parts = u.split()
+                    if len(parts) < 2:
+                        print("Usage: /inspect <neuron_idx> [layer=22]")
+                        continue
+                    neuron_idx = int(parts[1])
+                    layer = int(parts[2]) if len(parts) > 2 else 22
+                    runtime.mri.inspect_neuron(neuron_idx, layer)
+                    continue
+                
+                if u == "/valrange" or u == "/range":
+                    # Show value range across all neurons
+                    if 22 in runtime.mri.layer_activations:
+                        acts = runtime.mri.layer_activations[22]
+                        print(f"\n[LLMRI Value Range - Layer 22]")
+                        print(f"  Min:  {acts.min():.4f}")
+                        print(f"  Max:  {acts.max():.4f}")
+                        print(f"  Mean: {acts.mean():.4f}")
+                        print(f"  Std:  {acts.std():.4f}")
+                        print(f"  Typical intervention = ±{acts.std():.2f} (1 std)")
+                    else:
+                        print("[LLMRI] No data captured yet")
+                    continue
+                
+                if u.startswith("/spectral"):
+                    # /spectral [layer] [method] [n_swaths]
+                    parts = u.split()
+                    layer = int(parts[1]) if len(parts) > 1 else 22
+                    method = parts[2] if len(parts) > 2 else "variance"
+                    n_swaths = int(parts[3]) if len(parts) > 3 else 8
+                    runtime.mri.spectral_analysis(layer, n_swaths, method)
+                    continue
+                
+                if u == "/spectrogram":
+                    # Save spectrogram image
+                    img = runtime.mri.render_spectrogram()
+                    if img:
+                        path = f"llmri_captures/spectrogram_{int(time.time())}.png"
+                        img.save(path)
+                        print(f"[LLMRI] Saved: {path}")
+                    continue
+                
+                if u == "/protected" or u == "/listprotected":
+                    runtime.mri.list_protected()
+                    continue
+                
+                if u.startswith("/protect "):
+                    parts = u.split()
+                    if len(parts) >= 2:
+                        try:
+                            idx = int(parts[1])
+                            reason = " ".join(parts[2:]) if len(parts) > 2 else ""
+                            runtime.mri.protect_neuron(idx, reason)
+                        except ValueError:
+                            print("Usage: /protect <neuron_idx> [reason]")
+                    continue
+                
+                if u.startswith("/unprotect "):
+                    parts = u.split()
+                    if len(parts) >= 2:
+                        try:
+                            idx = int(parts[1])
+                            runtime.mri.unprotect_neuron(idx)
+                        except ValueError:
+                            print("Usage: /unprotect <neuron_idx>")
+                    continue
+                
+                if u == "/detectcritical":
+                    runtime.mri.detect_critical_neurons()
+                    continue
+                
+                # Normal generation
+                runtime.generate(user_input)
             
         except KeyboardInterrupt:
             print("\n[Ctrl+C - Saving and exiting...]")
